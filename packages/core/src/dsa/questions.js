@@ -16,6 +16,7 @@ export function createQuestion(input = {}) {
     difficulty: DIFFICULTIES.includes(input.difficulty) ? input.difficulty : null,
     topics: normalizeTopics(input.topics),
     leetcodeId: Number.isInteger(input.leetcodeId) ? input.leetcodeId : null,
+    paidOnly: input.paidOnly === true,
     metadataSource: METADATA_SOURCES.includes(input.metadataSource) ? input.metadataSource : 'manual',
     verifiedAt: typeof input.verifiedAt === 'string' ? input.verifiedAt : null,
     addedAt: new Date().toISOString(),

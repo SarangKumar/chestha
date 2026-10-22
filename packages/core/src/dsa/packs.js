@@ -121,6 +121,7 @@ export function applyPack(library, pack, stampISO = new Date().toISOString()) {
         difficulty: incoming.difficulty,
         topics: incoming.topics,
         leetcodeId: incoming.leetcodeId,
+        paidOnly: incoming.paidOnly,
         metadataSource: 'imported',
         verifiedAt: stampISO,
         addedAt: stampISO,
@@ -138,6 +139,8 @@ export function applyPack(library, pack, stampISO = new Date().toISOString()) {
       difficulty: manual && current.difficulty ? current.difficulty : incoming.difficulty,
       topics: manual && current.topics.length ? current.topics : incoming.topics,
       leetcodeId: current.leetcodeId ?? incoming.leetcodeId,
+      // Premium status is a platform fact, so the pack is authoritative.
+      paidOnly: incoming.paidOnly,
       metadataSource: manual && (current.difficulty || current.topics.length) ? 'manual' : 'imported',
       verifiedAt: stampISO,
     };

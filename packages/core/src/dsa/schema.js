@@ -88,6 +88,7 @@ function coerceLibrary(raw) {
       difficulty: DIFFICULTIES.includes(item.difficulty) ? item.difficulty : null,
       topics: normalizeTopics(item.topics),
       leetcodeId: Number.isInteger(item.leetcodeId) ? item.leetcodeId : null,
+      paidOnly: item.paidOnly === true,
       metadataSource: METADATA_SOURCES.includes(item.metadataSource) ? item.metadataSource : 'manual',
       verifiedAt: instant(item.verifiedAt),
       addedAt: instant(item.addedAt) ?? new Date().toISOString(),

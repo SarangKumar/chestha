@@ -10,3 +10,4 @@ export * from './sources.js';
 export * from './schema.js';
 export * from './intake.js';
 export * from './packs.js';
+export * from './query.js';

@@ -11,6 +11,6 @@
     "dev": "npm run dev --workspace @vistaar/web",
     "build": "npm run build --workspace @vistaar/web",
     "preview": "npm run preview --workspace @vistaar/web",
-    "test": "node --test packages/core/test"
+    "test": "node --test packages/core/test apps/web/test"
   }
 }

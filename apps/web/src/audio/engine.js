@@ -14,6 +14,12 @@ const RAMP = 0.08; // seconds; avoids clicks on gain changes
 
 let ctx = null;
 let master = null;
+/**
+ * Bumped whenever audio is stopped. A voice build that started before the bump
+ * is discarded on completion instead of being inserted, which is what stops a
+ * Stop pressed mid-build from being undone by the build finishing afterwards.
+ */
+let epoch = 0;
 const voices = new Map();   // soundId -> { gain, nodes[], timers[] }
 const buffers = new Map();  // noise colour -> AudioBuffer
 const files = new Map();    // url -> Promise<AudioBuffer>
@@ -238,6 +244,16 @@ async function buildVoice(sound) {
   return { gain: voiceGain, nodes, timers };
 }
 
+/** Releases a voice's nodes and cancels its grain schedulers. */
+function teardown(voice) {
+  if (!voice) return;
+  for (const timer of voice.timers) clearTimeout(timer);
+  for (const node of voice.nodes) {
+    try { node.stop?.(); } catch { /* already stopped */ }
+    try { node.disconnect(); } catch { /* already disconnected */ }
+  }
+}
+
 function setGain(voice, value) {
   const now = ctx.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
@@ -258,11 +274,18 @@ export async function applyMix(mix, masterVolume) {
     const voice = voices.get(sound.id);
     const target = mixGain(mix, sound.id, masterVolume, ids);
 
-    if (wanted && !voice) {
+    if (wanted && !voice && !voices.has(sound.id)) {
       // Claim the slot before awaiting, so a fast double-click cannot build two.
       voices.set(sound.id, null);
+      const builtAt = epoch;
       try {
         const created = await buildVoice(sound);
+        // The slot may have been released while this was building — by Stop, or
+        // by the sound being switched off. Discard rather than resurrect it.
+        if (builtAt !== epoch || !voices.has(sound.id)) {
+          teardown(created);
+          continue;
+        }
         voices.set(sound.id, created);
         setGain(created, mixGain(mix, sound.id, masterVolume, ids));
         if (state.failed[sound.id]) {
@@ -276,7 +299,10 @@ export async function applyMix(mix, masterVolume) {
       }
     } else if (wanted && voice) {
       setGain(voice, target);
-    } else if (!wanted && voice) {
+    } else if (!wanted && voices.has(sound.id)) {
+      // `has` rather than a truthiness check: the slot may hold the `null`
+      // placeholder of a build still in flight, and that must be released too or
+      // the build will insert a voice the user has already switched off.
       stopVoice(sound.id);
     }
   }
@@ -286,17 +312,13 @@ function stopVoice(id) {
   const voice = voices.get(id);
   voices.delete(id);
   if (!voice) return;
+  // Silence the grains immediately; the nodes go once the fade has finished.
   for (const timer of voice.timers) clearTimeout(timer);
   const now = ctx.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
   voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
   voice.gain.gain.linearRampToValueAtTime(0, now + RAMP);
-  setTimeout(() => {
-    for (const node of voice.nodes) {
-      try { node.stop?.(); } catch { /* already stopped */ }
-      try { node.disconnect(); } catch { /* already disconnected */ }
-    }
-  }, (RAMP + 0.05) * 1000);
+  setTimeout(() => teardown(voice), (RAMP + 0.05) * 1000);
 }
 
 export function setMasterVolume(mix, masterVolume) {
@@ -316,12 +338,16 @@ export async function pause() {
 export const resume = () => ensureContext();
 
 export function stopAll() {
+  epoch += 1;
   for (const id of [...voices.keys()]) stopVoice(id);
+  // Drop any slot still only claimed by an in-flight build.
+  voices.clear();
 }
 
 export const activeVoiceIds = () => [...voices.keys()].filter((id) => voices.get(id));
 
 export async function dispose() {
+  epoch += 1;
   stopAll();
   if (ctx) {
     try { await ctx.close(); } catch { /* already closed */ }
