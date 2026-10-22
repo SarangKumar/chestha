@@ -18,9 +18,14 @@ export function NavRail({ section, onNavigate, onCapture }) {
         aria-label="Sections"
         className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center gap-1 border-r border-line bg-canvas py-3.5 sm:flex"
       >
-        <div className="mb-3 flex size-9 items-center justify-center rounded-card bg-accent text-sm font-semibold text-on-accent" aria-hidden="true">
-          V
-        </div>
+        <img
+          src="/icon-192.png"
+          alt=""
+          aria-hidden="true"
+          width="36"
+          height="36"
+          className="mb-3 size-9 rounded-card"
+        />
 
         <button
           type="button"

@@ -442,3 +442,155 @@ test('daily targets are configurable and clamped to a sane range', async () => {
   assert.equal(settings.dailyNewTarget, 50);
   assert.equal(settings.dailyRevisionTarget, 0);
 });
+
+// ─── Data packs ──────────────────────────────────────────────────────────────
+
+import { applyPack, parsePack } from '../src/index.js';
+import { readFileSync } from 'node:fs';
+
+const PACK_PATH = new URL('../../../apps/web/public/dsa-packs/curated-core.json', import.meta.url);
+
+const emptyLibrary = () => ({ questions: [], curatedLists: [], curatedMemberships: [] });
+
+test('the bundled curated pack parses and matches its documented list sizes', () => {
+  const result = parsePack(readFileSync(PACK_PATH, 'utf8'));
+  assert.equal(result.ok, true, result.ok ? '' : result.error);
+
+  const { pack, summary } = result;
+  assert.equal(summary.skipped, 0, 'every record in the shipped pack is usable');
+
+  const sizes = Object.fromEntries(pack.lists.map((l) => [
+    l.id, pack.memberships.filter((m) => m.listId === l.id).length,
+  ]));
+  assert.deepEqual(sizes, {
+    'blind-75': 75,
+    'neetcode-150': 150,
+    'neetcode-250': 250,
+    'leetcode-75': 75,
+    'leetcode-top-interview-150': 150,
+  });
+
+  // Every membership must resolve to a question that is actually in the pack.
+  const slugs = new Set(pack.questions.map((q) => q.slug));
+  assert.ok(pack.memberships.every((m) => slugs.has(m.slug)), 'no dangling memberships');
+  assert.ok(pack.questions.every((q) => q.difficulty), 'every shipped question has a difficulty');
+  assert.ok(pack.questions.every((q) => /^[a-z0-9-]+$/.test(q.slug)), 'every slug is well formed');
+  assert.ok(pack.provenance?.questions?.licence, 'provenance records a licence');
+});
+
+test('applying the pack builds one record per question despite list overlap', () => {
+  const { pack } = parsePack(readFileSync(PACK_PATH, 'utf8'));
+  const { library, added, listsAdded } = applyPack(emptyLibrary(), pack);
+
+  assert.equal(listsAdded, 5);
+  assert.equal(added, library.questions.length);
+  assert.equal(new Set(library.questions.map((q) => q.slug)).size, library.questions.length, 'no duplicates');
+  // Far more memberships than questions: the lists heavily overlap.
+  assert.ok(library.curatedMemberships.length > library.questions.length);
+  assert.equal(library.curatedMemberships.length, 700);
+
+  const twoSum = library.questions.find((q) => q.slug === 'two-sum');
+  assert.ok(twoSum, 'Two Sum is present');
+  assert.equal(twoSum.metadataSource, 'imported');
+  assert.equal(twoSum.titleIsGuess, false);
+});
+
+test('re-applying the same pack changes nothing', () => {
+  const { pack } = parsePack(readFileSync(PACK_PATH, 'utf8'));
+  const first = applyPack(emptyLibrary(), pack);
+  const second = applyPack(first.library, pack);
+
+  assert.equal(second.added, 0);
+  assert.equal(second.listsAdded, 0);
+  assert.deepEqual(second.membershipChanges, [], 'no membership churn on a repeat import');
+  assert.equal(second.library.questions.length, first.library.questions.length);
+  assert.equal(second.library.curatedMemberships.length, first.library.curatedMemberships.length);
+});
+
+test('a pack never overwrites metadata the user entered by hand', () => {
+  const library = {
+    questions: [{
+      slug: 'two-sum', title: 'My own title', titleIsGuess: false,
+      difficulty: 'Hard', topics: ['My Topic'], leetcodeId: null,
+      metadataSource: 'manual', verifiedAt: null, addedAt: '2026-01-01T00:00:00.000Z',
+    }],
+    curatedLists: [], curatedMemberships: [],
+  };
+  const pack = {
+    id: 'p', name: 'p',
+    questions: [{ slug: 'two-sum', title: 'Two Sum', difficulty: 'Easy', topics: ['Array'], leetcodeId: 1, paidOnly: false }],
+    lists: [], memberships: [],
+  };
+  const { library: next } = applyPack(library, pack);
+  const q = next.questions[0];
+  assert.equal(q.title, 'My own title');
+  assert.equal(q.difficulty, 'Hard');
+  assert.deepEqual(q.topics, ['My Topic']);
+  assert.equal(q.metadataSource, 'manual');
+  assert.equal(q.leetcodeId, 1, 'but a blank field is still filled in');
+});
+
+test('a pack does upgrade a guessed title and blank metadata', () => {
+  const library = {
+    questions: [{
+      slug: 'two-sum', title: 'Two Sum', titleIsGuess: true, difficulty: null, topics: [],
+      leetcodeId: null, metadataSource: 'manual', verifiedAt: null, addedAt: '2026-01-01T00:00:00.000Z',
+    }],
+    curatedLists: [], curatedMemberships: [],
+  };
+  const pack = {
+    id: 'p', name: 'p',
+    questions: [{ slug: 'two-sum', title: 'Two Sum', difficulty: 'Easy', topics: ['Array', 'Hash Table'], leetcodeId: 1, paidOnly: false }],
+    lists: [], memberships: [],
+  };
+  const { library: next } = applyPack(library, pack);
+  assert.equal(next.questions[0].difficulty, 'Easy');
+  assert.deepEqual(next.questions[0].topics, ['Array', 'Hash Table']);
+  assert.equal(next.questions[0].titleIsGuess, false);
+  assert.equal(next.questions[0].metadataSource, 'imported');
+});
+
+test('applying a pack cannot touch solving history', async () => {
+  const store = createStore();
+  await store.init();
+  await store.ensureArea('dsa.library');
+  store.update('dsa.progress', (p) => ({
+    ...p, events: [createEvent({ slug: 'two-sum', kind: 'solve', at: at(TODAY), confidence: 4 })],
+  }));
+  const historyBefore = structuredClone(store.getState()['dsa.progress']);
+
+  const { pack } = parsePack(readFileSync(PACK_PATH, 'utf8'));
+  store.update('dsa.library', (lib) => applyPack(lib, pack).library);
+
+  assert.ok(store.getState()['dsa.library'].questions.length > 300);
+  assert.deepEqual(store.getState()['dsa.progress'], historyBefore, 'history is in a different area and is untouched');
+  // And progress is now visible against the imported question.
+  assert.equal(questionState('two-sum', store.getState()['dsa.progress'].events, {}, TODAY).progress, 'solved');
+});
+
+test('a malformed pack is refused with a specific reason', () => {
+  for (const [input, expected] of [
+    ['', /empty/i],
+    ['{nope', /valid JSON/i],
+    ['[]', /pack object/i],
+    ['{"version":1,"questions":[]}', /format marker/i],
+    ['{"format":"other","version":1,"questions":[]}', /reports its format/i],
+    ['{"format":"vistaar.dsa.pack","questions":[]}', /version number/i],
+    ['{"format":"vistaar.dsa.pack","version":99,"questions":[]}', /newer version/i],
+    ['{"format":"vistaar.dsa.pack","version":1}', /no question list/i],
+  ]) {
+    const result = parsePack(input);
+    assert.equal(result.ok, false, `should refuse: ${input}`);
+    assert.match(result.error, expected);
+  }
+});
+
+test('pack memberships pointing at absent questions are dropped', () => {
+  const result = parsePack(JSON.stringify({
+    format: 'vistaar.dsa.pack', version: 1, questions: [{ slug: 'two-sum', title: 'Two Sum' }],
+    lists: [{ id: 'l1', name: 'L1' }],
+    memberships: [{ listId: 'l1', slug: 'two-sum' }, { listId: 'l1', slug: 'ghost' }, { listId: 'nope', slug: 'two-sum' }],
+  }));
+  assert.equal(result.ok, true);
+  assert.equal(result.pack.memberships.length, 1);
+});
