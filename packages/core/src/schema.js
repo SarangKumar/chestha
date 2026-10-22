@@ -1,0 +1,217 @@
+import { newId } from './ids.js';
+import { isValidISODate } from './dates.js';
+import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
+
+export const STATE_VERSION = 1;
+
+// Each area is loaded, validated and persisted independently, so one corrupt
+// area degrades to its default without taking the rest of the app with it.
+export const AREAS = ['tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings'];
+
+export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
+
+export const DEFAULT_DASHBOARD = {
+  widgets: [
+    { id: 'w_today', type: 'today', size: '2x2', config: {} },
+    { id: 'w_clock', type: 'clock', size: '1x1', config: {} },
+    { id: 'w_upcoming', type: 'upcoming', size: '2x1', config: { horizonDays: 7 } },
+    { id: 'w_notes', type: 'notes', size: '2x1', config: {} },
+    { id: 'w_overdue', type: 'overdue', size: '1x1', config: {} },
+  ],
+};
+
+export const DEFAULT_SETTINGS = {
+  theme: 'system',
+  upcomingHorizonDays: 7,
+  weekStartsOn: 0,
+  hideCompleted: false,
+  sidebarOpen: false,
+  firstRunNoticeDismissed: false,
+  exportReminderDismissed: false,
+  lastExportAt: null,
+};
+
+export const DEFAULT_SOUND = {
+  presets: [],
+  lastMix: null,
+  masterVolume: 0.6,
+  restoreLastMix: true,
+};
+
+export function defaultState() {
+  return {
+    version: STATE_VERSION,
+    tasks: [],
+    tags: [],
+    notes: { text: '' },
+    dashboard: structuredClone(DEFAULT_DASHBOARD),
+    sound: structuredClone(DEFAULT_SOUND),
+    settings: { ...DEFAULT_SETTINGS },
+  };
+}
+
+function str(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function num(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function bool(value, fallback) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function isoInstant(value) {
+  if (typeof value !== 'string') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : value;
+}
+
+/** @returns {{ value: unknown, issues: string[] }} */
+export function coerceArea(area, raw) {
+  switch (area) {
+    case 'tasks': return coerceTasks(raw);
+    case 'tags': return coerceTags(raw);
+    case 'notes': return coerceNotes(raw);
+    case 'dashboard': return coerceDashboard(raw);
+    case 'sound': return coerceSound(raw);
+    case 'settings': return coerceSettings(raw);
+    default: return { value: null, issues: [`Unknown area "${area}"`] };
+  }
+}
+
+function coerceTasks(raw) {
+  const issues = [];
+  if (raw == null) return { value: [], issues };
+  if (!Array.isArray(raw)) return { value: [], issues: ['Stored tasks were not a list and were reset.'] };
+  const seen = new Set();
+  const value = [];
+  let dropped = 0;
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') { dropped += 1; continue; }
+    const title = str(item.title).trim();
+    if (!title) { dropped += 1; continue; }
+    let id = str(item.id);
+    if (!id || seen.has(id)) id = newId('task');
+    seen.add(id);
+    const createdAt = isoInstant(item.createdAt) ?? new Date().toISOString();
+    value.push({
+      id,
+      title,
+      notes: str(item.notes),
+      due: isValidISODate(item.due) ? item.due : null,
+      priority: PRIORITIES.includes(item.priority) ? item.priority : 'none',
+      tags: normalizeTags(item.tags),
+      completedAt: isoInstant(item.completedAt),
+      createdAt,
+      updatedAt: isoInstant(item.updatedAt) ?? createdAt,
+    });
+  }
+  if (dropped > 0) issues.push(`${dropped} unreadable task${dropped === 1 ? '' : 's'} were skipped.`);
+  return { value, issues };
+}
+
+function coerceTags(raw) {
+  if (!Array.isArray(raw)) return { value: [], issues: [] };
+  const seen = new Set();
+  const value = [];
+  for (const item of raw) {
+    const name = normalizeTag(typeof item === 'string' ? item : item?.name);
+    if (!name) continue;
+    const key = tagKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    value.push(name);
+  }
+  return { value, issues: [] };
+}
+
+function coerceNotes(raw) {
+  if (raw == null) return { value: { text: '' }, issues: [] };
+  if (typeof raw === 'string') return { value: { text: raw }, issues: [] };
+  if (typeof raw !== 'object') return { value: { text: '' }, issues: ['The scratchpad was unreadable and was reset.'] };
+  return { value: { text: str(raw.text) }, issues: [] };
+}
+
+function coerceDashboard(raw) {
+  const issues = [];
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.widgets)) {
+    return { value: structuredClone(DEFAULT_DASHBOARD), issues: raw == null ? [] : ['The dashboard layout was unreadable and the default was restored.'] };
+  }
+  const seen = new Set();
+  const widgets = [];
+  for (const item of raw.widgets) {
+    if (!item || typeof item !== 'object') continue;
+    const type = str(item.type).trim();
+    if (!type) continue;
+    let id = str(item.id);
+    if (!id || seen.has(id)) id = newId('w');
+    seen.add(id);
+    widgets.push({
+      id,
+      type,
+      size: WIDGET_SIZES.includes(item.size) ? item.size : '1x1',
+      config: item.config && typeof item.config === 'object' ? { ...item.config } : {},
+    });
+  }
+  return { value: { widgets }, issues };
+}
+
+function coerceSound(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { value: structuredClone(DEFAULT_SOUND), issues: [] };
+  }
+  const presets = [];
+  if (Array.isArray(raw.presets)) {
+    const seen = new Set();
+    for (const item of raw.presets) {
+      if (!item || typeof item !== 'object') continue;
+      const name = str(item.name).trim();
+      if (!name) continue;
+      let id = str(item.id);
+      if (!id || seen.has(id)) id = newId('preset');
+      seen.add(id);
+      presets.push({ id, name, mix: coerceMix(item.mix) });
+    }
+  }
+  return {
+    value: {
+      presets,
+      lastMix: raw.lastMix == null ? null : coerceMix(raw.lastMix),
+      masterVolume: num(raw.masterVolume, DEFAULT_SOUND.masterVolume, 0, 1),
+      restoreLastMix: bool(raw.restoreLastMix, true),
+    },
+    issues: [],
+  };
+}
+
+function coerceMix(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const mix = {};
+  for (const [key, volume] of Object.entries(raw)) {
+    const id = str(key).trim();
+    if (!id) continue;
+    mix[id] = num(volume, 0.5, 0, 1);
+  }
+  return mix;
+}
+
+function coerceSettings(raw) {
+  if (!raw || typeof raw !== 'object') return { value: { ...DEFAULT_SETTINGS }, issues: [] };
+  return {
+    value: {
+      theme: ['system', 'light', 'dark'].includes(raw.theme) ? raw.theme : 'system',
+      upcomingHorizonDays: Math.round(num(raw.upcomingHorizonDays, 7, 1, 60)),
+      weekStartsOn: raw.weekStartsOn === 1 ? 1 : 0,
+      hideCompleted: bool(raw.hideCompleted, false),
+      sidebarOpen: bool(raw.sidebarOpen, false),
+      firstRunNoticeDismissed: bool(raw.firstRunNoticeDismissed, false),
+      exportReminderDismissed: bool(raw.exportReminderDismissed, false),
+      lastExportAt: isoInstant(raw.lastExportAt),
+    },
+    issues: [],
+  };
+}

@@ -1,0 +1,16 @@
+{
+  "name": "vistaar",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @vistaar/web",
+    "build": "npm run build --workspace @vistaar/web",
+    "preview": "npm run preview --workspace @vistaar/web",
+    "test": "node --test packages/core/test"
+  }
+}

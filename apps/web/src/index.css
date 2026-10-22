@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* Manual dark mode: the class is set from the theme setting, not from the
+   media query alone, so "light" can override a dark system preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Monochrome design system.
+
+   Depth comes from an elevation ladder of neutral surfaces plus a restrained
+   shadow — not from blur, gradients or glass. Hue appears only where it carries
+   meaning (overdue, danger, success), and never as decoration.
+
+   Dark is the mode this is designed for. Light is its monochrome counterpart,
+   kept because theme choice is an existing product feature.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Elevation ladder, lowest to highest */
+  --app-canvas: oklch(0.949 0 0);
+  --app-surface: oklch(0.979 0 0);
+  --app-surface-raised: oklch(1 0 0);
+  --app-surface-inset: oklch(0.939 0 0);
+  --app-surface-hover: oklch(0.932 0 0);
+  --app-overlay: oklch(1 0 0);
+
+  --app-border: oklch(0.898 0 0);
+  --app-border-strong: oklch(0.79 0 0);
+
+  /* Ink */
+  --app-text: oklch(0.205 0 0);
+  --app-text-muted: oklch(0.455 0 0);
+  --app-text-faint: oklch(0.577 0 0);
+
+  /* Accent is monochrome: near-black on light, near-white on dark */
+  --app-accent: oklch(0.205 0 0);
+  --app-on-accent: oklch(0.99 0 0);
+  --app-accent-soft: oklch(0.922 0 0);
+  --app-accent-ink: oklch(0.205 0 0);
+
+  /* Semantic — muted, and never the only signal */
+  --app-danger: oklch(0.505 0.158 25);
+  --app-danger-soft: oklch(0.945 0.022 25);
+  --app-warn: oklch(0.52 0.105 68);
+  --app-warn-soft: oklch(0.952 0.032 80);
+  --app-ok: oklch(0.49 0.105 155);
+  --app-ok-soft: oklch(0.946 0.028 155);
+
+  --app-ring: oklch(0.3 0 0);
+  --app-scrim: oklch(0.205 0 0 / 0.32);
+
+  --app-shadow-card: 0 1px 2px oklch(0.2 0 0 / 0.05), 0 1px 3px oklch(0.2 0 0 / 0.04);
+  --app-shadow-raised: 0 2px 4px oklch(0.2 0 0 / 0.05), 0 8px 20px -10px oklch(0.2 0 0 / 0.12);
+  --app-shadow-overlay: 0 24px 60px -16px oklch(0.2 0 0 / 0.28), 0 2px 8px oklch(0.2 0 0 / 0.08);
+}
+
+.dark {
+  --app-canvas: oklch(0.145 0 0);
+  --app-surface: oklch(0.1875 0 0);
+  --app-surface-raised: oklch(0.232 0 0);
+  --app-surface-inset: oklch(0.163 0 0);
+  --app-surface-hover: oklch(0.216 0 0);
+  --app-overlay: oklch(0.228 0 0);
+
+  --app-border: oklch(0.278 0 0);
+  --app-border-strong: oklch(0.372 0 0);
+
+  --app-text: oklch(0.968 0 0);
+  --app-text-muted: oklch(0.718 0 0);
+  --app-text-faint: oklch(0.556 0 0);
+
+  --app-accent: oklch(0.968 0 0);
+  --app-on-accent: oklch(0.16 0 0);
+  --app-accent-soft: oklch(0.268 0 0);
+  --app-accent-ink: oklch(0.968 0 0);
+
+  --app-danger: oklch(0.672 0.122 25);
+  --app-danger-soft: oklch(0.278 0.045 25);
+  --app-warn: oklch(0.768 0.092 75);
+  --app-warn-soft: oklch(0.285 0.035 75);
+  --app-ok: oklch(0.724 0.092 155);
+  --app-ok-soft: oklch(0.272 0.035 155);
+
+  --app-ring: oklch(0.92 0 0);
+  --app-scrim: oklch(0.08 0 0 / 0.62);
+
+  --app-shadow-card: 0 1px 2px oklch(0 0 0 / 0.4);
+  --app-shadow-raised: 0 2px 6px oklch(0 0 0 / 0.45), 0 12px 32px -14px oklch(0 0 0 / 0.6);
+  --app-shadow-overlay: 0 28px 70px -18px oklch(0 0 0 / 0.75), 0 2px 10px oklch(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-raised: var(--app-surface-raised);
+  --color-inset: var(--app-surface-inset);
+  --color-hover: var(--app-surface-hover);
+  --color-overlay: var(--app-overlay);
+  --color-line: var(--app-border);
+  --color-line-strong: var(--app-border-strong);
+  --color-ink: var(--app-text);
+  --color-ink-muted: var(--app-text-muted);
+  --color-ink-faint: var(--app-text-faint);
+  --color-accent: var(--app-accent);
+  --color-on-accent: var(--app-on-accent);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-accent-ink: var(--app-accent-ink);
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-warn: var(--app-warn);
+  --color-warn-soft: var(--app-warn-soft);
+  --color-ok: var(--app-ok);
+  --color-ok-soft: var(--app-ok-soft);
+  --color-scrim: var(--app-scrim);
+
+  /* One radius scale, so corners are consistent by construction */
+  --radius-chip: 0.5rem;
+  --radius-control: 0.6875rem;
+  --radius-card: 1rem;
+  --radius-panel: 1.25rem;
+
+  --shadow-card: var(--app-shadow-card);
+  --shadow-raised: var(--app-shadow-raised);
+  --shadow-overlay: var(--app-shadow-overlay);
+
+  /* Typographic roles, rather than ad-hoc sizes per component */
+  --text-display: 2.125rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.03em;
+  --text-stat: 1.5rem;
+  --text-stat--line-height: 1.1;
+  --text-stat--letter-spacing: -0.02em;
+  --text-page: 1.3125rem;
+  --text-page--line-height: 1.2;
+  --text-page--letter-spacing: -0.018em;
+  --text-card: 0.875rem;
+  --text-card--line-height: 1.3;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1.4;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--app-canvas);
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--app-canvas);
+    color: var(--app-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Focus is always visible: every core flow must be keyboard-completable. */
+  :focus-visible {
+    outline: 2px solid var(--app-ring);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  button:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--app-accent-soft);
+    color: var(--app-text);
+  }
+
+  /* Numbers are read as quantities, so they get tabular figures everywhere. */
+  :where(.tabular) {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--app-border-strong) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
