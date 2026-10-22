@@ -199,8 +199,11 @@ function DataGroup({ state, actions, store, notify }) {
 
   useEffect(() => { store.readSnapshot().then(setSnapshot); }, [store]);
 
-  const doExport = () => {
-    const payload = buildExport(state);
+  const doExport = async () => {
+    // A lazy area that was never opened still holds its default in memory, so it
+    // must be read before the state is snapshotted.
+    await store.ensureAllAreas();
+    const payload = buildExport(store.getState());
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

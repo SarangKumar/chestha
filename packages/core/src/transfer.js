@@ -51,6 +51,8 @@ export function parseImport(text) {
   if (!Number.isInteger(parsed.version)) {
     return { ok: false, error: 'That export is missing a version number, so it cannot be read safely.' };
   }
+  // A version 1 file predates the DSA areas; coerceArea fills them with
+  // defaults, so older backups still restore cleanly.
   if (parsed.version > EXPORT_VERSION) {
     return {
       ok: false,
@@ -81,6 +83,9 @@ export function parseImport(text) {
       presets: data.sound.presets.length,
       widgets: data.dashboard.widgets.length,
       notesCharacters: data.notes.text.length,
+      dsaQuestions: data['dsa.library'].questions.length,
+      dsaEvents: data['dsa.progress'].events.length,
+      dsaLists: data['dsa.lists'].lists.length,
     },
   };
 }

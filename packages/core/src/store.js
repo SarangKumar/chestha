@@ -1,4 +1,4 @@
-import { AREAS, STATE_VERSION, coerceArea, defaultState } from './schema.js';
+import { AREAS, LAZY_AREAS, STATE_VERSION, coerceArea, defaultState } from './schema.js';
 import { describeStorageError, openStorage } from './storage.js';
 
 const SNAPSHOT_KEY = '__snapshot';
@@ -17,6 +17,7 @@ export function createStore() {
     storageReason: null,
     issues: [],
     writeError: null,
+    loadedAreas: AREAS.filter((area) => !LAZY_AREAS.includes(area)),
   };
 
   const listeners = new Set();
@@ -33,7 +34,8 @@ export function createStore() {
   async function init() {
     storage = await openStorage();
     const issues = [];
-    for (const area of AREAS) {
+    // Lazy areas are skipped so an unopened DSA library never slows the first paint.
+    for (const area of AREAS.filter((a) => !LAZY_AREAS.includes(a))) {
       let raw;
       try {
         raw = await storage.get(area);
@@ -52,6 +54,43 @@ export function createStore() {
       issues,
     });
     emit();
+  }
+
+  const loading = new Map();
+
+  /** Loads a lazy area on first use. Safe to call repeatedly. */
+  function ensureArea(area) {
+    if (!AREAS.includes(area)) return Promise.reject(new Error(`Unknown area "${area}"`));
+    if (status.loadedAreas.includes(area)) return Promise.resolve();
+    if (loading.has(area)) return loading.get(area);
+
+    const work = (async () => {
+      let raw;
+      const issues = [];
+      try {
+        raw = await storage?.get(area);
+      } catch (error) {
+        issues.push(`Could not read ${area}: ${describeStorageError(error)}`);
+      }
+      const { value, issues: areaIssues } = coerceArea(area, raw);
+      state = { ...state, [area]: value };
+      setStatus({
+        loadedAreas: [...status.loadedAreas, area],
+        issues: [...status.issues, ...issues, ...areaIssues],
+      });
+      emit();
+    })().finally(() => loading.delete(area));
+
+    loading.set(area, work);
+    return work;
+  }
+
+  /**
+   * Export must never write a default over a lazy area that was never read, so
+   * every area is loaded before a snapshot of the whole state is taken.
+   */
+  function ensureAllAreas() {
+    return Promise.all(AREAS.map(ensureArea));
   }
 
   function persist(area) {
@@ -163,6 +202,8 @@ export function createStore() {
     init,
     flush,
     update,
+    ensureArea,
+    ensureAllAreas,
     replaceAll,
     reset,
     saveSnapshot,

@@ -9,6 +9,7 @@ import { TaskEditor } from './components/TaskEditor.jsx';
 import { Dashboard } from './sections/Dashboard.jsx';
 import { Tasks } from './sections/Tasks.jsx';
 import { Calendar } from './sections/Calendar.jsx';
+import { DsaSection } from './sections/dsa/DsaSection.jsx';
 import { Sounds } from './sections/Sounds.jsx';
 import { Settings } from './sections/Settings.jsx';
 
@@ -29,6 +30,7 @@ function Workspace() {
   const [editor, setEditor] = useState(null); // { taskId } | { defaultDue }
   const [taskView, setTaskView] = useState('today');
   const [calendarDay, setCalendarDay] = useState(null);
+  const [dsaTab, setDsaTab] = useState('home');
 
   const { section, param } = route;
 
@@ -36,6 +38,7 @@ function Workspace() {
   useEffect(() => {
     if (section === 'tasks' && param && TASK_VIEWS.includes(param)) setTaskView(param);
     if (section === 'calendar' && param) setCalendarDay(param);
+    if (section === 'dsa' && param) setDsaTab(param);
   }, [section, param]);
 
   const openCapture = useCallback(() => setOverlay('capture'), []);
@@ -55,6 +58,8 @@ function Workspace() {
     { id: 'go-nodate', label: 'Go to undated tasks', group: 'Navigate', keywords: 'no due date', run: () => go('tasks', 'nodate') },
     { id: 'go-completed', label: 'Go to completed tasks', group: 'Navigate', keywords: 'done', run: () => go('tasks', 'completed') },
     { id: 'go-calendar', label: 'Go to calendar', group: 'Navigate', shortcut: 'G C', run: () => go('calendar', todayISO()) },
+    { id: 'go-dsa', label: 'Go to DSA', group: 'Navigate', keywords: 'algorithms leetcode practice', run: () => go('dsa', 'home') },
+    { id: 'go-dsa-library', label: 'Go to the question library', group: 'Navigate', keywords: 'dsa questions', run: () => go('dsa', 'library') },
     { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', run: () => go('sounds') },
     { id: 'go-settings', label: 'Go to settings', group: 'Navigate', shortcut: 'G S', run: () => go('settings') },
     {
@@ -113,6 +118,12 @@ function Workspace() {
             onNavigate={go}
           />
         )}
+        {section === 'dsa' && (
+          <DsaSection
+            tab={dsaTab}
+            onChangeTab={(next) => { setDsaTab(next); navigate('dsa', next); }}
+          />
+        )}
         {section === 'sounds' && <Sounds />}
         {section === 'settings' && <Settings />}
       </Shell>
@@ -157,7 +168,7 @@ function useGlobalShortcuts({ enabled, onPalette, onCapture, onNavigate, onToggl
       const key = event.key.toLowerCase();
 
       if (awaitingGo) {
-        const destination = { d: 'dashboard', t: 'tasks', c: 'calendar', s: 'settings', o: 'sounds' }[key];
+        const destination = { d: 'dashboard', t: 'tasks', c: 'calendar', s: 'settings', o: 'sounds', a: 'dsa' }[key];
         awaitingGo = false;
         clearTimeout(goTimer);
         if (destination) {

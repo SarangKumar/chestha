@@ -200,6 +200,22 @@ function buildActions(store, notify) {
     setSound(updater) {
       store.update('sound', (sound) => (typeof updater === 'function' ? updater(sound) : { ...sound, ...updater }));
     },
+
+    setDsaSetting(key, value) {
+      store.update('dsa.settings', (settings) => ({ ...settings, [key]: value }));
+    },
+
+    setDsaLibrary(updater) {
+      store.update('dsa.library', (library) => (typeof updater === 'function' ? updater(library) : library));
+    },
+
+    setDsaProgress(updater) {
+      store.update('dsa.progress', (progress) => (typeof updater === 'function' ? updater(progress) : progress));
+    },
+
+    setDsaLists(updater) {
+      store.update('dsa.lists', (lists) => (typeof updater === 'function' ? updater(lists) : lists));
+    },
   };
 }
 

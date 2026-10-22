@@ -11,6 +11,7 @@ const TITLES = {
   dashboard: 'Dashboard',
   tasks: 'Tasks',
   calendar: 'Calendar',
+  dsa: 'DSA',
   sounds: 'Sounds',
   settings: 'Settings',
 };

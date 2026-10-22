@@ -7,6 +7,7 @@ export const SHORTCUTS = [
   { keys: 'G then D', description: 'Go to the dashboard' },
   { keys: 'G then T', description: 'Go to tasks' },
   { keys: 'G then C', description: 'Go to the calendar' },
+  { keys: 'G then A', description: 'Go to DSA' },
   { keys: 'G then S', description: 'Go to settings' },
   { keys: '[', description: 'Show or hide the today panel' },
   { keys: 'Esc', description: 'Close whatever is open' },

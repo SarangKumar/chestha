@@ -5,3 +5,4 @@ export * from './schema.js';
 export * from './storage.js';
 export * from './store.js';
 export * from './transfer.js';
+export * from './dsa/index.js';

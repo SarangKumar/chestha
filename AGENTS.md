@@ -54,9 +54,23 @@ own. Widgets, sidebar and calendar all read the same records. Progress, overdue
 state and completion counts are **derived, never stored**.
 
 **Storage is per-area.** `tasks`, `tags`, `notes`, `dashboard`, `sound`, `settings`
-are separate IndexedDB records, each validated on read by `coerceArea` in
-`schema.js`. One corrupt area degrades to its default with a visible note; the app
-must always open. A blocked store falls back to a labelled memory-only mode.
+and the four `dsa.*` areas are separate IndexedDB records, each validated on read by
+`coerceArea` in `schema.js`. One corrupt area degrades to its default with a visible
+note; the app must always open. A blocked store falls back to a labelled memory-only
+mode.
+
+**`dsa.library` is lazy.** It is skipped by `store.init()` and loaded by
+`ensureArea()` when the DSA section opens, so an unused feature never slows the
+first paint. Anything that snapshots the whole state — export above all — must
+`await store.ensureAllAreas()` first, or it will write a default over a populated
+area. The DSA areas are split by write frequency, not by entity, so rating a
+question rewrites a few KB of `dsa.progress` rather than the whole library.
+
+**DSA keeps three axes, not one status.** Progress, revision state and confidence
+are stored independently; the five display statuses (`not-started`, `attempted`,
+`solved`, `needs-revision`, `mastered`) are *derived* in `dsa/status.js`. A question
+is routinely solved, due for revision and low-confidence at once, which no single
+enum can express.
 
 **Write failures are visible.** A silent failed write looks exactly like success and
 is the worst outcome in this product. Surface them, never swallow them.
@@ -123,9 +137,13 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
 - **Not built:** ambient sounds (needs the synthesis-vs-bundled-loops decision and a
   licence budget) and the Chrome extension. The Sounds page says so honestly instead
   of showing a convincing stub — keep it that way.
-- **Paused:** the DSA section. `packages/core/src/dsa/identity.js` and
-  `questions.js` exist but are **not exported from `index.js` and not referenced by
-  the app**. Do not resume unless asked.
+- **DSA section — foundation only (increment B of F).** Wired in and navigable at
+  `#/dsa`. The domain rules live in `packages/core/src/dsa/` with 31 tests. Shipped:
+  canonical question records, shared solving history, the revision ladder, daily
+  target counting, weak-topic rules, four storage areas, version-2 export. Not yet
+  built: search/filters/sorting, URL-based adding, the data-pack importer, curated
+  and personal list pages, solving and revision UI, analytics. **No question content
+  is bundled and none should be** — see the open decisions below.
 
 ## Open decisions — do not quietly resolve these
 

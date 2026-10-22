@@ -33,6 +33,13 @@ export function extractSlug(input) {
   }
 
   const parts = url.pathname.split('/').filter(Boolean);
+
+  // Contest and explore URLs also contain a /problems/ segment, but they are not
+  // the canonical problem page and their slug is not the canonical slug.
+  if (parts[0] === 'contest' || parts[0] === 'explore') {
+    return { ok: false, reason: `A ${parts[0]} link, not a problem page. Open the problem itself and copy that URL.` };
+  }
+
   const at = parts.indexOf('problems');
   if (at === -1) {
     const what = parts[0] ?? 'the site root';

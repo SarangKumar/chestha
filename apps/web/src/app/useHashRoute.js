@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export const SECTIONS = ['dashboard', 'tasks', 'calendar', 'sounds', 'settings'];
+export const SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'sounds', 'settings'];
 
 function read() {
   const raw = window.location.hash.replace(/^#\/?/, '');

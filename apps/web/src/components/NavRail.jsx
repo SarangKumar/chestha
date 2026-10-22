@@ -5,6 +5,7 @@ const ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { id: 'dsa', label: 'DSA', icon: 'dsa' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];

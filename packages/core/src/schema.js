@@ -1,12 +1,24 @@
 import { newId } from './ids.js';
 import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
+import {
+  DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
+  defaultDsaProgress, defaultDsaSettings,
+} from './dsa/schema.js';
 
-export const STATE_VERSION = 1;
+// 2 adds the four dsa.* areas. Version 1 files still import: missing areas
+// fall back to their defaults rather than being treated as corrupt.
+export const STATE_VERSION = 2;
 
 // Each area is loaded, validated and persisted independently, so one corrupt
 // area degrades to its default without taking the rest of the app with it.
-export const AREAS = ['tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings'];
+export const AREAS = [
+  'tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings',
+  ...DSA_AREAS,
+];
+
+/** Areas skipped by init() and loaded on first use instead. */
+export const LAZY_AREAS = [...DSA_LAZY_AREAS];
 
 export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 
@@ -47,6 +59,10 @@ export function defaultState() {
     dashboard: structuredClone(DEFAULT_DASHBOARD),
     sound: structuredClone(DEFAULT_SOUND),
     settings: { ...DEFAULT_SETTINGS },
+    'dsa.library': defaultDsaLibrary(),
+    'dsa.progress': defaultDsaProgress(),
+    'dsa.lists': defaultDsaLists(),
+    'dsa.settings': defaultDsaSettings(),
   };
 }
 
@@ -79,7 +95,9 @@ export function coerceArea(area, raw) {
     case 'dashboard': return coerceDashboard(raw);
     case 'sound': return coerceSound(raw);
     case 'settings': return coerceSettings(raw);
-    default: return { value: null, issues: [`Unknown area "${area}"`] };
+    default:
+      if (DSA_AREAS.includes(area)) return coerceDsaArea(area, raw);
+      return { value: null, issues: [`Unknown area "${area}"`] };
   }
 }
 
