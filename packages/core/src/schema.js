@@ -3,6 +3,9 @@ import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
 import { coerceShortcuts } from './shortcuts.js';
 import {
+  BASE_COLUMNS, createPlacement, migrateOrderedLayout, needsMigration, normalizeLayout,
+} from './layout.js';
+import {
   DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
   defaultDsaProgress, defaultDsaSettings,
 } from './dsa/schema.js';
@@ -27,12 +30,13 @@ export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
 
 export const DEFAULT_DASHBOARD = {
+  version: 2,
   widgets: [
-    { id: 'w_today', type: 'today', size: '2x2', config: {} },
-    { id: 'w_clock', type: 'clock', size: '1x1', config: {} },
-    { id: 'w_upcoming', type: 'upcoming', size: '2x1', config: { horizonDays: 7 } },
-    { id: 'w_notes', type: 'notes', size: '2x1', config: {} },
-    { id: 'w_overdue', type: 'overdue', size: '1x1', config: {} },
+    { id: 'w_today', type: 'today', x: 0, y: 0, w: 2, h: 2, config: {} },
+    { id: 'w_clock', type: 'clock', x: 2, y: 0, w: 1, h: 1, config: {} },
+    { id: 'w_overdue', type: 'overdue', x: 3, y: 0, w: 1, h: 1, config: {} },
+    { id: 'w_upcoming', type: 'upcoming', x: 2, y: 1, w: 2, h: 1, config: { horizonDays: 7 } },
+    { id: 'w_notes', type: 'notes', x: 0, y: 2, w: 2, h: 1, config: {} },
   ],
 };
 
@@ -162,10 +166,14 @@ function coerceNotes(raw) {
 function coerceDashboard(raw) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.widgets)) {
-    return { value: structuredClone(DEFAULT_DASHBOARD), issues: raw == null ? [] : ['The dashboard layout was unreadable and the default was restored.'] };
+    return {
+      value: structuredClone(DEFAULT_DASHBOARD),
+      issues: raw == null ? [] : ['The dashboard layout was unreadable and the default was restored.'],
+    };
   }
+
   const seen = new Set();
-  const widgets = [];
+  const cleaned = [];
   for (const item of raw.widgets) {
     if (!item || typeof item !== 'object') continue;
     const type = str(item.type).trim();
@@ -173,17 +181,23 @@ function coerceDashboard(raw) {
     let id = str(item.id);
     if (!id || seen.has(id)) id = newId('w');
     seen.add(id);
-    widgets.push({
-      id,
-      type,
-      size: WIDGET_SIZES.includes(item.size) ? item.size : '1x1',
-      config: coerceWidgetConfig(item.config),
-    });
+    cleaned.push({ ...item, id, type, config: coerceWidgetConfig(item.config) });
   }
-  return { value: { widgets }, issues };
+
+  // Version 1 stored an ordered list with a size name. Migrating lays the widgets
+  // out in their stored order, so the user's arrangement survives instead of
+  // being discarded for a layout we can still read.
+  let widgets;
+  if (needsMigration(cleaned)) {
+    widgets = migrateOrderedLayout(cleaned);
+    issues.push('Your dashboard layout was upgraded to the new grid. Widget order and sizes were kept.');
+  } else {
+    widgets = normalizeLayout(cleaned.map(createPlacement), BASE_COLUMNS);
+  }
+
+  return { value: { version: 2, widgets }, issues };
 }
 
-/** Widget config is otherwise free-form; only known keys are constrained. */
 function coerceWidgetConfig(raw) {
   if (!raw || typeof raw !== 'object') return {};
   const config = { ...raw };

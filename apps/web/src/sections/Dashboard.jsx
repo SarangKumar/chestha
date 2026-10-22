@@ -1,23 +1,18 @@
-import { useMemo, useRef, useState } from 'react';
-import { DEFAULT_DASHBOARD, newId } from '@vistaar/core';
+import { useMemo, useState } from 'react';
+import {
+  BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, layoutHeight, moveItem, newId,
+  projectToColumns, removeItem, resizeItem,
+} from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
+import { useColumns } from '../app/useColumns.js';
+import { useGridDrag } from '../app/useGridDrag.js';
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
 import { Button, CardTitle, Dialog, EmptyState, IconButton, SectionHeader, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
-// Size is a column span plus a height, interpreted inside whatever column count
-// the viewport allows. Nothing is pixel-positioned, so the stored order is also
-// the reading order and the phone order.
-const SIZE_CLASS = {
-  '1x1': 'sm:col-span-1 min-h-44',
-  '2x1': 'sm:col-span-2 min-h-44',
-  '2x2': 'sm:col-span-2 row-span-2 min-h-[22rem]',
-};
+const ROW_HEIGHT = 176; // px, one grid row
+const GAP = 16;         // px, matches gap-4
 
-/**
- * Presentation is a property of the widget, not of the dashboard. A clock reads
- * better sitting directly on the background than inside a card.
- */
 const PRESENTATIONS = ['card', 'transparent', 'inset'];
 
 const PRESENTATION_CLASS = {
@@ -26,109 +21,103 @@ const PRESENTATION_CLASS = {
   transparent: 'bg-transparent border-transparent',
 };
 
-const SIZE_LABEL = { '1x1': 'Small', '2x1': 'Wide', '2x2': 'Large' };
-
-const DEFAULT_WIDGETS = DEFAULT_DASHBOARD.widgets;
-
 /**
- * A widget instance may override its type's default presentation. An unknown
- * value falls back to the default rather than rendering nothing.
+ * A widget instance may override its type's default presentation. Presentation is
+ * never consulted by layout — a transparent widget occupies, collides and moves
+ * exactly like a card.
  */
 export function resolvePresentation(widget, definition) {
   const allowed = definition?.presentations === false
     ? [definition.presentation ?? 'card']
     : (definition?.presentations ?? PRESENTATIONS);
   const chosen = widget?.config?.presentation;
-  if (allowed.includes(chosen)) return chosen;
-  return definition?.presentation ?? 'card';
+  return allowed.includes(chosen) ? chosen : (definition?.presentation ?? 'card');
 }
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { state, actions, notify } = useWorkspace();
+  const columns = useColumns();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const dragIndex = useRef(null);
 
-  const widgets = state.dashboard.widgets;
+  const stored = state.dashboard.widgets;
 
-  // A layout from a newer version can name widgets this build does not have.
-  // They are skipped visibly rather than silently rewritten away.
+  // Unknown types (from a newer build or an import) are skipped visibly.
   const { known, unknownTypes } = useMemo(() => {
     const unknown = new Set();
     const list = [];
-    for (const widget of widgets) {
+    for (const widget of stored) {
       if (WIDGETS[widget.type]) list.push(widget);
       else unknown.add(widget.type);
     }
     return { known: list, unknownTypes: [...unknown] };
-  }, [widgets]);
+  }, [stored]);
 
-  const move = (id, delta) => {
-    actions.setDashboard((list) => {
-      const from = list.findIndex((w) => w.id === id);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= list.length) return list;
-      const next = [...list];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return next;
-    });
-  };
+  // The layout is stored at four columns and projected for narrower screens, so
+  // a phone never rewrites the desktop arrangement.
+  const atFullWidth = columns >= BASE_COLUMNS;
+  const visible = useMemo(
+    () => (atFullWidth ? known : projectToColumns(known, columns)),
+    [known, columns, atFullWidth],
+  );
 
-  const reorderTo = (fromIndex, toIndex) => {
-    if (fromIndex === toIndex) return;
-    actions.setDashboard((list) => {
-      const next = [...list];
-      const [item] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, item);
-      return next;
-    });
-  };
+  const canEdit = editing && atFullWidth;
 
-  const setSize = (id, size) => {
-    actions.setDashboard((list) => list.map((w) => (w.id === id ? { ...w, size } : w)));
-  };
+  const commit = (next) => actions.setDashboard(() => next);
 
-  const setConfig = (id, patch) => {
-    actions.setDashboard((list) => list.map((w) => (
-      w.id === id ? { ...w, config: { ...w.config, ...patch } } : w
-    )));
+  const { drag, surfaceRef, begin, move, end } = useGridDrag({
+    columns,
+    rowHeight: ROW_HEIGHT,
+    gap: GAP,
+    onCommit: (id, mode, preview) => {
+      const definition = WIDGETS[stored.find((w) => w.id === id)?.type];
+      commit(mode === 'move'
+        ? moveItem(stored, id, preview.x, preview.y, BASE_COLUMNS)
+        : resizeItem(stored, id, preview.w, preview.h, BASE_COLUMNS, definition?.limits));
+    },
+  });
+
+  const nudge = (widget, dx, dy, resize) => {
+    const definition = WIDGETS[widget.type];
+    commit(resize
+      ? resizeItem(stored, widget.id, widget.w + dx, widget.h + dy, BASE_COLUMNS, definition?.limits)
+      : moveItem(stored, widget.id, widget.x + dx, widget.y + dy, BASE_COLUMNS));
   };
 
   const remove = (id) => {
-    const widget = widgets.find((w) => w.id === id);
-    const index = widgets.findIndex((w) => w.id === id);
-    actions.setDashboard((list) => list.filter((w) => w.id !== id));
+    const widget = stored.find((w) => w.id === id);
+    commit(removeItem(stored, id));
     if (!widget) return;
     notify(`Removed ${WIDGETS[widget.type]?.name ?? widget.type}`, {
       actionLabel: 'Undo',
-      onAction: () => actions.setDashboard((list) => {
-        const next = [...list];
-        next.splice(Math.min(index, next.length), 0, widget);
-        return next;
-      }),
+      onAction: () => commit(addItem(stored, widget, BASE_COLUMNS)),
     });
   };
 
   const add = (type) => {
     const definition = WIDGETS[type];
     if (!definition) return;
-    actions.setDashboard((list) => [
-      ...list,
-      { id: newId('w'), type, size: definition.sizes[0], config: {} },
-    ]);
+    commit(addItem(stored, {
+      id: newId('w'),
+      type,
+      w: definition.defaultSize?.w ?? 1,
+      h: definition.defaultSize?.h ?? 1,
+      config: {},
+    }, BASE_COLUMNS));
     setAdding(false);
     setEditing(true);
   };
+
+  const rows = Math.max(layoutHeight(visible), 1);
 
   return (
     <div>
       <SectionHeader
         title="Dashboard"
-        description={editing
-          ? 'Drag a widget, or focus one and use Alt with the arrow keys to reorder.'
-          : 'Your landing page. Edit the layout to add, resize or rearrange widgets.'}
+        description={canEdit
+          ? 'Drag a widget anywhere on the grid, or focus one and use Alt with the arrow keys. Add Shift to resize.'
+          : 'Your landing page. Edit the layout to add, move, resize or restyle widgets.'}
       >
         {editing ? (
           <>
@@ -145,16 +134,22 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         )}
       </SectionHeader>
 
-      {unknownTypes.length > 0 && (
+      {editing && !atFullWidth && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
-          {unknownTypes.length} widget type{unknownTypes.length === 1 ? '' : 's'} in your saved layout
-          {unknownTypes.length === 1 ? ' is' : ' are'} not available in this version
-          ({unknownTypes.join(', ')}), so {unknownTypes.length === 1 ? 'it was' : 'they were'} skipped.
-          Your layout has not been changed.
+          The layout is arranged on a four-column grid and is edited at desktop width. This screen shows your
+          arrangement reflowed to fit, and your saved positions are left untouched.
         </div>
       )}
 
-      {known.length === 0 ? (
+      {unknownTypes.length > 0 && (
+        <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
+          {unknownTypes.length} widget type{unknownTypes.length === 1 ? '' : 's'} in your saved layout
+          {unknownTypes.length === 1 ? ' is' : ' are'} not available in this version ({unknownTypes.join(', ')}),
+          so {unknownTypes.length === 1 ? 'it was' : 'they were'} skipped. Your layout has not been changed.
+        </div>
+      )}
+
+      {visible.length === 0 ? (
         <EmptyState
           title="No widgets on the dashboard"
           description="Add one, or restore the default layout."
@@ -166,166 +161,156 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           )}
         />
       ) : (
-        // grid-flow-row-dense is the fix for "some empty areas will not accept a
-        // widget". CSS grid's default flow is *sparse*: when a 2-column widget
-        // meets a row with only one free trailing cell it wraps to the next row,
-        // and the cursor never moves backwards, so that cell stays permanently
-        // empty and no later widget can occupy it. Dense flow backfills those
-        // holes, which removes the dead space and makes every visible cell a real
-        // drop target.
-        <ul className="grid auto-rows-[minmax(11rem,auto)] grid-flow-row-dense grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          {known.map((widget, index) => {
+        <div
+          ref={surfaceRef}
+          onPointerMove={canEdit ? move : undefined}
+          onPointerUp={canEdit ? end : undefined}
+          onPointerCancel={canEdit ? end : undefined}
+          className="relative grid touch-pan-y"
+          style={{
+            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+            gridAutoRows: `${ROW_HEIGHT}px`,
+            gap: `${GAP}px`,
+          }}
+        >
+          {/* The snap preview: where the dragged widget will land. */}
+          {canEdit && drag && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none rounded-card border-2 border-dashed border-accent/70 bg-accent-soft/40"
+              style={{
+                gridColumn: `${drag.preview.x + 1} / span ${drag.preview.w}`,
+                gridRow: `${drag.preview.y + 1} / span ${drag.preview.h}`,
+              }}
+            />
+          )}
+
+          {visible.map((widget) => {
             const definition = WIDGETS[widget.type];
             const Render = definition.render;
             const Config = definition.Config;
             const presentation = resolvePresentation(widget, definition);
-            // A transparent widget shows no card header in normal use; the label
-            // stays available to screen readers and returns while editing.
-            const showTitle = editing || presentation !== 'transparent';
+            const showTitle = canEdit || presentation !== 'transparent';
+            const isDragging = drag?.id === widget.id;
 
             return (
-              <li
+              <div
                 key={widget.id}
-                className={cx('flex', SIZE_CLASS[widget.size] ?? SIZE_CLASS['1x1'])}
-                draggable={editing}
-                onDragStart={() => { dragIndex.current = index; }}
-                onDragEnd={() => { dragIndex.current = null; }}
-                onDragOver={(event) => { if (editing && dragIndex.current !== null) event.preventDefault(); }}
-                onDrop={(event) => {
-                  if (!editing || dragIndex.current === null) return;
-                  event.preventDefault();
-                  reorderTo(dragIndex.current, index);
-                  dragIndex.current = null;
+                style={{
+                  gridColumn: `${widget.x + 1} / span ${widget.w}`,
+                  gridRow: `${widget.y + 1} / span ${widget.h}`,
                 }}
+                className={cx('relative min-h-0', isDragging && 'z-20 opacity-60')}
               >
                 <div
-                  tabIndex={editing ? 0 : undefined}
-                  aria-label={editing ? `${definition.name}, position ${index + 1} of ${known.length}` : undefined}
+                  tabIndex={canEdit ? 0 : undefined}
+                  aria-label={canEdit
+                    ? `${definition.name}, column ${widget.x + 1} row ${widget.y + 1}, ${widget.w} by ${widget.h}`
+                    : undefined}
                   onKeyDown={(event) => {
-                    if (!editing || !event.altKey) return;
-                    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                      event.preventDefault();
-                      move(widget.id, -1);
-                      event.currentTarget.focus();
-                    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                      event.preventDefault();
-                      move(widget.id, 1);
-                      event.currentTarget.focus();
-                    }
+                    if (!canEdit || !event.altKey) return;
+                    const delta = {
+                      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+                    }[event.key];
+                    if (!delta) return;
+                    event.preventDefault();
+                    nudge(widget, delta[0], delta[1], event.shiftKey);
+                    event.currentTarget.focus();
                   }}
                   className={cx(
-                    'flex w-full flex-col rounded-card border',
+                    'flex h-full w-full flex-col overflow-hidden rounded-card border',
                     presentation === 'transparent' ? 'p-1.5' : 'p-4',
                     PRESENTATION_CLASS[presentation],
-                    // A transparent widget has no visible edges, so edit mode
-                    // gives it a dashed outline to keep it discoverable and
-                    // obviously draggable.
-                    editing && 'cursor-grab active:cursor-grabbing',
-                    editing && (presentation === 'transparent'
+                    canEdit && (presentation === 'transparent'
                       ? 'border-dashed border-line-strong'
                       : 'ring-1 ring-line-strong'),
                   )}
                 >
                   <div className={cx('flex items-center gap-1.5', showTitle ? 'mb-2.5' : 'sr-only')}>
+                    {canEdit && (
+                      <span
+                        onPointerDown={(event) => begin(event, widget, 'move')}
+                        className="-ml-1 cursor-grab touch-none rounded-chip px-1 py-0.5 text-ink-faint hover:bg-hover hover:text-ink active:cursor-grabbing"
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={`Drag ${definition.name}`}
+                      >
+                        <Icon name="grip" className="size-4" />
+                      </span>
+                    )}
                     <CardTitle className="min-w-0 flex-1 truncate">{definition.name}</CardTitle>
-
-                    {editing ? (
-                      <div className="flex items-center gap-0.5">
-                        <IconButton label={`Move ${definition.name} earlier`} onClick={() => move(widget.id, -1)} className="size-6">
-                          <Icon name="chevronLeft" className="size-3.5" />
-                        </IconButton>
-                        <IconButton label={`Move ${definition.name} later`} onClick={() => move(widget.id, 1)} className="size-6">
-                          <Icon name="chevronRight" className="size-3.5" />
-                        </IconButton>
-                        <IconButton label={`Remove ${definition.name}`} onClick={() => remove(widget.id)} className="size-6 hover:text-danger">
-                          <span aria-hidden="true" className="text-sm leading-none">×</span>
-                        </IconButton>
-                      </div>
-                    ) : null}
+                    {canEdit && (
+                      <IconButton label={`Remove ${definition.name}`} onClick={() => remove(widget.id)} className="size-6 hover:text-danger">
+                        <span aria-hidden="true" className="text-sm leading-none">×</span>
+                      </IconButton>
+                    )}
                   </div>
 
-                  {editing && (
+                  {canEdit && definition.presentations !== false && (
                     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-control border border-line bg-inset px-2 py-1.5">
-                      <div role="group" aria-label={`${definition.name} size`} className="flex gap-1">
-                        {definition.sizes.map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => setSize(widget.id, size)}
-                            aria-pressed={widget.size === size}
-                            className={cx(
-                              'rounded-chip border px-1.5 py-0.5 text-[10px] font-medium transition-colors duration-150',
-                              widget.size === size
-                                ? 'border-line-strong bg-accent-soft text-ink'
-                                : 'border-line text-ink-muted hover:bg-hover hover:text-ink',
-                            )}
-                          >
-                            {SIZE_LABEL[size]}
-                          </button>
-                        ))}
-                      </div>
-                      {definition.presentations !== false && (
-                        <label className="flex items-center gap-1.5 text-[10px] text-ink-muted">
-                          Style
-                          <select
-                            value={presentation}
-                            onChange={(event) => setConfig(widget.id, { presentation: event.target.value })}
-                            aria-label={`${definition.name} presentation`}
-                            className="h-6 rounded-chip border border-line bg-surface px-1 text-[10px] text-ink"
-                          >
-                            {(definition.presentations ?? PRESENTATIONS).map((value) => (
-                              <option key={value} value={value}>
-                                {value[0].toUpperCase() + value.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                      {Config && <Config widget={widget} onChange={(patch) => setConfig(widget.id, patch)} />}
+                      <label className="flex items-center gap-1.5 text-[10px] text-ink-muted">
+                        Style
+                        <select
+                          value={presentation}
+                          onChange={(event) => actions.setDashboard((list) => list.map((w) => (
+                            w.id === widget.id ? { ...w, config: { ...w.config, presentation: event.target.value } } : w
+                          )))}
+                          aria-label={`${definition.name} presentation`}
+                          className="h-6 rounded-chip border border-line bg-surface px-1 text-[10px] text-ink"
+                        >
+                          {(definition.presentations ?? PRESENTATIONS).map((value) => (
+                            <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      {Config && <Config widget={widget} onChange={(patch) => actions.setDashboard((list) => list.map((w) => (
+                        w.id === widget.id ? { ...w, config: { ...w.config, ...patch } } : w
+                      )))} />}
                     </div>
                   )}
 
                   <div className="min-h-0 flex-1">
-                    <Render
-                      widget={widget}
-                      onOpenTask={onOpenTask}
-                      onCapture={onCapture}
-                      onNavigate={onNavigate}
-                    />
+                    <Render widget={widget} onOpenTask={onOpenTask} onCapture={onCapture} onNavigate={onNavigate} />
                   </div>
                 </div>
-              </li>
+
+                {canEdit && (
+                  <span
+                    onPointerDown={(event) => begin(event, widget, 'resize')}
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={`Resize ${definition.name}`}
+                    className="absolute bottom-1 right-1 cursor-nwse-resize touch-none rounded-chip p-1 text-ink-faint hover:bg-hover hover:text-ink"
+                  >
+                    <Icon name="resize" className="size-3.5" />
+                  </span>
+                )}
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
 
-      <AddWidgetDialog
-        open={adding}
-        onClose={() => setAdding(false)}
-        placed={known.map((w) => w.type)}
-        onAdd={add}
-      />
+      {canEdit && <p className="mt-3 px-1 text-meta text-ink-faint">{rows} row{rows === 1 ? '' : 's'} in use.</p>}
+
+      <AddWidgetDialog open={adding} onClose={() => setAdding(false)} placed={visible.map((w) => w.type)} onAdd={add} />
 
       <Dialog
         open={resetting}
         onClose={() => setResetting(false)}
         size="sm"
         title="Restore the default layout?"
-        description="This replaces your widget arrangement and their settings. Nothing else is affected, and no tasks or notes are touched."
+        description="This replaces your widget arrangement and their settings. No tasks or notes are touched."
         footer={(
           <>
             <Button onClick={() => setResetting(false)}>Cancel</Button>
             <Button
               tone="primary"
               onClick={() => {
-                const previous = widgets;
-                actions.setDashboard(() => structuredClone(DEFAULT_WIDGETS));
+                const previous = stored;
+                commit(structuredClone(DEFAULT_DASHBOARD.widgets));
                 setResetting(false);
-                notify('Default layout restored', {
-                  actionLabel: 'Undo',
-                  onAction: () => actions.setDashboard(() => previous),
-                });
+                notify('Default layout restored', { actionLabel: 'Undo', onAction: () => commit(previous) });
               }}
             >
               Restore default

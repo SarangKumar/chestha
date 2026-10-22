@@ -75,16 +75,23 @@ enum can express.
 **Write failures are visible.** A silent failed write looks exactly like success and
 is the worst outcome in this product. Surface them, never swallow them.
 
-**The dashboard grid is ordered, not positioned.** A layout is an ordered list of
-widgets with a size each — never coordinates. The stored order is the visual order,
-the reading order and the phone order, which is what makes keyboard reordering and
-responsive layout fall out for free. Unknown widget types degrade visibly, never
-fatally.
+**The dashboard is a coordinate grid with compaction** (`packages/core/src/layout.js`).
+Each widget is `{x, y, w, h}` on a four-column grid; nothing is positioned in
+pixels, so a layout is resolution-independent and every operation is deterministic
+and testable. `compact()` floats widgets upward into free space keeping their
+column — that is the rule that keeps the dashboard gap-free, including closing the
+hole a moved widget leaves behind. `moveItem`/`resizeItem` push only what is
+genuinely in the way, then compact. `isValidLayout()` is the invariant (in bounds,
+no overlap) that every operation preserves; assert it in tests.
 
-The grid uses `grid-flow-row-dense`, and that is load-bearing: CSS grid's default
-flow is *sparse*, so a 2-column widget meeting a row with one free trailing cell
-wraps and leaves that cell permanently empty — a visible hole no widget can occupy.
-Dense flow backfills it. Do not remove it.
+The stored layout is always at `BASE_COLUMNS` (4) and `projectToColumns()` reflows
+it for narrower screens, so a phone never rewrites the desktop arrangement. Layout
+editing is therefore enabled only at full width. Unknown widget types degrade
+visibly, never fatally.
+
+A v1 layout (ordered list with a `size` name) migrates on read via
+`migrateOrderedLayout()`, which lays widgets out in their stored order so the
+user's arrangement survives. Don't drop that path while old data can exist.
 
 **Widgets declare their own presentation** (`card` / `transparent` / `inset`) in the
 registry, overridable per instance via `config.presentation` and validated in
@@ -144,10 +151,16 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),
   settings with export/import/reset, command palette, quick capture.
-- **Sounds are built**, entirely synthesised in the browser from filtered noise
+- **Sounds are built**: 14 synthesised in the browser across 6 groups
   (`packages/core/src/sound.js` holds the catalogue and preset rules;
-  `apps/web/src/audio/engine.js` is the Web Audio engine). No audio files, no
-  licence to verify, works offline. The engine is a module singleton so navigation
+  `apps/web/src/audio/engine.js` is the Web Audio engine). Each sound is a stack of
+  layers — shaped noise or tones, optional filters, LFOs and scheduled grain
+  bursts, which is what gives fire its crackle and thunder its rumble. No audio
+  files, no licence to verify, works offline. Users can add their own recordings by
+  dropping files in `apps/web/public/audio/` and listing them in `manifest.json`;
+  the manifest rejects absolute paths, `..` and remote URLs, so it cannot make the
+  app fetch from elsewhere. **Pixabay cannot be downloaded from automatically** —
+  it returns 403 to automated requests, like LeetCode. The engine is a module singleton so navigation
   cannot duplicate a voice; each voice is scaled by 1/sqrt(n) and a compressor sits
   before the destination, so a busy mix cannot clip. Audio only starts from a user
   gesture — a paused mix is restored pre-armed and never shown as playing while

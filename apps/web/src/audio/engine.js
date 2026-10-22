@@ -1,47 +1,50 @@
-import { SOUNDS, mixGain, soundById } from '@vistaar/core';
+import { mixGain } from '@vistaar/core';
 
 /**
- * A single AudioContext for the whole application, living outside React so that
+ * One AudioContext for the whole application, living outside React so that
  * navigating between sections cannot create a second one or duplicate a voice.
  *
- * All audio is synthesised from noise buffers — nothing is fetched, so playback
- * works offline and no asset can 404.
+ * Built-in sounds are synthesised from noise and tones, so they need no files,
+ * work offline and cannot 404. A sound may instead name a local `file`, which is
+ * fetched from the app's own origin and decoded once.
  */
 
-const NOISE_SECONDS = 4;
+const NOISE_SECONDS = 5;
 const RAMP = 0.08; // seconds; avoids clicks on gain changes
 
 let ctx = null;
 let master = null;
-let compressor = null;
-const voices = new Map(); // soundId -> { gain, nodes[], source }
-const buffers = new Map(); // noise colour -> AudioBuffer
+const voices = new Map();   // soundId -> { gain, nodes[], timers[] }
+const buffers = new Map();  // noise colour -> AudioBuffer
+const files = new Map();    // url -> Promise<AudioBuffer>
 const listeners = new Set();
+let catalogue = [];
 
 let state = {
   supported: typeof window !== 'undefined' && Boolean(window.AudioContext ?? window.webkitAudioContext),
   running: false,
   blocked: false,
   error: null,
+  failed: {},   // soundId -> reason, for sounds whose file could not load
 };
 
-function emit() {
-  for (const listener of listeners) listener();
-}
-
-function setState(patch) {
-  state = { ...state, ...patch };
-  emit();
-}
+const emit = () => { for (const l of listeners) l(); };
+const setState = (patch) => { state = { ...state, ...patch }; emit(); };
 
 export function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-export function getEngineState() {
-  return state;
+export const getEngineState = () => state;
+
+/** The engine needs the resolved catalogue, which may include user files. */
+export function setCatalogue(sounds) {
+  catalogue = sounds;
 }
+
+const findSound = (id) => catalogue.find((s) => s.id === id) ?? null;
+const knownIds = () => catalogue.map((s) => s.id);
 
 /** Noise generators. Pink uses the Paul Kellet approximation; brown is a leaky integrator. */
 function fillNoise(data, colour) {
@@ -64,7 +67,6 @@ function fillNoise(data, colour) {
     }
     return;
   }
-  // brown
   let last = 0;
   for (let i = 0; i < data.length; i += 1) {
     const w = Math.random() * 2 - 1;
@@ -75,24 +77,30 @@ function fillNoise(data, colour) {
 
 function noiseBuffer(colour) {
   if (buffers.has(colour)) return buffers.get(colour);
-  const length = Math.floor(ctx.sampleRate * NOISE_SECONDS);
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate);
   fillNoise(buffer.getChannelData(0), colour);
   buffers.set(colour, buffer);
   return buffer;
 }
 
-/**
- * Creates the context on first use. Browsers refuse to start audio without a
- * user gesture, so this must be called from a click or key handler; a refusal is
- * reported rather than swallowed.
- */
+/** Decodes a local audio file once and caches it. Same origin only. */
+function loadFile(url) {
+  if (files.has(url)) return files.get(url);
+  const work = (async () => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`could not be loaded (HTTP ${response.status})`);
+    return ctx.decodeAudioData(await response.arrayBuffer());
+  })();
+  files.set(url, work);
+  return work;
+}
+
 export async function ensureContext() {
   if (!state.supported) return false;
   if (!ctx) {
     const Ctor = window.AudioContext ?? window.webkitAudioContext;
     ctx = new Ctor();
-    compressor = ctx.createDynamicsCompressor();
+    const compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -12;
     compressor.ratio.value = 6;
     master = ctx.createGain();
@@ -103,7 +111,7 @@ export async function ensureContext() {
   if (ctx.state === 'suspended') {
     try {
       await ctx.resume();
-    } catch (error) {
+    } catch {
       setState({ blocked: true, error: 'The browser would not start audio. Press play again.' });
       return false;
     }
@@ -113,59 +121,121 @@ export async function ensureContext() {
   return running;
 }
 
-function buildVoice(sound) {
-  const { recipe } = sound;
-  const source = ctx.createBufferSource();
-  source.buffer = noiseBuffer(recipe.noise ?? 'brown');
-  source.loop = true;
+/**
+ * Schedules short bursts on a layer's gain. This is what makes fire crackle and
+ * thunder rumble — the source runs continuously and the envelope gates it.
+ */
+function scheduleGrains(layerGain, grains, layerLevel, timers) {
+  const { rate, decay, jitter = 0.5, attack = 0.004, double = 0 } = grains;
+  layerGain.gain.value = 0;
 
+  const fire = (at, level) => {
+    layerGain.gain.setValueAtTime(0, at);
+    layerGain.gain.linearRampToValueAtTime(level, at + attack);
+    layerGain.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay);
+  };
+
+  const tick = () => {
+    if (!ctx) return;
+    const at = ctx.currentTime + 0.05;
+    const level = layerLevel * (0.55 + Math.random() * 0.45);
+    fire(at, level);
+    if (double > 0) fire(at + double, level * 0.6);
+
+    const base = 1 / rate;
+    const next = base * (1 - jitter / 2 + Math.random() * jitter);
+    timers.push(setTimeout(tick, Math.max(40, next * 1000)));
+  };
+
+  timers.push(setTimeout(tick, Math.random() * (1000 / rate)));
+}
+
+function buildLayer(layer, timers) {
   const nodes = [];
-  let node = source;
+  let node;
 
-  if (recipe.highpass) {
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = recipe.highpass;
-    node.connect(hp); node = hp; nodes.push(hp);
+  if (layer.tone) {
+    const osc = ctx.createOscillator();
+    osc.type = layer.type ?? 'sine';
+    osc.frequency.value = layer.tone;
+    osc.start();
+    nodes.push(osc);
+    node = osc;
+  } else {
+    const source = ctx.createBufferSource();
+    source.buffer = noiseBuffer(layer.noise ?? 'brown');
+    source.loop = true;
+    source.start();
+    nodes.push(source);
+    node = source;
   }
-  if (recipe.lowpass) {
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = recipe.lowpass;
-    node.connect(lp); node = lp; nodes.push(lp);
 
-    // A slow sweep of the cutoff is what makes wind sound like moving air.
-    if (recipe.sweep) {
-      const lfo = ctx.createOscillator();
-      const depth = ctx.createGain();
-      lfo.frequency.value = recipe.sweep.rate;
-      depth.gain.value = (recipe.sweep.high - recipe.sweep.low) / 2;
-      lp.frequency.value = (recipe.sweep.high + recipe.sweep.low) / 2;
-      lfo.connect(depth); depth.connect(lp.frequency);
-      lfo.start();
-      nodes.push(lfo, depth);
-    }
+  let filterForLfo = null;
+  for (const spec of layer.filters ?? []) {
+    const filter = ctx.createBiquadFilter();
+    filter.type = spec.type;
+    filter.frequency.value = spec.freq;
+    if (spec.q) filter.Q.value = spec.q;
+    node.connect(filter);
+    node = filter;
+    nodes.push(filter);
+    if (!filterForLfo) filterForLfo = filter;
   }
 
   const gain = ctx.createGain();
-  gain.gain.value = 0;
+  gain.gain.value = layer.gain ?? 1;
   node.connect(gain);
+  nodes.push(gain);
 
-  // Amplitude swell, for waves.
-  if (recipe.swell) {
+  if (layer.grains) scheduleGrains(gain, layer.grains, layer.gain ?? 1, timers);
+
+  if (layer.lfo) {
     const lfo = ctx.createOscillator();
     const depth = ctx.createGain();
-    lfo.frequency.value = recipe.swell.rate;
-    depth.gain.value = recipe.swell.depth;
-    lfo.connect(depth); depth.connect(gain.gain);
-    lfo.start();
+    lfo.frequency.value = layer.lfo.rate;
+    if (layer.lfo.target === 'filterFreq' && filterForLfo) {
+      depth.gain.value = layer.lfo.depth;
+      lfo.connect(depth);
+      depth.connect(filterForLfo.frequency);
+    } else {
+      // Modulating gain around its own value, so it dips rather than cutting out.
+      depth.gain.value = (layer.gain ?? 1) * layer.lfo.depth * 0.5;
+      gain.gain.value = (layer.gain ?? 1) * (1 - layer.lfo.depth * 0.5);
+      lfo.connect(depth);
+      depth.connect(gain.gain);
+    }
+    lfo.start(ctx.currentTime + (layer.lfo.phase ?? 0) / Math.max(0.01, layer.lfo.rate));
     nodes.push(lfo, depth);
   }
 
-  gain.connect(master);
-  source.start();
-  nodes.push(source, gain);
-  return { gain, nodes, source };
+  return { out: gain, nodes };
+}
+
+async function buildVoice(sound) {
+  const timers = [];
+  const nodes = [];
+  const voiceGain = ctx.createGain();
+  voiceGain.gain.value = 0;
+  voiceGain.connect(master);
+  nodes.push(voiceGain);
+
+  if (sound.file) {
+    const buffer = await loadFile(`/audio/${sound.file}`);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(voiceGain);
+    source.start();
+    nodes.push(source);
+  } else {
+    for (const layer of sound.layers ?? []) {
+      const built = buildLayer(layer, timers);
+      built.out.connect(voiceGain);
+      nodes.push(...built.nodes);
+    }
+  }
+
+  return { gain: voiceGain, nodes, timers };
 }
 
 function setGain(voice, value) {
@@ -179,18 +249,33 @@ function setGain(voice, value) {
  * Reconciles live voices against the desired mix. Only the difference is acted
  * on, so changing one sound's volume never interrupts the others.
  */
-export function applyMix(mix, masterVolume) {
+export async function applyMix(mix, masterVolume) {
   if (!ctx) return;
-  for (const sound of SOUNDS) {
+  const ids = knownIds();
+
+  for (const sound of catalogue) {
     const wanted = mix[sound.id] !== undefined;
     const voice = voices.get(sound.id);
+    const target = mixGain(mix, sound.id, masterVolume, ids);
 
     if (wanted && !voice) {
-      const created = buildVoice(sound);
-      voices.set(sound.id, created);
-      setGain(created, mixGain(mix, sound.id, masterVolume));
+      // Claim the slot before awaiting, so a fast double-click cannot build two.
+      voices.set(sound.id, null);
+      try {
+        const created = await buildVoice(sound);
+        voices.set(sound.id, created);
+        setGain(created, mixGain(mix, sound.id, masterVolume, ids));
+        if (state.failed[sound.id]) {
+          const failed = { ...state.failed };
+          delete failed[sound.id];
+          setState({ failed });
+        }
+      } catch (error) {
+        voices.delete(sound.id);
+        setState({ failed: { ...state.failed, [sound.id]: error.message || 'could not be loaded' } });
+      }
     } else if (wanted && voice) {
-      setGain(voice, mixGain(mix, sound.id, masterVolume));
+      setGain(voice, target);
     } else if (!wanted && voice) {
       stopVoice(sound.id);
     }
@@ -199,13 +284,13 @@ export function applyMix(mix, masterVolume) {
 
 function stopVoice(id) {
   const voice = voices.get(id);
-  if (!voice) return;
   voices.delete(id);
+  if (!voice) return;
+  for (const timer of voice.timers) clearTimeout(timer);
   const now = ctx.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
   voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
   voice.gain.gain.linearRampToValueAtTime(0, now + RAMP);
-  // Release the nodes after the fade so stopping is silent, not abrupt.
   setTimeout(() => {
     for (const node of voice.nodes) {
       try { node.stop?.(); } catch { /* already stopped */ }
@@ -216,44 +301,34 @@ function stopVoice(id) {
 
 export function setMasterVolume(mix, masterVolume) {
   if (!ctx) return;
-  for (const sound of SOUNDS) {
-    const voice = voices.get(sound.id);
-    if (voice) setGain(voice, mixGain(mix, sound.id, masterVolume));
+  const ids = knownIds();
+  for (const [id, voice] of voices) {
+    if (voice) setGain(voice, mixGain(mix, id, masterVolume, ids));
   }
 }
 
-/** Pause keeps the mix; the context is suspended so nothing is rebuilt on resume. */
 export async function pause() {
   if (!ctx || ctx.state !== 'running') return;
   await ctx.suspend();
   setState({ running: false });
 }
 
-export async function resume() {
-  const ok = await ensureContext();
-  return ok;
-}
+export const resume = () => ensureContext();
 
-/** Stop clears every voice. The caller decides whether to also clear the mix. */
 export function stopAll() {
   for (const id of [...voices.keys()]) stopVoice(id);
 }
 
-export function activeVoiceIds() {
-  return [...voices.keys()];
-}
+export const activeVoiceIds = () => [...voices.keys()].filter((id) => voices.get(id));
 
-/** Used on teardown; the app is long-lived so this is rarely needed. */
 export async function dispose() {
   stopAll();
   if (ctx) {
     try { await ctx.close(); } catch { /* already closed */ }
-    ctx = null; master = null; compressor = null;
-    buffers.clear();
+    ctx = null; master = null;
+    buffers.clear(); files.clear();
   }
   setState({ running: false });
 }
 
-export function isSoundKnown(id) {
-  return Boolean(soundById(id));
-}
+export { findSound as soundInCatalogue };

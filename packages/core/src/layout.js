@@ -1,0 +1,223 @@
+import { newId } from './ids.js';
+
+/**
+ * A small deterministic grid-layout engine.
+ *
+ * Widgets are placed on an integer grid of {x, y, w, h}. Nothing is positioned in
+ * pixels, so a layout is resolution-independent and reproducible: the same inputs
+ * always give the same arrangement. Rendering maps a cell to a CSS grid track, so
+ * snapping is a property of the model rather than something drag code has to
+ * approximate.
+ *
+ * Vertical compaction is the rule that keeps the dashboard gap-free: every widget
+ * floats up until something blocks it, preserving its column.
+ */
+
+export const BASE_COLUMNS = 4;
+
+/** Column count per breakpoint. The stored layout is always at BASE_COLUMNS. */
+export const BREAKPOINT_COLUMNS = { base: 1, sm: 2, lg: 4 };
+
+export const MIN_W = 1;
+export const MIN_H = 1;
+
+export function createPlacement(input = {}) {
+  return {
+    id: String(input.id ?? '') || newId('w'),
+    type: String(input.type ?? ''),
+    x: clampInt(input.x, 0, 0, BASE_COLUMNS - 1),
+    y: Math.max(0, clampInt(input.y, 0, 0, 9999)),
+    w: clampInt(input.w, 1, MIN_W, BASE_COLUMNS),
+    h: clampInt(input.h, 1, MIN_H, 8),
+    config: input.config && typeof input.config === 'object' ? { ...input.config } : {},
+  };
+}
+
+function clampInt(value, fallback, min, max) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+export function overlaps(a, b) {
+  if (a.id === b.id) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+export function collisionsFor(items, item) {
+  return items.filter((other) => overlaps(item, other));
+}
+
+/** Sorted top-to-bottom, then left-to-right: the order compaction resolves in. */
+function inReadingOrder(items) {
+  return [...items].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+}
+
+/**
+ * Floats every widget upward into free space, keeping its column. Running this
+ * after any move or resize is what removes avoidable whitespace — including the
+ * hole left behind by a widget that moved away.
+ */
+export function compact(items) {
+  const placed = [];
+  for (const item of inReadingOrder(items)) {
+    let y = item.y;
+    while (y > 0 && !collisionsFor(placed, { ...item, y: y - 1 }).length) y -= 1;
+    // If it already overlaps where it sits, push down until it does not.
+    while (collisionsFor(placed, { ...item, y }).length) y += 1;
+    placed.push({ ...item, y });
+  }
+  return inReadingOrder(placed);
+}
+
+/**
+ * Places `item` at its requested position and pushes whatever it lands on
+ * downward, recursively, then compacts. Only widgets actually in the way move.
+ */
+function resolveCollisions(items, moved) {
+  const result = items.map((i) => (i.id === moved.id ? moved : i));
+  const settle = (current, subject, guard = 0) => {
+    if (guard > 64) return current; // pathological input; stop rather than spin
+    const blocked = collisionsFor(current.filter((i) => i.id !== subject.id), subject);
+    let next = current;
+    for (const other of blocked) {
+      const pushed = { ...other, y: subject.y + subject.h };
+      next = settle(next.map((i) => (i.id === other.id ? pushed : i)), pushed, guard + 1);
+    }
+    return next;
+  };
+  return settle(result, moved);
+}
+
+export function moveItem(items, id, x, y, columns = BASE_COLUMNS) {
+  const subject = items.find((i) => i.id === id);
+  if (!subject) return items;
+  const next = {
+    ...subject,
+    x: Math.min(Math.max(0, Math.round(x)), Math.max(0, columns - subject.w)),
+    y: Math.max(0, Math.round(y)),
+  };
+  if (next.x === subject.x && next.y === subject.y) return items;
+  return compact(resolveCollisions(items, next));
+}
+
+export function resizeItem(items, id, w, h, columns = BASE_COLUMNS, limits = {}) {
+  const subject = items.find((i) => i.id === id);
+  if (!subject) return items;
+  const maxW = Math.min(columns, limits.maxW ?? columns);
+  const minW = Math.max(MIN_W, limits.minW ?? MIN_W);
+  const minH = Math.max(MIN_H, limits.minH ?? MIN_H);
+  const maxH = Math.max(minH, limits.maxH ?? 8);
+
+  const nextW = Math.min(maxW, Math.max(minW, Math.round(w)));
+  const next = {
+    ...subject,
+    w: nextW,
+    h: Math.min(maxH, Math.max(minH, Math.round(h))),
+    // Pull back in when growing would overflow the right edge.
+    x: Math.min(subject.x, Math.max(0, columns - nextW)),
+  };
+  return compact(resolveCollisions(items, next));
+}
+
+/**
+ * Makes an arbitrary set of placements valid: in bounds, non-overlapping and
+ * compacted. Used on load, so a hand-edited or older layout cannot render broken.
+ */
+export function normalizeLayout(items, columns = BASE_COLUMNS) {
+  const bounded = inReadingOrder(items.map((item) => {
+    const w = Math.min(columns, Math.max(MIN_W, item.w));
+    return { ...item, w, h: Math.max(MIN_H, item.h), x: Math.min(Math.max(0, item.x), columns - w), y: Math.max(0, item.y) };
+  }));
+
+  const placed = [];
+  for (const item of bounded) {
+    let candidate = { ...item };
+    while (collisionsFor(placed, candidate).length) candidate = { ...candidate, y: candidate.y + 1 };
+    placed.push(candidate);
+  }
+  return compact(placed);
+}
+
+/** First free cell that fits, scanning top-to-bottom then left-to-right. */
+export function findFreeSpot(items, w, h, columns = BASE_COLUMNS) {
+  const width = Math.min(columns, Math.max(MIN_W, w));
+  for (let y = 0; y < 200; y += 1) {
+    for (let x = 0; x <= columns - width; x += 1) {
+      const candidate = { id: '__probe__', x, y, w: width, h: Math.max(MIN_H, h) };
+      if (!collisionsFor(items, candidate).length) return { x, y };
+    }
+  }
+  return { x: 0, y: items.reduce((max, i) => Math.max(max, i.y + i.h), 0) };
+}
+
+export function addItem(items, item, columns = BASE_COLUMNS) {
+  const placement = createPlacement(item);
+  const spot = findFreeSpot(items, placement.w, placement.h, columns);
+  return compact([...items, { ...placement, ...spot }]);
+}
+
+export function removeItem(items, id) {
+  return compact(items.filter((i) => i.id !== id));
+}
+
+/**
+ * Projects the stored 4-column layout onto a narrower grid. Reading order is
+ * preserved, which is what keeps a desktop arrangement meaningful on a phone
+ * instead of letting desktop coordinates produce overlap or overflow.
+ */
+export function projectToColumns(items, columns) {
+  if (columns >= BASE_COLUMNS) return normalizeLayout(items, BASE_COLUMNS);
+  const ordered = inReadingOrder(items);
+  const projected = [];
+  for (const item of ordered) {
+    const w = Math.min(columns, item.w);
+    const spot = findFreeSpot(projected, w, item.h, columns);
+    projected.push({ ...item, w, x: spot.x, y: spot.y });
+  }
+  return compact(projected);
+}
+
+export function layoutHeight(items) {
+  return items.reduce((max, i) => Math.max(max, i.y + i.h), 0);
+}
+
+/** True when no widget overlaps another — the invariant every operation keeps. */
+export function isValidLayout(items, columns = BASE_COLUMNS) {
+  for (const item of items) {
+    if (item.x < 0 || item.y < 0 || item.x + item.w > columns) return false;
+    if (collisionsFor(items, item).length) return false;
+  }
+  return true;
+}
+
+/** Legacy sizes, for migrating an ordered list into coordinates. */
+export const LEGACY_SIZE_SPANS = {
+  '1x1': { w: 1, h: 1 },
+  '2x1': { w: 2, h: 1 },
+  '2x2': { w: 2, h: 2 },
+};
+
+/**
+ * Migrates the previous ordered-list layout (`{id, type, size}`) into
+ * coordinates, laying widgets out in their stored order so a user's arrangement
+ * survives rather than being reset.
+ */
+export function migrateOrderedLayout(widgets) {
+  let items = [];
+  for (const widget of widgets) {
+    const span = LEGACY_SIZE_SPANS[widget.size] ?? LEGACY_SIZE_SPANS['1x1'];
+    items = addItem(items, {
+      id: widget.id,
+      type: widget.type,
+      w: span.w,
+      h: span.h,
+      config: widget.config,
+    });
+  }
+  return items;
+}
+
+export function needsMigration(widgets) {
+  return widgets.some((w) => w && w.size !== undefined && w.x === undefined);
+}

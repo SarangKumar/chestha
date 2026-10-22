@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  SOUNDS, activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, renamePreset,
+  SOUNDS, activeSoundIds, applyPreset, clampVolume, coerceAudioManifest, createPreset,
+  deletePreset, renamePreset,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import {
@@ -17,10 +18,27 @@ export function Sounds() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [renaming, setRenaming] = useState(null);
+  const [userSounds, setUserSounds] = useState([]);
   const nameRef = useRef(null);
 
+  // Any files the user dropped into public/audio/ join the built-in catalogue.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/audio/manifest.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled && data) setUserSounds(coerceAudioManifest(data)); })
+      .catch(() => { /* the folder is optional */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const catalogue = useMemo(() => [...SOUNDS, ...userSounds], [userSounds]);
+  const knownIds = useMemo(() => catalogue.map((s) => s.id), [catalogue]);
+  const groups = useMemo(() => [...new Set(catalogue.map((s) => s.group))], [catalogue]);
+
+  useEffect(() => { engine.setCatalogue(catalogue); }, [catalogue]);
+
   const mix = sound.lastMix ?? {};
-  const active = activeSoundIds(mix);
+  const active = activeSoundIds(mix, knownIds);
   const playing = audio.running && active.length > 0;
 
   // The engine is the source of truth for what is audible; the store is the
@@ -73,7 +91,7 @@ export function Sounds() {
   };
 
   const savePreset = () => {
-    const result = createPreset(presetName, mix);
+    const result = createPreset(presetName, mix, knownIds);
     if (!result.ok) { notify(result.error, { tone: 'danger' }); return; }
     actions.setSound((s) => ({ ...s, presets: [...s.presets, result.preset] }));
     setSaveOpen(false);
@@ -82,7 +100,7 @@ export function Sounds() {
   };
 
   const loadPreset = async (preset) => {
-    const { mix: next, missing } = applyPreset(preset);
+    const { mix: next, missing } = applyPreset(preset, knownIds);
     const previous = mix;
     actions.setSound({ lastMix: next });
     await start(next);
@@ -130,7 +148,7 @@ export function Sounds() {
     <div className="space-y-4">
       <SectionHeader
         title="Sounds"
-        description="Every sound is generated in your browser — nothing is downloaded, and it works offline."
+        description={`${catalogue.length} sounds. The built-in set is generated in your browser — nothing is downloaded and it works offline. Drop your own files into public/audio/ to add recordings.`}
       >
         <Button onClick={togglePlayback} disabled={active.length === 0} tone={playing ? 'default' : 'primary'}>
           <Icon name={playing ? 'pause' : 'play'} className="size-4" />
@@ -172,9 +190,13 @@ export function Sounds() {
         <div className="border-b border-line px-4 py-3">
           <CardTitle>Sound library</CardTitle>
         </div>
+        {groups.map((group) => (
+        <div key={group}>
+        <p className="border-b border-line bg-inset px-4 py-1.5 text-meta font-medium text-ink-muted">{group}</p>
         <ul className="divide-y divide-line">
-          {SOUNDS.map((item) => {
+          {catalogue.filter((s) => s.group === group).map((item) => {
             const on = item.id in mix;
+            const failure = audio.failed[item.id];
             return (
               <li key={item.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                 <button
@@ -191,11 +213,15 @@ export function Sounds() {
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
                     {item.name}
-                    {on && <Badge tone={audio.running ? 'ok' : 'neutral'}>{audio.running ? 'Playing' : 'Paused'}</Badge>}
+                    {failure && <Badge tone="danger">Unavailable</Badge>}
+                    {on && !failure && <Badge tone={audio.running ? 'ok' : 'neutral'}>{audio.running ? 'Playing' : 'Paused'}</Badge>}
                   </p>
-                  <p className="mt-0.5 text-meta text-ink-faint">{item.description}</p>
+                  <p className="mt-0.5 text-meta text-ink-faint">
+                    {failure ? `This file ${failure}.` : item.description}
+                    {item.credit && !failure && ` · ${item.credit}`}
+                  </p>
                 </div>
 
                 <div className="flex w-full items-center gap-2 sm:w-44">
@@ -218,6 +244,8 @@ export function Sounds() {
             );
           })}
         </ul>
+        </div>
+        ))}
       </Panel>
 
       <Panel className="p-4 sm:p-5">

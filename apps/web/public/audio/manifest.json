@@ -1,0 +1,13 @@
+{
+  "comment": "Drop your own looping audio files in this folder and list them here. They appear in the Sounds library alongside the built-in synthesised ones, with their own volume, and work in mixes and presets identically. Nothing is fetched from the internet - files are served from this app only.",
+  "sounds": [
+    {
+      "id": "night-forest",
+      "name": "Night Forest with Frogs and Crickets for Sleep",
+      "group": "Your files",
+      "description": "Ambient forest sounds for a peaceful night.",
+      "credit": "Pixabay - Content License",
+      "file": "night-forest.mp3"
+    }
+  ]
+}

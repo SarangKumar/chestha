@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SHORTCUT_ACTIONS, SOUNDS, WIDGET_PRESENTATIONS, activeSoundIds, applyPreset,
-  clampVolume, clearShortcut, coerceArea, coerceShortcuts, comboFromEvent, conflictFor,
+  clampVolume, clearShortcut, coerceArea, coerceAudioManifest, coerceShortcuts, comboFromEvent, conflictFor,
   createPreset, createStore, deletePreset, findConflicts, formatCombo, isCustomised,
   mixGain, normalizeCombo, normalizeMix, renamePreset, resetAllShortcuts, resetShortcut,
   resolveShortcuts, setShortcut, validateCombo,
@@ -77,12 +77,53 @@ test('loading a preset reports sounds this build no longer ships', () => {
   assert.deepEqual(missing, ['cafe'], 'the omission is reported, not hidden');
 });
 
-test('every sound has a synthesis recipe, so nothing needs downloading', () => {
-  assert.ok(SOUNDS.length >= 4);
+test('every built-in sound is synthesised, so nothing needs downloading', () => {
+  assert.ok(SOUNDS.length >= 12, `${SOUNDS.length} sounds available`);
   for (const sound of SOUNDS) {
-    assert.ok(sound.recipe?.noise, `${sound.id} has a noise source`);
-    assert.ok(sound.name && sound.description);
+    assert.equal(sound.builtin, true, `${sound.id} is built in`);
+    assert.ok(sound.layers?.length, `${sound.id} has at least one layer`);
+    assert.ok(sound.name && sound.description && sound.group);
+    assert.equal(sound.file, undefined, `${sound.id} needs no audio file`);
+    for (const layer of sound.layers) {
+      assert.ok(layer.noise || layer.tone, `${sound.id} layer has a noise or tone source`);
+    }
   }
+});
+
+test('a user-supplied audio manifest is validated, and cannot escape its folder', () => {
+  const sounds = coerceAudioManifest({
+    sounds: [
+      { id: 'Rain-Window', name: 'Rain on a window', file: 'rain.mp3', credit: 'Pixabay' },
+      { id: 'escape', name: 'Bad', file: '../../secrets.mp3' },
+      { id: 'remote', name: 'Bad', file: 'https://example.com/a.mp3' },
+      { id: 'absolute', name: 'Bad', file: '/etc/passwd' },
+      { id: 'brown', name: 'Clashes with a built-in', file: 'x.mp3' },
+      { id: 'nofile', name: 'Missing file' },
+    ],
+  });
+  assert.equal(sounds.length, 1, 'only the usable entry survives');
+  assert.equal(sounds[0].id, 'rain-window', 'ids are normalised');
+  assert.equal(sounds[0].credit, 'Pixabay');
+  assert.equal(sounds[0].builtin, false);
+  assert.deepEqual(coerceAudioManifest(null), []);
+  assert.deepEqual(coerceAudioManifest({ sounds: 'nope' }), []);
+});
+
+test('user files take part in mixes and presets like built-in sounds', () => {
+  const extra = coerceAudioManifest({ sounds: [{ id: 'my-rain', name: 'My rain', file: 'rain.mp3' }] });
+  const known = [...SOUNDS.map((s) => s.id), ...extra.map((s) => s.id)];
+
+  const mix = normalizeMix({ 'my-rain': 0.8, brown: 0.4 }, known);
+  assert.deepEqual(Object.keys(mix).sort(), ['brown', 'my-rain']);
+  assert.ok(mixGain(mix, 'my-rain', 1, known) > 0);
+
+  const saved = createPreset('With my file', mix, known);
+  assert.equal(saved.ok, true);
+
+  // Without the manifest, the preset reports the omission instead of failing.
+  const { mix: fallback, missing } = applyPreset(saved.preset);
+  assert.deepEqual(Object.keys(fallback), ['brown']);
+  assert.deepEqual(missing, ['my-rain']);
 });
 
 test('sound settings survive a store round trip', async () => {
