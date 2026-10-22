@@ -29,6 +29,10 @@ export function createPlacement(input = {}) {
     y: Math.max(0, clampInt(input.y, 0, 0, 9999)),
     w: clampInt(input.w, 1, MIN_W, BASE_COLUMNS),
     h: clampInt(input.h, 1, MIN_H, 8),
+    // A widget the user deliberately placed is anchored: compaction will not
+    // lift it above the row they chose, though it is still pushed down to
+    // resolve a collision.
+    pinned: input.pinned === true,
     config: input.config && typeof input.config === 'object' ? { ...input.config } : {},
   };
 }
@@ -57,17 +61,30 @@ function inReadingOrder(items) {
  * Floats every widget upward into free space, keeping its column. Running this
  * after any move or resize is what removes avoidable whitespace — including the
  * hole left behind by a widget that moved away.
+ *
+ * An anchored (`pinned`) widget is the exception: it keeps the row the user put
+ * it on. Without this, dropping a widget into the bottom of a short column would
+ * immediately snap it back to the top, and deliberate placement would be
+ * impossible. Everything unpinned still compacts around it, so the layout stays
+ * tight apart from the gaps the user actually asked for.
  */
 export function compact(items) {
   const placed = [];
   for (const item of inReadingOrder(items)) {
     let y = item.y;
-    while (y > 0 && !collisionsFor(placed, { ...item, y: y - 1 }).length) y -= 1;
-    // If it already overlaps where it sits, push down until it does not.
+    if (!item.pinned) {
+      while (y > 0 && !collisionsFor(placed, { ...item, y: y - 1 }).length) y -= 1;
+    }
+    // Pinned or not, it must not overlap: push down until it does not.
     while (collisionsFor(placed, { ...item, y }).length) y += 1;
     placed.push({ ...item, y });
   }
   return inReadingOrder(placed);
+}
+
+/** Releases every anchor and packs the layout as tightly as possible. */
+export function tidy(items) {
+  return compact(items.map((i) => ({ ...i, pinned: false })));
 }
 
 /**
@@ -98,6 +115,8 @@ export function moveItem(items, id, x, y, columns = BASE_COLUMNS) {
     y: Math.max(0, Math.round(y)),
   };
   if (next.x === subject.x && next.y === subject.y) return items;
+  // An explicit move anchors the widget, so compaction respects the drop.
+  next.pinned = true;
   return compact(resolveCollisions(items, next));
 }
 

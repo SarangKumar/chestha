@@ -17,6 +17,8 @@ export function Icon({ name, className = 'size-5' }) {
     dsa: <><path d="M9 7.5 5.5 11 9 14.5" /><path d="m15 7.5 3.5 3.5L15 14.5" /><path d="M12.8 5.5 11.2 18" /></>,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
     repeat: <><path d="M4.5 9.5A4 4 0 0 1 8.5 6H18" /><path d="m15.5 3.5 3 2.5-3 2.5" /><path d="M19.5 14.5A4 4 0 0 1 15.5 18H6" /><path d="m8.5 20.5-3-2.5 3-2.5" /></>,
+    lock: <><rect x="5.5" y="10.5" width="13" height="9" rx="2" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></>,
+    link: <><path d="M10 14a4 4 0 0 0 5.7 0l2.8-2.8A4 4 0 0 0 12.8 5.5L11.5 6.8" /><path d="M14 10a4 4 0 0 0-5.7 0L5.5 12.8A4 4 0 0 0 11.2 18.5l1.3-1.3" /></>,
     grip: <><circle cx="9" cy="7" r="1.1" /><circle cx="15" cy="7" r="1.1" /><circle cx="9" cy="12" r="1.1" /><circle cx="15" cy="12" r="1.1" /><circle cx="9" cy="17" r="1.1" /><circle cx="15" cy="17" r="1.1" /></>,
     resize: <><path d="M19 11v8h-8" /><path d="M19 19 11 11" /></>,
     play: <path d="M8 5.5 18 12 8 18.5V5.5Z" />,

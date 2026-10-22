@@ -181,7 +181,7 @@ function coerceDashboard(raw) {
     let id = str(item.id);
     if (!id || seen.has(id)) id = newId('w');
     seen.add(id);
-    cleaned.push({ ...item, id, type, config: coerceWidgetConfig(item.config) });
+    cleaned.push({ ...item, id, type, pinned: item.pinned === true, config: coerceWidgetConfig(item.config) });
   }
 
   // Version 1 stored an ordered list with a size name. Migrating lays the widgets
@@ -203,6 +203,21 @@ function coerceWidgetConfig(raw) {
   const config = { ...raw };
   if ('presentation' in config && !WIDGET_PRESENTATIONS.includes(config.presentation)) {
     delete config.presentation;
+  }
+  // Shortcut links are user input, so they are bounded and scheme-checked here
+  // rather than trusted from storage.
+  if ('links' in config) {
+    config.links = (Array.isArray(config.links) ? config.links : []).reduce((out, link) => {
+      if (out.length >= 12 || !link || typeof link !== 'object') return out;
+      const url = str(link.url).trim();
+      if (!/^https?:\/\//i.test(url)) return out;
+      out.push({
+        id: str(link.id) || newId('lnk'),
+        url,
+        label: str(link.label).trim().slice(0, 40) || url,
+      });
+      return out;
+    }, []);
   }
   return config;
 }

@@ -172,8 +172,14 @@ test('list progress reflects shared solving state', () => {
   const progress = listProgress(rows(), [{ id: 'blind-75', name: 'Blind 75' }, { id: 'neetcode-150', name: 'NeetCode 150' }]);
   const blind = progress.find((p) => p.list.id === 'blind-75');
   assert.equal(blind.total, 2);
-  assert.equal(blind.solved, 1, 'solving two-sum counts toward every list containing it');
-  assert.equal(progress.find((p) => p.list.id === 'neetcode-150').solved, 1);
+  // Both of its questions have a solve event. course-schedule's *status* is
+  // "needs revision" because it is overdue, but its progress axis is still
+  // solved — which is the separation these three axes exist to keep.
+  assert.equal(blind.solved, 2);
+
+  const neetcode = progress.find((p) => p.list.id === 'neetcode-150');
+  assert.equal(neetcode.total, 2, 'two-sum and word-ladder');
+  assert.equal(neetcode.solved, 1, 'word-ladder was only attempted');
 });
 
 test('premium status survives into the question record', () => {

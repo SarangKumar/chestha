@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  formatLongDate, selectCompletedOn, selectNoDate, selectOverdue, selectToday,
+  formatLongDate, questionUrl, selectCompletedOn, selectNoDate, selectOverdue, selectToday,
   selectUpcoming, sortTasks,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
-import { Button, EmptyState, Select, Stat } from '../components/ui.jsx';
+import { Badge, Button, EmptyState, Select, Stat } from '../components/ui.jsx';
+import { Icon } from '../components/icons.jsx';
 
-function TodayWidget({ onOpenTask, onCapture }) {
+/** How many list rows comfortably fit a widget of this height. */
+function rowBudget(span) {
+  return Math.max(2, (span?.h ?? 1) * 4 - 1);
+}
+
+function TodayWidget({ onOpenTask, onCapture, span }) {
   const { state, today, actions } = useWorkspace();
   const tasks = sortTasks(selectToday(state.tasks, today), 'due');
   const done = selectCompletedOn(state.tasks, today).length;
@@ -26,7 +32,7 @@ function TodayWidget({ onOpenTask, onCapture }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         <TaskList
-          tasks={tasks}
+          tasks={tasks.slice(0, rowBudget(span))}
           today={today}
           compact
           onToggle={actions.setCompleted}
@@ -43,7 +49,7 @@ function TodayWidget({ onOpenTask, onCapture }) {
   );
 }
 
-function UpcomingWidget({ widget, onOpenTask }) {
+function UpcomingWidget({ widget, onOpenTask, span }) {
   const { state, today, actions } = useWorkspace();
   const horizon = Number(widget.config.horizonDays) || state.settings.upcomingHorizonDays;
   const tasks = sortTasks(selectUpcoming(state.tasks, today, horizon), 'due');
@@ -57,7 +63,7 @@ function UpcomingWidget({ widget, onOpenTask }) {
       />
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         <TaskList
-          tasks={tasks}
+          tasks={tasks.slice(0, rowBudget(span))}
           today={today}
           compact
           onToggle={actions.setCompleted}
@@ -115,8 +121,8 @@ function ClockWidget({ widget }) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <p className="tabular text-display font-semibold text-ink">{time}</p>
-      <p className="mt-1.5 text-meta text-ink-muted">{formatLongDate(today)}</p>
+      <p className="tabular text-stat font-semibold text-ink @[14rem]:text-display @[22rem]:text-5xl">{time}</p>
+      <p className="mt-1.5 hidden text-meta text-ink-muted @[11rem]:block">{formatLongDate(today)}</p>
     </div>
   );
 }
@@ -193,6 +199,270 @@ function SecondsConfig({ widget, onChange }) {
   );
 }
 
+/**
+ * Opens a web search in a new tab. The app makes no request itself — submitting
+ * navigates away, so nothing is sent from here and no API key is involved.
+ */
+function SearchWidget({ widget }) {
+  const [term, setTerm] = useState('');
+  const engines = {
+    google: { name: 'Google', url: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
+    duckduckgo: { name: 'DuckDuckGo', url: (q) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}` },
+  };
+  const engine = engines[widget.config.engine] ?? engines.google;
+
+  return (
+    <form
+      className="flex h-full flex-col justify-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const q = term.trim();
+        if (!q) return;
+        // Navigating the current tab leaves the app. That is safe: every change
+        // is already persisted, and the store flushes any debounced write on
+        // pagehide before the navigation completes.
+        window.location.assign(engine.url(q));
+      }}
+    >
+      <label className="sr-only" htmlFor={`search-${widget.id}`}>Search {engine.name}</label>
+      <div className="relative">
+        <input
+          id={`search-${widget.id}`}
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder={`Search ${engine.name}…`}
+          enterKeyHint="search"
+          className="w-full rounded-control border border-line bg-inset py-2 pl-8 pr-3 text-sm text-ink placeholder:text-ink-faint hover:border-line-strong focus:border-line-strong"
+        />
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint">
+          <Icon name="search" className="size-4" />
+        </span>
+      </div>
+      <p className="hidden text-[10px] text-ink-faint @[14rem]:block">Press Enter to search.</p>
+    </form>
+  );
+}
+
+function SearchConfig({ widget, onChange }) {
+  return (
+    <label className="flex items-center gap-2 text-meta text-ink-muted">
+      Engine
+      <Select
+        value={widget.config.engine ?? 'google'}
+        onChange={(event) => onChange({ engine: event.target.value })}
+        className="h-7 w-auto py-0 text-[11px]"
+      >
+        <option value="google">Google</option>
+        <option value="duckduckgo">DuckDuckGo</option>
+      </Select>
+    </label>
+  );
+}
+
+/**
+ * A question to do today, chosen from the library you have imported.
+ *
+ * It is deliberately NOT LeetCode's official Daily Question: a browser page
+ * cannot reach leetcode.com (no CORS grant) and their terms forbid scraping, so
+ * claiming to show the official daily would be a lie. This picks deterministically
+ * from your own library by date, so it is stable for the whole day and works
+ * offline. Unsolved questions are preferred.
+ */
+function DailyQuestionWidget({ onNavigate }) {
+  const { state, today } = useWorkspace();
+  const library = state['dsa.library'];
+  const progress = state['dsa.progress'];
+
+  const pick = useMemo(() => {
+    const questions = library.questions;
+    if (questions.length === 0) return null;
+    const solved = new Set(progress.events.filter((e) => e.kind === 'solve').map((e) => e.slug));
+    const pool = questions.filter((q) => !solved.has(q.slug));
+    const from = pool.length > 0 ? pool : questions;
+    // A simple date hash keeps the choice stable across reloads on the same day.
+    const seed = [...today].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    const chosen = from[seed % from.length];
+    return { question: chosen, alreadySolved: solved.has(chosen.slug), remaining: pool.length };
+  }, [library.questions, progress.events, today]);
+
+  if (!pick) {
+    return (
+      <div className="flex h-full flex-col justify-center">
+        <EmptyState
+          title="No questions yet"
+          description="Import a pack in the DSA section and one will appear here each day."
+          action={<Button size="sm" onClick={() => onNavigate('dsa', 'library')}>Open the library</Button>}
+        />
+      </div>
+    );
+  }
+
+  const { question } = pick;
+  return (
+    <div className="flex h-full flex-col justify-center gap-2">
+      <a
+        href={questionUrl(question)}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="text-sm font-medium text-ink underline-offset-2 hover:underline @[16rem]:text-base"
+      >
+        {question.title}
+      </a>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {question.leetcodeId && <Badge tone="neutral">#{question.leetcodeId}</Badge>}
+        {question.difficulty && (
+          <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'neutral'}>
+            {question.difficulty}
+          </Badge>
+        )}
+        {question.paidOnly && <Badge tone="neutral"><Icon name="lock" className="size-3" /> Premium</Badge>}
+        {pick.alreadySolved && <Badge tone="ok">Solved</Badge>}
+      </div>
+      <p className="hidden text-[10px] leading-relaxed text-ink-faint @[14rem]:block">
+        Picked from your library for {today}. Not LeetCode&rsquo;s official daily — that cannot be read from a browser.
+      </p>
+    </div>
+  );
+}
+
+const MAX_SHORTCUTS = 12;
+
+/**
+ * User-defined links.
+ *
+ * Favicons are OFF by default and must be switched on per widget: fetching one
+ * reaches out to each site, which would tell those sites when you open your
+ * dashboard. The default is a letter tile derived from the domain, which needs
+ * no network at all.
+ */
+function ShortcutsWidget({ widget, onChange }) {
+  const links = Array.isArray(widget.config.links) ? widget.config.links : [];
+  const showFavicons = widget.config.favicons === true;
+  const [adding, setAdding] = useState(false);
+  const [url, setUrl] = useState('');
+  const [label, setLabel] = useState('');
+  const [error, setError] = useState(null);
+
+  const add = (event) => {
+    event.preventDefault();
+    let parsed;
+    try {
+      parsed = new URL(url.includes('://') ? url : `https://${url}`);
+    } catch {
+      setError('That is not a web address.');
+      return;
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      setError('Only http and https addresses can be opened.');
+      return;
+    }
+    if (links.length >= MAX_SHORTCUTS) {
+      setError(`A shortcuts widget holds up to ${MAX_SHORTCUTS} links.`);
+      return;
+    }
+    onChange({
+      links: [...links, {
+        id: `lnk_${Date.now().toString(36)}`,
+        url: parsed.toString(),
+        label: label.trim() || parsed.hostname.replace(/^www\./, ''),
+      }],
+    });
+    setUrl(''); setLabel(''); setError(null); setAdding(false);
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+        {links.length === 0 ? (
+          <p className="py-2 text-meta text-ink-faint">No links yet.</p>
+        ) : (
+          <ul className="grid grid-cols-3 gap-1.5 @[14rem]:grid-cols-4 @[22rem]:grid-cols-6">
+            {links.map((link) => {
+              let host = link.url;
+              try { host = new URL(link.url).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
+              return (
+                <li key={link.id} className="group relative">
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={`${link.label} — ${host}`}
+                    className="flex flex-col items-center gap-1 rounded-control p-1.5 transition-colors duration-150 hover:bg-hover"
+                  >
+                    <span className="flex size-8 items-center justify-center overflow-hidden rounded-chip border border-line bg-inset text-xs font-semibold uppercase text-ink-muted">
+                      {showFavicons ? (
+                        <img
+                          src={`${new URL(link.url).origin}/favicon.ico`}
+                          alt=""
+                          className="size-5"
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : host.slice(0, 1)}
+                    </span>
+                    <span className="w-full truncate text-center text-[10px] text-ink-muted">{link.label}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ links: links.filter((l) => l.id !== link.id) })}
+                    aria-label={`Remove ${link.label}`}
+                    className="absolute -right-0.5 -top-0.5 hidden size-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] text-ink-muted group-hover:flex hover:text-danger"
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {adding ? (
+        <form onSubmit={add} className="mt-2 space-y-1.5">
+          <input
+            value={url}
+            onChange={(event) => { setUrl(event.target.value); setError(null); }}
+            placeholder="example.com"
+            autoComplete="off"
+            className="w-full rounded-control border border-line bg-inset px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+          />
+          <input
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="Label (optional)"
+            autoComplete="off"
+            className="w-full rounded-control border border-line bg-inset px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+          />
+          {error && <p className="text-[10px] text-danger">{error}</p>}
+          <div className="flex gap-1.5">
+            <Button type="submit" size="sm" tone="primary" disabled={!url.trim()}>Add</Button>
+            <Button type="button" size="sm" tone="quiet" onClick={() => { setAdding(false); setError(null); }}>Cancel</Button>
+          </div>
+        </form>
+      ) : (
+        <Button size="sm" tone="quiet" className="mt-2 justify-start" onClick={() => setAdding(true)}>
+          <Icon name="plus" className="size-3.5" /> Add link
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ShortcutsConfig({ widget, onChange }) {
+  return (
+    <label className="flex items-center gap-2 text-meta text-ink-muted">
+      <input
+        type="checkbox"
+        checked={widget.config.favicons === true}
+        onChange={(event) => onChange({ favicons: event.target.checked })}
+        className="size-3.5 accent-[var(--app-accent)]"
+      />
+      <span title="Each site is contacted for its icon, which tells it when you open your dashboard.">
+        Load site icons
+      </span>
+    </label>
+  );
+}
+
 /** Widget configuration exists only where it changes meaning, never for decoration. */
 export const WIDGETS = {
   today: {
@@ -237,6 +507,32 @@ export const WIDGETS = {
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 4 },
     description: 'One plain note, saved as you type.',
     render: NotesWidget,
+  },
+  search: {
+    presentation: 'card',
+    name: 'Web search',
+    description: 'A search box that opens results in a new tab.',
+    defaultSize: { w: 2, h: 1 },
+    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    render: SearchWidget,
+    Config: SearchConfig,
+  },
+  daily: {
+    presentation: 'card',
+    name: 'Question of the day',
+    description: 'One question from your library, chosen fresh each day.',
+    defaultSize: { w: 2, h: 1 },
+    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    render: DailyQuestionWidget,
+  },
+  shortcuts: {
+    presentation: 'card',
+    name: 'Shortcuts',
+    description: 'Your own links, as a grid of tiles.',
+    defaultSize: { w: 2, h: 1 },
+    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+    render: ShortcutsWidget,
+    Config: ShortcutsConfig,
   },
   undated: {
     presentation: 'card',

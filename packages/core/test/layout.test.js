@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BASE_COLUMNS, addItem, coerceArea, collisionsFor, compact, createPlacement, createStore,
-  findFreeSpot, isValidLayout, layoutHeight, migrateOrderedLayout, moveItem, needsMigration,
-  normalizeLayout, overlaps, projectToColumns, removeItem, resizeItem,
+  DEFAULT_DASHBOARD, findFreeSpot, isValidLayout, layoutHeight, migrateOrderedLayout, moveItem,
+  needsMigration, normalizeLayout, overlaps, projectToColumns, removeItem, resizeItem, tidy,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -37,15 +37,21 @@ test('a widget stops below whatever blocks it rather than passing through', () =
 });
 
 test('the hole left by a moved widget is filled', () => {
-  // a occupies the top-left; c sits below it with a gap between.
+  // a occupies the top-left; c sits below it.
   let items = [at('a', 0, 0, 2, 2), at('b', 2, 0, 2, 1), at('c', 0, 2, 2, 1)];
   assert.equal(layoutHeight(items), 3);
 
-  // Move the tall widget away to the right column; the space it vacated must close.
+  // Move the tall widget away; the space it vacated must close behind it.
   items = moveItem(items, 'a', 2, 4, BASE_COLUMNS);
   assert.ok(isValidLayout(items, BASE_COLUMNS));
-  assert.equal(layoutHeight(items), 3, 'no dead rows left behind');
   assert.equal(items.find((i) => i.id === 'c').y, 0, 'c floated up into the vacated space');
+
+  // The destination row is honoured rather than compacted away — that is the
+  // anchoring rule, and it is why dropping into a short column now works.
+  assert.equal(items.find((i) => i.id === 'a').y, 4);
+
+  // Tidy is the way back to a fully packed layout.
+  assert.equal(layoutHeight(tidy(items)), 3, 'tidy removes the deliberate gap');
 });
 
 test('compaction is deterministic and idempotent', () => {
@@ -268,4 +274,74 @@ test('a transparent widget participates in layout exactly like any other', () =>
 
   const stripped = items.map((i) => ({ ...i, config: {} }));
   assert.equal(show(normalizeLayout(stripped, BASE_COLUMNS)), show(items), 'identical geometry regardless of presentation');
+});
+
+// ─── Anchoring: deliberate placement survives compaction ─────────────────────
+
+
+test('a widget dropped into the bottom of a short column stays there', () => {
+  // Reproduces the reported bug: the right-hand column is one row tall, so
+  // unconditional compaction used to snap a drop at row 2 back up to row 0.
+  let items = [
+    at('today', 0, 0, 2, 2), at('clock', 2, 0), at('over', 3, 0), at('notes', 0, 2, 2, 1),
+  ];
+  items = moveItem(items, 'clock', 3, 2, BASE_COLUMNS);
+
+  const clock = items.find((i) => i.id === 'clock');
+  assert.equal(clock.x, 3);
+  assert.equal(clock.y, 2, 'the row the user chose is kept');
+  assert.equal(clock.pinned, true, 'an explicit move anchors the widget');
+  assert.ok(isValidLayout(items, BASE_COLUMNS));
+});
+
+test('anchoring one widget still compacts the others around it', () => {
+  let items = [at('a', 0, 0), at('b', 1, 4), at('c', 2, 6)];
+  items = moveItem(items, 'a', 0, 3, BASE_COLUMNS);
+
+  assert.equal(items.find((i) => i.id === 'a').y, 3, 'the anchored one holds its row');
+  assert.equal(items.find((i) => i.id === 'b').y, 0, 'the rest still float up');
+  assert.equal(items.find((i) => i.id === 'c').y, 0);
+});
+
+test('an anchored widget is still pushed down out of a collision', () => {
+  let items = [at('a', 0, 0, 1, 1), at('b', 1, 0, 1, 1)];
+  items = moveItem(items, 'a', 0, 3, BASE_COLUMNS);          // anchor a at row 3
+  items = moveItem(items, 'b', 0, 3, BASE_COLUMNS);          // drop b on top of it
+
+  assert.ok(isValidLayout(items, BASE_COLUMNS), 'anchoring never permits an overlap');
+  assert.equal(new Set(items.map((i) => i.id)).size, 2);
+});
+
+test('tidy releases every anchor and packs the layout tight', () => {
+  let items = [at('a', 0, 0, 2, 2), at('b', 2, 0), at('c', 3, 0)];
+  items = moveItem(items, 'b', 3, 3, BASE_COLUMNS);
+  assert.ok(layoutHeight(items) > 2, 'the anchor left a deliberate gap');
+
+  const tidied = tidy(items);
+  assert.ok(tidied.every((i) => i.pinned === false), 'anchors cleared');
+  assert.equal(layoutHeight(tidied), 2, 'packed as tightly as possible');
+  assert.ok(isValidLayout(tidied, BASE_COLUMNS));
+});
+
+test('anchors persist, so a deliberate layout survives a reload', async () => {
+  const store = createStore();
+  await store.init();
+  store.update('dashboard', () => ({
+    version: 2,
+    widgets: [
+      { id: 'a', type: 'clock', x: 3, y: 2, w: 1, h: 1, pinned: true, config: {} },
+      { id: 'b', type: 'notes', x: 0, y: 0, w: 2, h: 1, config: {} },
+    ],
+  }));
+  await store.flush();
+
+  const saved = store.getState().dashboard.widgets;
+  const anchored = saved.find((w) => w.id === 'a');
+  assert.equal(anchored.pinned, true, 'the anchor was stored');
+  assert.equal(anchored.y, 2, 'and its row was not compacted away on read');
+  assert.equal(saved.find((w) => w.id === 'b').pinned, false);
+});
+
+test('the default layout is unanchored, so it stays tight', () => {
+  assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => !w.pinned));
 });

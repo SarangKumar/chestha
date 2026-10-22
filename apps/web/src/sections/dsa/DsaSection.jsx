@@ -13,7 +13,7 @@ import { DsaLists } from './DsaLists.jsx';
  * later increments and are deliberately absent rather than present-and-inert.
  */
 const TABS = [
-  { id: 'home', label: 'Today', render: DsaHome },
+  { id: 'home', label: 'Overview', render: DsaHome },
   { id: 'library', label: 'Library', render: DsaLibrary },
   { id: 'lists', label: 'My lists', render: DsaLists },
 ];

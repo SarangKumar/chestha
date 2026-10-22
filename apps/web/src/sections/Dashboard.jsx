@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, layoutHeight, moveItem, newId,
-  projectToColumns, removeItem, resizeItem,
+  projectToColumns, removeItem, resizeItem, tidy,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useColumns } from '../app/useColumns.js';
@@ -14,6 +14,22 @@ const ROW_HEIGHT = 176; // px, one grid row
 const GAP = 16;         // px, matches gap-4
 
 const PRESENTATIONS = ['card', 'transparent', 'inset'];
+
+/**
+ * Named sizes, kept as buttons because the drag handle alone is not
+ * discoverable. Both routes write the same w/h, so they cannot disagree.
+ */
+const SIZE_PRESETS = [
+  { key: 'small', label: 'S', title: 'Small', w: 1, h: 1 },
+  { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
+  { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
+  { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
+  { key: 'full', label: 'F', title: 'Full width', w: 4, h: 2 },
+];
+
+function presetFor(widget) {
+  return SIZE_PRESETS.find((p) => p.w === widget.w && p.h === widget.h)?.key ?? null;
+}
 
 const PRESENTATION_CLASS = {
   card: 'bg-surface border-line shadow-card',
@@ -122,6 +138,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         {editing ? (
           <>
             <Button size="sm" tone="quiet" onClick={() => setResetting(true)}>Reset layout</Button>
+            <Button
+              size="sm"
+              onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
+              title="Remove deliberate gaps and pack everything to the top"
+            >
+              Tidy up
+            </Button>
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" className="size-4" /> Add widget
             </Button>
@@ -248,6 +271,30 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
                   {canEdit && definition.presentations !== false && (
                     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-control border border-line bg-inset px-2 py-1.5">
+                      <div role="group" aria-label={`${definition.name} size`} className="flex items-center gap-1">
+                        <span className="text-[10px] text-ink-muted">Size</span>
+                        {SIZE_PRESETS.filter((preset) => {
+                          const limits = definition.limits ?? {};
+                          return preset.w <= (limits.maxW ?? 4) && preset.h <= (limits.maxH ?? 8)
+                            && preset.w >= (limits.minW ?? 1) && preset.h >= (limits.minH ?? 1);
+                        }).map((preset) => (
+                          <button
+                            key={preset.key}
+                            type="button"
+                            title={`${preset.title} (${preset.w}x${preset.h})`}
+                            aria-pressed={presetFor(widget) === preset.key}
+                            onClick={() => commit(resizeItem(stored, widget.id, preset.w, preset.h, BASE_COLUMNS, definition.limits))}
+                            className={cx(
+                              'size-5 rounded-chip border text-[10px] font-medium transition-colors duration-150',
+                              presetFor(widget) === preset.key
+                                ? 'border-line-strong bg-accent-soft text-ink'
+                                : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
+                            )}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
                       <label className="flex items-center gap-1.5 text-[10px] text-ink-muted">
                         Style
                         <select
@@ -269,8 +316,17 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     </div>
                   )}
 
-                  <div className="min-h-0 flex-1">
-                    <Render widget={widget} onOpenTask={onOpenTask} onCapture={onCapture} onNavigate={onNavigate} />
+                  {/* A container query scope, so a widget adapts to its own
+                      width and height rather than to the viewport. */}
+                  <div className="@container min-h-0 flex-1">
+                    <Render
+                      widget={widget}
+                      span={{ w: widget.w, h: widget.h }}
+                      compact={widget.h <= 1}
+                      onOpenTask={onOpenTask}
+                      onCapture={onCapture}
+                      onNavigate={onNavigate}
+                    />
                   </div>
                 </div>
 
