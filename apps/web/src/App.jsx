@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayISO } from '@vistaar/core';
+import { useShortcutDispatch } from './app/useShortcutDispatch.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
 import { useHashRoute } from './app/useHashRoute.js';
 import { Shell } from './components/Shell.jsx';
@@ -80,13 +81,22 @@ function Workspace() {
     { id: 'import', label: 'Import a backup', group: 'Data', keywords: 'restore upload', run: () => go('settings') },
   ], [state.settings, actions, go, openCapture]);
 
-  useGlobalShortcuts({
+  useShortcutDispatch({
     enabled: status.ready,
-    onPalette: openPalette,
-    onCapture: openCapture,
-    onNavigate: go,
-    onToggleSidebar: () => actions.setSetting('sidebarOpen', !state.settings.sidebarOpen),
+    overrides: state.settings.shortcuts,
     blocked: overlay !== null || editor !== null,
+    handlers: {
+      palette: openPalette,
+      capture: openCapture,
+      sidebar: () => actions.setSetting('sidebarOpen', !state.settings.sidebarOpen),
+      'go-dashboard': () => go('dashboard'),
+      'go-tasks': () => go('tasks', 'today'),
+      'go-calendar': () => go('calendar', todayISO()),
+      'go-dsa': () => go('dsa', 'home'),
+      'go-sounds': () => go('sounds'),
+      'go-settings': () => go('settings'),
+      navigate: go,
+    },
   });
 
   return (
@@ -145,57 +155,3 @@ function Workspace() {
   );
 }
 
-function isTypingTarget(target) {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-}
-
-/** Single-key shortcuts never fire while typing; the palette always works. */
-function useGlobalShortcuts({ enabled, onPalette, onCapture, onNavigate, onToggleSidebar, blocked }) {
-  useEffect(() => {
-    if (!enabled) return undefined;
-    let awaitingGo = false;
-    let goTimer;
-
-    const onKeyDown = (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        onPalette();
-        return;
-      }
-      if (blocked || event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
-
-      const key = event.key.toLowerCase();
-
-      if (awaitingGo) {
-        const destination = { d: 'dashboard', t: 'tasks', c: 'calendar', s: 'settings', o: 'sounds', a: 'dsa' }[key];
-        awaitingGo = false;
-        clearTimeout(goTimer);
-        if (destination) {
-          event.preventDefault();
-          onNavigate(destination);
-        }
-        return;
-      }
-
-      if (key === 'g') {
-        awaitingGo = true;
-        goTimer = setTimeout(() => { awaitingGo = false; }, 1500);
-        return;
-      }
-      if (key === 'n') {
-        event.preventDefault();
-        onCapture();
-      } else if (key === '[') {
-        event.preventDefault();
-        onToggleSidebar();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      clearTimeout(goTimer);
-    };
-  }, [enabled, onPalette, onCapture, onNavigate, onToggleSidebar, blocked]);
-}

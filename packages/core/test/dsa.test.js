@@ -594,3 +594,70 @@ test('pack memberships pointing at absent questions are dropped', () => {
   assert.equal(result.ok, true);
   assert.equal(result.pack.memberships.length, 1);
 });
+
+// ─── URL intake and personal lists ───────────────────────────────────────────
+
+import { INTAKE_LABELS, planIntake, reorderMembership } from '../src/index.js';
+
+test('pasted input is planned line by line before anything is written', () => {
+  const questions = [createQuestion({ url: 'https://leetcode.com/problems/two-sum/', difficulty: 'Easy', topics: ['Array'] })];
+  const memberships = [createMembership('pl_1', 'valid-anagram')];
+  const plan = planIntake([
+    'https://leetcode.com/problems/two-sum/',          // already in library
+    'https://leetcode.com/problems/valid-anagram/',    // already in this list
+    'https://leetcode.com/problems/group-anagrams/',   // new
+    'group-anagrams',                                  // duplicate of the line above
+    'https://leetcode.com/contest/weekly-1/problems/x/', // rejected
+    'https://example.com/problems/two-sum/',           // rejected
+  ].join('\n'), { questions, memberships, listId: 'pl_1' });
+
+  assert.deepEqual(plan.counts, { matched: 1, new: 1, already: 1, duplicate: 1, rejected: 2 });
+  assert.deepEqual(plan.actionable, ['two-sum', 'group-anagrams']);
+  assert.equal(plan.rows[0].outcome, 'matched');
+  assert.equal(plan.rows[1].outcome, 'already');
+  assert.equal(plan.rows[2].title, 'Group Anagrams', 'a title is guessed for display');
+  assert.ok(plan.rows[4].reason.includes('contest'));
+  assert.ok(Object.keys(INTAKE_LABELS).every((k) => INTAKE_LABELS[k]));
+});
+
+test('a question added by URL joins the existing record, never a duplicate', () => {
+  const questions = [createQuestion({ url: 'https://leetcode.com/problems/two-sum/', difficulty: 'Easy', topics: ['Array'] })];
+  const plan = planIntake('https://leetcode.com/problems/two-sum/?envType=x', { questions, memberships: [], listId: 'pl_1' });
+  assert.equal(plan.counts.new, 0);
+  assert.equal(plan.counts.matched, 1, 'matched to the canonical record');
+  assert.equal(plan.rows[0].slug, 'two-sum');
+});
+
+test('adding to a personal list shares progress with curated lists', () => {
+  const slug = 'two-sum';
+  const events = [createEvent({ slug, kind: 'solve', at: at(TODAY), confidence: 4 })];
+  const memberships = [createMembership('blind-75', slug), createMembership('pl_1', slug)];
+
+  // The same derived state is visible from either list.
+  for (const listId of ['blind-75', 'pl_1']) {
+    const inList = memberships.filter((m) => m.listId === listId).map((m) => m.slug);
+    assert.deepEqual(inList, [slug]);
+    assert.equal(questionState(slug, events, {}, TODAY).progress, 'solved');
+  }
+});
+
+test('questions in a personal list can be reordered', () => {
+  let memberships = [
+    createMembership('pl_1', 'a', { order: 0 }),
+    createMembership('pl_1', 'b', { order: 1 }),
+  ];
+  memberships = reorderMembership(memberships, 'pl_1', 'b', 0);
+  assert.equal(memberships.find((m) => m.slug === 'b').order, 0);
+  assert.equal(memberships.find((m) => m.slug === 'a').order, 0, 'other orders are untouched by this helper');
+});
+
+test('personal list memberships survive when the library is reloaded', async () => {
+  const store = createStore();
+  await store.init();
+  store.update('dsa.lists', () => ({
+    lists: [createList({ id: 'pl_1', name: 'Interview Prep' })],
+    memberships: [createMembership('pl_1', 'a-question-not-in-the-library')],
+  }));
+  // Personal memberships are not filtered against the library, which may be lazy.
+  assert.equal(store.getState()['dsa.lists'].memberships.length, 1);
+});

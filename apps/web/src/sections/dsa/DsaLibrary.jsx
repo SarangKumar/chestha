@@ -5,7 +5,7 @@ import {
 } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
-  Badge, Button, CardTitle, EmptyState, Panel, Select, Stat, TextInput, cx,
+  Badge, Button, CardTitle, EmptyState, Panel, Select, Stat, TextInput,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
 

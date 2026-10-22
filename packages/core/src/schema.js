@@ -1,6 +1,7 @@
 import { newId } from './ids.js';
 import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
+import { coerceShortcuts } from './shortcuts.js';
 import {
   DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
   defaultDsaProgress, defaultDsaSettings,
@@ -22,6 +23,9 @@ export const LAZY_AREAS = [...DSA_LAZY_AREAS];
 
 export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 
+/** How a widget presents itself on the dashboard. */
+export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
+
 export const DEFAULT_DASHBOARD = {
   widgets: [
     { id: 'w_today', type: 'today', size: '2x2', config: {} },
@@ -41,6 +45,7 @@ export const DEFAULT_SETTINGS = {
   firstRunNoticeDismissed: false,
   exportReminderDismissed: false,
   lastExportAt: null,
+  shortcuts: {},
 };
 
 export const DEFAULT_SOUND = {
@@ -58,7 +63,7 @@ export function defaultState() {
     notes: { text: '' },
     dashboard: structuredClone(DEFAULT_DASHBOARD),
     sound: structuredClone(DEFAULT_SOUND),
-    settings: { ...DEFAULT_SETTINGS },
+    settings: { ...DEFAULT_SETTINGS, shortcuts: {} },
     'dsa.library': defaultDsaLibrary(),
     'dsa.progress': defaultDsaProgress(),
     'dsa.lists': defaultDsaLists(),
@@ -172,10 +177,20 @@ function coerceDashboard(raw) {
       id,
       type,
       size: WIDGET_SIZES.includes(item.size) ? item.size : '1x1',
-      config: item.config && typeof item.config === 'object' ? { ...item.config } : {},
+      config: coerceWidgetConfig(item.config),
     });
   }
   return { value: { widgets }, issues };
+}
+
+/** Widget config is otherwise free-form; only known keys are constrained. */
+function coerceWidgetConfig(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const config = { ...raw };
+  if ('presentation' in config && !WIDGET_PRESENTATIONS.includes(config.presentation)) {
+    delete config.presentation;
+  }
+  return config;
 }
 
 function coerceSound(raw) {
@@ -229,6 +244,7 @@ function coerceSettings(raw) {
       firstRunNoticeDismissed: bool(raw.firstRunNoticeDismissed, false),
       exportReminderDismissed: bool(raw.exportReminderDismissed, false),
       lastExportAt: isoInstant(raw.lastExportAt),
+      shortcuts: coerceShortcuts(raw.shortcuts),
     },
     issues: [],
   };

@@ -16,6 +16,10 @@ const TITLES = {
   settings: 'Settings',
 };
 
+// The dashboard is a workspace and wants the whole shell; reading-oriented
+// sections stay within a comfortable measure.
+const FULL_WIDTH_SECTIONS = new Set(['dashboard']);
+
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const { state, today, actions } = useWorkspace();
   const sidebarOpen = state.settings.sidebarOpen;
@@ -69,7 +73,12 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           </IconButton>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-6 sm:px-6 sm:pb-12 sm:pt-8">
+        <main
+          className={cx(
+            'w-full px-4 pb-24 pt-6 sm:px-6 sm:pb-12 sm:pt-8',
+            FULL_WIDTH_SECTIONS.has(section) ? 'max-w-none' : 'mx-auto max-w-5xl',
+          )}
+        >
           <div className="mb-6 space-y-2 empty:mb-0">
             <Notices onNavigate={onNavigate} />
             <ExportReminder onNavigate={onNavigate} />

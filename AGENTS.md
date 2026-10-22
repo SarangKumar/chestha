@@ -81,6 +81,16 @@ the reading order and the phone order, which is what makes keyboard reordering a
 responsive layout fall out for free. Unknown widget types degrade visibly, never
 fatally.
 
+The grid uses `grid-flow-row-dense`, and that is load-bearing: CSS grid's default
+flow is *sparse*, so a 2-column widget meeting a row with one free trailing cell
+wraps and leaves that cell permanently empty — a visible hole no widget can occupy.
+Dense flow backfills it. Do not remove it.
+
+**Widgets declare their own presentation** (`card` / `transparent` / `inset`) in the
+registry, overridable per instance via `config.presentation` and validated in
+`schema.js`. The clock defaults to `transparent`; transparent widgets hide their card
+header in normal use and regain a dashed outline in edit mode so they stay draggable.
+
 **Export carries a format version.** `transfer.js` refuses newer formats with a
 specific reason. Import is all-or-nothing and snapshots the prior state first.
 
@@ -134,9 +144,20 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),
   settings with export/import/reset, command palette, quick capture.
-- **Not built:** ambient sounds (needs the synthesis-vs-bundled-loops decision and a
-  licence budget) and the Chrome extension. The Sounds page says so honestly instead
-  of showing a convincing stub — keep it that way.
+- **Sounds are built**, entirely synthesised in the browser from filtered noise
+  (`packages/core/src/sound.js` holds the catalogue and preset rules;
+  `apps/web/src/audio/engine.js` is the Web Audio engine). No audio files, no
+  licence to verify, works offline. The engine is a module singleton so navigation
+  cannot duplicate a voice; each voice is scaled by 1/sqrt(n) and a compressor sits
+  before the destination, so a busy mix cannot clip. Audio only starts from a user
+  gesture — a paused mix is restored pre-armed and never shown as playing while
+  silent.
+- **Keyboard shortcuts are customisable.** `packages/core/src/shortcuts.js` is the
+  single registry: actions, defaults, combo parsing, conflict detection, reserved
+  browser combos and storage validation. `apps/web/src/app/useShortcutDispatch.js`
+  is the **only** global key listener in the app — do not add another. Overrides
+  persist in the existing `settings` area.
+- **Not built:** the Chrome extension.
 - **DSA section — foundation only (increment B of F).** Wired in and navigable at
   `#/dsa`. The domain rules live in `packages/core/src/dsa/` with 31 tests. Shipped:
   canonical question records, shared solving history, the revision ladder, daily

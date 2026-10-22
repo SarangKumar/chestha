@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { DEFAULT_DASHBOARD, newId } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
-import { Button, CardTitle, Dialog, EmptyState, IconButton, Panel, SectionHeader, cx } from '../components/ui.jsx';
+import { Button, CardTitle, Dialog, EmptyState, IconButton, SectionHeader, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
 // Size is a column span plus a height, interpreted inside whatever column count
@@ -11,12 +11,37 @@ import { Icon } from '../components/icons.jsx';
 const SIZE_CLASS = {
   '1x1': 'sm:col-span-1 min-h-44',
   '2x1': 'sm:col-span-2 min-h-44',
-  '2x2': 'sm:col-span-2 min-h-[22rem]',
+  '2x2': 'sm:col-span-2 row-span-2 min-h-[22rem]',
+};
+
+/**
+ * Presentation is a property of the widget, not of the dashboard. A clock reads
+ * better sitting directly on the background than inside a card.
+ */
+const PRESENTATIONS = ['card', 'transparent', 'inset'];
+
+const PRESENTATION_CLASS = {
+  card: 'bg-surface border-line shadow-card',
+  inset: 'bg-inset border-line',
+  transparent: 'bg-transparent border-transparent',
 };
 
 const SIZE_LABEL = { '1x1': 'Small', '2x1': 'Wide', '2x2': 'Large' };
 
 const DEFAULT_WIDGETS = DEFAULT_DASHBOARD.widgets;
+
+/**
+ * A widget instance may override its type's default presentation. An unknown
+ * value falls back to the default rather than rendering nothing.
+ */
+export function resolvePresentation(widget, definition) {
+  const allowed = definition?.presentations === false
+    ? [definition.presentation ?? 'card']
+    : (definition?.presentations ?? PRESENTATIONS);
+  const chosen = widget?.config?.presentation;
+  if (allowed.includes(chosen)) return chosen;
+  return definition?.presentation ?? 'card';
+}
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { state, actions, notify } = useWorkspace();
@@ -141,11 +166,22 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           )}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        // grid-flow-row-dense is the fix for "some empty areas will not accept a
+        // widget". CSS grid's default flow is *sparse*: when a 2-column widget
+        // meets a row with only one free trailing cell it wraps to the next row,
+        // and the cursor never moves backwards, so that cell stays permanently
+        // empty and no later widget can occupy it. Dense flow backfills those
+        // holes, which removes the dead space and makes every visible cell a real
+        // drop target.
+        <ul className="grid auto-rows-[minmax(11rem,auto)] grid-flow-row-dense grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {known.map((widget, index) => {
             const definition = WIDGETS[widget.type];
             const Render = definition.render;
             const Config = definition.Config;
+            const presentation = resolvePresentation(widget, definition);
+            // A transparent widget shows no card header in normal use; the label
+            // stays available to screen readers and returns while editing.
+            const showTitle = editing || presentation !== 'transparent';
 
             return (
               <li
@@ -162,7 +198,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                   dragIndex.current = null;
                 }}
               >
-                <Panel
+                <div
                   tabIndex={editing ? 0 : undefined}
                   aria-label={editing ? `${definition.name}, position ${index + 1} of ${known.length}` : undefined}
                   onKeyDown={(event) => {
@@ -178,11 +214,19 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     }
                   }}
                   className={cx(
-                    'flex w-full flex-col p-4',
-                    editing && 'cursor-grab ring-1 ring-line-strong active:cursor-grabbing',
+                    'flex w-full flex-col rounded-card border',
+                    presentation === 'transparent' ? 'p-1.5' : 'p-4',
+                    PRESENTATION_CLASS[presentation],
+                    // A transparent widget has no visible edges, so edit mode
+                    // gives it a dashed outline to keep it discoverable and
+                    // obviously draggable.
+                    editing && 'cursor-grab active:cursor-grabbing',
+                    editing && (presentation === 'transparent'
+                      ? 'border-dashed border-line-strong'
+                      : 'ring-1 ring-line-strong'),
                   )}
                 >
-                  <div className="mb-2.5 flex items-center gap-1.5">
+                  <div className={cx('flex items-center gap-1.5', showTitle ? 'mb-2.5' : 'sr-only')}>
                     <CardTitle className="min-w-0 flex-1 truncate">{definition.name}</CardTitle>
 
                     {editing ? (
@@ -220,6 +264,23 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                           </button>
                         ))}
                       </div>
+                      {definition.presentations !== false && (
+                        <label className="flex items-center gap-1.5 text-[10px] text-ink-muted">
+                          Style
+                          <select
+                            value={presentation}
+                            onChange={(event) => setConfig(widget.id, { presentation: event.target.value })}
+                            aria-label={`${definition.name} presentation`}
+                            className="h-6 rounded-chip border border-line bg-surface px-1 text-[10px] text-ink"
+                          >
+                            {(definition.presentations ?? PRESENTATIONS).map((value) => (
+                              <option key={value} value={value}>
+                                {value[0].toUpperCase() + value.slice(1)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       {Config && <Config widget={widget} onChange={(patch) => setConfig(widget.id, patch)} />}
                     </div>
                   )}
@@ -232,7 +293,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                       onNavigate={onNavigate}
                     />
                   </div>
-                </Panel>
+                </div>
               </li>
             );
           })}

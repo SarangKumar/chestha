@@ -3,6 +3,7 @@ import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Panel, SectionHeader, cx } from '../../components/ui.jsx';
 import { DsaHome } from './DsaHome.jsx';
 import { DsaLibrary } from './DsaLibrary.jsx';
+import { DsaLists } from './DsaLists.jsx';
 
 /**
  * Sub-navigation lives inside the section rather than in the rail: the rail has
@@ -14,6 +15,7 @@ import { DsaLibrary } from './DsaLibrary.jsx';
 const TABS = [
   { id: 'home', label: 'Today', render: DsaHome },
   { id: 'library', label: 'Library', render: DsaLibrary },
+  { id: 'lists', label: 'My lists', render: DsaLists },
 ];
 
 export function DsaSection({ tab, onChangeTab }) {

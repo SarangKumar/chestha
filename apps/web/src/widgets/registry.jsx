@@ -196,12 +196,14 @@ function SecondsConfig({ widget, onChange }) {
 /** Widget configuration exists only where it changes meaning, never for decoration. */
 export const WIDGETS = {
   today: {
+    presentation: 'card',
     name: "Today's tasks",
     description: 'Due today, plus everything overdue.',
     sizes: ['2x1', '2x2'],
     render: TodayWidget,
   },
   upcoming: {
+    presentation: 'card',
     name: 'Upcoming',
     description: 'What is due within a horizon you choose.',
     sizes: ['1x1', '2x1', '2x2'],
@@ -209,12 +211,15 @@ export const WIDGETS = {
     Config: HorizonConfig,
   },
   overdue: {
+    presentation: 'card',
     name: 'Overdue',
     description: 'A count, and the oldest few.',
     sizes: ['1x1', '2x1'],
     render: OverdueWidget,
   },
   clock: {
+    // Reads better sitting directly on the dashboard than boxed in a card.
+    presentation: 'transparent',
     name: 'Clock and date',
     description: 'Local time and today’s date.',
     sizes: ['1x1', '2x1'],
@@ -222,12 +227,14 @@ export const WIDGETS = {
     Config: SecondsConfig,
   },
   notes: {
+    presentation: 'card',
     name: 'Scratchpad',
     description: 'One plain note, saved as you type.',
     sizes: ['1x1', '2x1', '2x2'],
     render: NotesWidget,
   },
   undated: {
+    presentation: 'card',
     name: 'No due date',
     description: 'Open tasks that are not on the calendar.',
     sizes: ['1x1', '2x1'],

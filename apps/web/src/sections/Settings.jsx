@@ -5,7 +5,7 @@ import {
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
-import { SHORTCUTS } from '../app/shortcuts.js';
+import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
 
 export function Settings() {
   const { state, status, actions, store, notify } = useWorkspace();
@@ -66,21 +66,7 @@ export function Settings() {
         <TagCleanup />
       </Group>
 
-      <Group title="Keyboard">
-        <p className="text-sm text-ink-muted">
-          Shortcuts are fixed for now. Everything here is also reachable with the pointer.
-        </p>
-        <ul className="divide-y divide-line overflow-hidden rounded-control border border-line">
-          {SHORTCUTS.map((shortcut) => (
-            <li key={shortcut.keys} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-              <span className="text-sm text-ink">{shortcut.description}</span>
-              <kbd className="shrink-0 rounded-chip border border-line bg-inset px-1.5 py-0.5 font-mono text-[11px] text-ink-muted">
-                {shortcut.keys}
-              </kbd>
-            </li>
-          ))}
-        </ul>
-      </Group>
+      <ShortcutSettings Group={Group} />
 
       <StorageGroup status={status} />
       <DataGroup state={state} actions={actions} store={store} notify={notify} />

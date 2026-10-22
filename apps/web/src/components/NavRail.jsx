@@ -1,22 +1,47 @@
 import { Icon } from './icons.jsx';
 import { cx } from './ui.jsx';
 
-const ITEMS = [
+// Primary destinations sit at the top; Settings is pinned to the bottom of the
+// rail. The mobile bar keeps everything in one row, where there is no "bottom".
+const PRIMARY = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
   { id: 'dsa', label: 'DSA', icon: 'dsa' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
+const SETTINGS = { id: 'settings', label: 'Settings', icon: 'settings' };
+
+const ITEMS = [...PRIMARY, SETTINGS];
+
 /** A rail on wide screens, a bottom bar on phones. The same items either way. */
+function RailButton({ item, section, onNavigate }) {
+  const active = section === item.id;
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(item.id)}
+      aria-current={active ? 'page' : undefined}
+      title={item.label}
+      className={cx(
+        'group relative flex size-10 shrink-0 items-center justify-center rounded-card transition-colors duration-150',
+        active ? 'bg-accent-soft text-ink' : 'text-ink-faint hover:bg-hover hover:text-ink',
+      )}
+    >
+      <Icon name={item.icon} />
+      <span className="sr-only">{item.label}</span>
+      {active && <span className="absolute -left-px h-5 w-0.5 rounded-full bg-accent" aria-hidden="true" />}
+    </button>
+  );
+}
+
 export function NavRail({ section, onNavigate, onCapture }) {
   return (
     <>
       <nav
         aria-label="Sections"
-        className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center gap-1 border-r border-line bg-canvas py-3.5 sm:flex"
+        className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center gap-1 overflow-y-auto border-r border-line bg-canvas py-3.5 scrollbar-thin sm:flex"
       >
         <img
           src="/icon-192.png"
@@ -37,27 +62,15 @@ export function NavRail({ section, onNavigate, onCapture }) {
           <Icon name="plus" />
         </button>
 
-        {ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onNavigate(item.id)}
-            aria-current={section === item.id ? 'page' : undefined}
-            title={item.label}
-            className={cx(
-              'group relative flex size-10 items-center justify-center rounded-card transition-colors duration-150',
-              section === item.id
-                ? 'bg-accent-soft text-ink'
-                : 'text-ink-faint hover:bg-hover hover:text-ink',
-            )}
-          >
-            <Icon name={item.icon} />
-            <span className="sr-only">{item.label}</span>
-            {section === item.id && (
-              <span className="absolute -left-px h-5 w-0.5 rounded-full bg-accent" aria-hidden="true" />
-            )}
-          </button>
+        {PRIMARY.map((item) => (
+          <RailButton key={item.id} item={item} section={section} onNavigate={onNavigate} />
         ))}
+
+        {/* mt-auto pins Settings to the bottom; overflow keeps it reachable on
+            short viewports instead of pushing it off-screen. */}
+        <div className="mt-auto flex flex-col items-center gap-1 pt-3">
+          <RailButton item={SETTINGS} section={section} onNavigate={onNavigate} />
+        </div>
       </nav>
 
       <nav
