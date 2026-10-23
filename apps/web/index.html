@@ -9,15 +9,9 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
-    <script>
-      // Applied before first paint so the correct theme never flashes.
-      try {
-        const stored = localStorage.getItem('vistaar.theme');
-        const dark = stored === 'dark' || ((!stored || stored === 'system') &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
-      } catch {}
-    </script>
+    <!-- External, not inline: the extension's MV3 policy is script-src 'self',
+         which blocks inline scripts. Must stay non-deferred to beat first paint. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
