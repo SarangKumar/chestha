@@ -44,12 +44,12 @@ export function NavRail({ section, onNavigate, onCapture }) {
         className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center gap-1 overflow-y-auto border-r border-line bg-canvas py-3.5 scrollbar-thin sm:flex"
       >
         <img
-          src="/icon-192.png"
+          src="/icon-mark-128.png"
           alt=""
           aria-hidden="true"
           width="36"
           height="36"
-          className="mb-3 size-9 rounded-chip"
+          className="mb-3 size-9"
         />
 
         <button

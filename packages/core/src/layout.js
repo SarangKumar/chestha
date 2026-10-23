@@ -22,18 +22,21 @@ import { newId } from './ids.js';
  * here, so old arrangements simply keep the left of the grid and the columns to
  * their right become available.
  */
-export const BASE_COLUMNS = 12;
+export const BASE_COLUMNS = 24;
+
+/** The column count layouts were stored at before the grid was halved. */
+export const LEGACY_BASE_COLUMNS = 12;
 
 /**
  * The grid spans the page from edge to edge, so the cell is derived from the
  * available width rather than fixed. A column narrower than this is unusable, and
  * that is what reduces the column count on small screens.
  */
-export const MIN_CELL_PX = 64;
+export const MIN_CELL_PX = 32;
 
 /** Bounds on the square cell, so it neither vanishes nor balloons. */
-export const MIN_ROW_PX = 96;
-export const MAX_ROW_PX = 168;
+export const MIN_ROW_PX = 48;
+export const MAX_ROW_PX = 84;
 
 /**
  * The column count for a given page width. The full grid is used wherever the
@@ -64,16 +67,17 @@ export const MIN_H = 1;
  * differently.
  */
 export const SIZE_PRESETS = [
-  { key: 'small', label: 'S', title: 'Small', w: 1, h: 1 },
-  { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
-  { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
-  { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
-  { key: 'bar', label: 'B3', title: 'Bar', w: 3, h: 1 },
-  { key: 'banner', label: 'B4', title: 'Banner', w: 4, h: 1 },
-  { key: 'panel', label: 'P', title: 'Panel', w: 3, h: 2 },
-  { key: 'block', label: 'BL', title: 'Block', w: 4, h: 2 },
-  { key: 'column', label: 'C', title: 'Column', w: 2, h: 3 },
-  { key: 'row', label: 'R', title: 'Full row', w: BASE_COLUMNS, h: 1 },
+  { key: 'tiny', label: 'XS', title: 'Tiny', w: 1, h: 1 },
+  { key: 'small', label: 'S', title: 'Small', w: 2, h: 2 },
+  { key: 'wide', label: 'W', title: 'Wide', w: 4, h: 2 },
+  { key: 'tall', label: 'T', title: 'Tall', w: 2, h: 4 },
+  { key: 'large', label: 'L', title: 'Large', w: 4, h: 4 },
+  { key: 'bar', label: 'B3', title: 'Bar', w: 6, h: 2 },
+  { key: 'banner', label: 'B4', title: 'Banner', w: 8, h: 2 },
+  { key: 'panel', label: 'P', title: 'Panel', w: 6, h: 4 },
+  { key: 'block', label: 'BL', title: 'Block', w: 8, h: 4 },
+  { key: 'column', label: 'C', title: 'Column', w: 4, h: 6 },
+  { key: 'row', label: 'R', title: 'Full row', w: BASE_COLUMNS, h: 2 },
 ];
 
 export function presetByKey(key) {
@@ -322,4 +326,21 @@ export function migrateOrderedLayout(widgets) {
 
 export function needsMigration(widgets) {
   return widgets.some((w) => w && w.size !== undefined && w.x === undefined);
+}
+
+/**
+ * Rescales a layout when the grid resolution changes.
+ *
+ * Halving the cell doubles the number of columns, so a layout stored against the
+ * old grid must be doubled to stay the same size on screen. The factor is exact,
+ * so nothing is rounded away and the arrangement is preserved precisely.
+ */
+export function scaleLayout(items, factor) {
+  return items.map((item) => ({
+    ...item,
+    x: item.x * factor,
+    y: item.y * factor,
+    w: item.w * factor,
+    h: item.h * factor,
+  }));
 }

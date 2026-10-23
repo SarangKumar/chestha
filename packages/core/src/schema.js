@@ -4,7 +4,8 @@ import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
 import { coerceRecurrence } from './recurrence.js';
 import { coerceShortcuts } from './shortcuts.js';
 import {
-  BASE_COLUMNS, createPlacement, migrateOrderedLayout, needsMigration, normalizeLayout,
+  BASE_COLUMNS, LEGACY_BASE_COLUMNS, createPlacement, migrateOrderedLayout, needsMigration,
+  normalizeLayout, scaleLayout,
 } from './layout.js';
 import {
   DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
@@ -44,13 +45,13 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
  * releases the anchors for anyone who does want it packed.
  */
 export const DEFAULT_DASHBOARD = {
-  version: 2,
+  version: 3,
   widgets: [
-    { id: 'w_dsa', type: 'dsaToday', x: 11, y: 0, w: 1, h: 1, pinned: true, config: {} },
-    { id: 'w_clock', type: 'clock', x: 5, y: 1, w: 2, h: 1, pinned: true, config: {} },
-    { id: 'w_search', type: 'search', x: 4, y: 2, w: 4, h: 1, pinned: true, config: {} },
-    { id: 'w_notes', type: 'notes', x: 0, y: 4, w: 2, h: 2, pinned: true, config: {} },
-    { id: 'w_shortcuts', type: 'shortcuts', x: 10, y: 4, w: 2, h: 1, pinned: true, config: {} },
+    { id: 'w_dsa', type: 'dsaToday', x: 22, y: 0, w: 2, h: 2, pinned: true, config: {} },
+    { id: 'w_clock', type: 'clock', x: 10, y: 2, w: 4, h: 2, pinned: true, config: {} },
+    { id: 'w_search', type: 'search', x: 8, y: 4, w: 8, h: 2, pinned: true, config: {} },
+    { id: 'w_notes', type: 'notes', x: 0, y: 8, w: 4, h: 4, pinned: true, config: {} },
+    { id: 'w_shortcuts', type: 'shortcuts', x: 20, y: 8, w: 4, h: 2, pinned: true, config: {} },
   ],
 };
 
@@ -234,10 +235,16 @@ function coerceDashboard(raw) {
     widgets = migrateOrderedLayout(cleaned);
     issues.push('Your dashboard layout was upgraded to the new grid. Widget order and sizes were kept.');
   } else {
-    widgets = normalizeLayout(cleaned.map(createPlacement), BASE_COLUMNS);
+    let placed = cleaned.map(createPlacement);
+    // Version 2 was stored against a grid half as fine. Doubling keeps every
+    // widget exactly the size and position it had on screen.
+    if (Number(raw.version) < 3) {
+      placed = scaleLayout(placed, BASE_COLUMNS / LEGACY_BASE_COLUMNS);
+    }
+    widgets = normalizeLayout(placed, BASE_COLUMNS);
   }
 
-  return { value: { version: 2, widgets }, issues };
+  return { value: { version: 3, widgets }, issues };
 }
 
 /**

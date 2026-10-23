@@ -127,3 +127,67 @@ test('an existing task without a pattern still loads', () => {
   assert.equal(value[0].recurrence, null);
   assert.equal(value[0].title, 'Old task');
 });
+
+// ─── Projecting occurrences onto the calendar ────────────────────────────────
+
+import { occurrencesInRange } from '../src/index.js';
+
+test('a daily task lands on every day of the range', () => {
+  const task = createTask({ title: 'Stretch', due: FRIDAY, recurrence: { weekdays: EVERY_DAY } });
+  const dates = occurrencesInRange(task, FRIDAY, '2026-10-29');
+  // Its own due date is a real record, so it is not projected on top of itself.
+  assert.deepEqual(dates, ['2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29']);
+});
+
+test('a weekday task skips the weekend in the projection too', () => {
+  const task = createTask({ title: 'Standup', due: FRIDAY, recurrence: { weekdays: WEEKDAYS_ONLY } });
+  const dates = occurrencesInRange(task, FRIDAY, '2026-10-30');
+  assert.deepEqual(dates, ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30']);
+  assert.ok(!dates.includes('2026-10-24'), 'Saturday');
+  assert.ok(!dates.includes('2026-10-25'), 'Sunday');
+});
+
+test('nothing is projected before the task starts', () => {
+  const task = createTask({ title: 'Later', due: '2026-11-01', recurrence: { weekdays: EVERY_DAY } });
+  const dates = occurrencesInRange(task, FRIDAY, '2026-11-04');
+  assert.deepEqual(dates, ['2026-11-02', '2026-11-03', '2026-11-04']);
+  assert.ok(dates.every((d) => d > task.due), 'every projection is after the real record');
+});
+
+test('a monthly task projects its later months, not its own due date', () => {
+  const task = createTask({ title: 'Rent', due: '2026-10-31', recurrence: { kind: 'monthly', monthDay: 31 } });
+  assert.deepEqual(occurrencesInRange(task, '2026-10-01', '2026-11-05'), [], 'only its own date falls here');
+  assert.deepEqual(occurrencesInRange(task, '2026-10-01', '2027-01-05'),
+    ['2026-11-30', '2026-12-31'], 'November clamps to the 30th');
+});
+
+test('a task that does not repeat projects nothing', () => {
+  const task = createTask({ title: 'One off', due: FRIDAY });
+  assert.deepEqual(occurrencesInRange(task, FRIDAY, '2026-11-30'), []);
+});
+
+test('an inverted or invalid range yields nothing rather than looping', () => {
+  const task = createTask({ title: 'Stretch', due: FRIDAY, recurrence: { weekdays: EVERY_DAY } });
+  assert.deepEqual(occurrencesInRange(task, '2026-11-30', FRIDAY), [], 'from after to');
+  assert.deepEqual(occurrencesInRange(task, 'nonsense', FRIDAY), []);
+  assert.deepEqual(occurrencesInRange(task, FRIDAY, ''), []);
+});
+
+test('a projection over a year is bounded, not unbounded', () => {
+  const task = createTask({ title: 'Stretch', due: '2026-01-01', recurrence: { weekdays: EVERY_DAY } });
+  const dates = occurrencesInRange(task, '2026-01-01', '2030-01-01');
+  assert.ok(dates.length <= 400, `bounded at ${dates.length}`);
+  assert.ok(dates.length > 300, 'but still covers a useful span');
+});
+
+test('projections are only for the series, and completing still advances one record', () => {
+  const task = createTask({ title: 'Stretch', due: FRIDAY, recurrence: { weekdays: EVERY_DAY } });
+  const projected = occurrencesInRange(task, FRIDAY, '2026-10-26');
+
+  // The projections are dates, not tasks — there is still exactly one record,
+  // and completing it produces exactly one successor.
+  assert.ok(projected.every((d) => typeof d === 'string'));
+  const next = nextInstance(task, FRIDAY);
+  assert.equal(next.due, '2026-10-24');
+  assert.ok(projected.includes(next.due), 'the successor lands on a projected date');
+});

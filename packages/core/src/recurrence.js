@@ -1,4 +1,4 @@
-import { addDays, isValidISODate, todayISO, weekdayIndex, WEEKDAYS_SHORT } from './dates.js';
+import { addDays, compareISO, isValidISODate, todayISO, weekdayIndex, WEEKDAYS_SHORT } from './dates.js';
 
 /**
  * Recurrence, modelled the way an alarm is: you choose the days, and the label
@@ -120,6 +120,34 @@ export function describeRecurrence(recurrence) {
   if (sameDays(days, WEEKEND_ONLY)) return 'Every weekend';
   if (days.length === 1) return `Every ${WEEKDAY_LABELS[days[0]]}`;
   return `Every ${days.map((d) => WEEKDAY_LABELS[d]).join(', ')}`;
+}
+
+/**
+ * Every date a pattern lands on inside a range, excluding the task's own due date
+ * — that one already exists as a real record.
+ *
+ * These are *projections*, not stored tasks. The model keeps one record per
+ * recurring task and spawns the next on completion, which avoids filling storage
+ * and the calendar with rows nobody asked for; but it also means a daily task
+ * would otherwise appear on exactly one day. Projecting closes that gap without
+ * giving up the single-record model: the calendar can show every occurrence while
+ * only one of them is a thing you can complete.
+ */
+export function occurrencesInRange(task, fromISO, toISO, limit = 400) {
+  if (!isRecurring(task) || !isValidISODate(fromISO) || !isValidISODate(toISO)) return [];
+  if (compareISO(fromISO, toISO) > 0) return [];
+
+  // Never project before the task itself starts.
+  const anchor = task.due && compareISO(task.due, fromISO) > 0 ? task.due : fromISO;
+
+  const dates = [];
+  let cursor = firstOccurrence(anchor, task.recurrence);
+  for (let i = 0; cursor && i < limit; i += 1) {
+    if (compareISO(cursor, toISO) > 0) break;
+    if (compareISO(cursor, fromISO) >= 0 && cursor !== task.due) dates.push(cursor);
+    cursor = nextOccurrence(cursor, task.recurrence);
+  }
+  return dates;
 }
 
 /**

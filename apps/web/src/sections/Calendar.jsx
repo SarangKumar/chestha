@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  addDays, addMonths, formatLongDate, isCompleted, isSameMonth, monthGrid, monthLabel,
-  orderedWeekdays, selectDueOn, selectNoDate, sortTasks, startOfMonth, weekdayIndex,
+  addDays, addMonths, describeRecurrence, formatLongDate, isCompleted, isRecurring, isSameMonth,
+  monthGrid, monthLabel, occurrencesInRange, orderedWeekdays, selectDueOn, selectNoDate, sortTasks,
+  startOfMonth, weekdayIndex,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
@@ -41,8 +42,34 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
     return map;
   }, [tasks]);
 
+  /**
+   * Future dates a repeating task lands on, projected across the visible month.
+   *
+   * These are not stored tasks: the model keeps one record per recurring task and
+   * creates the next when you complete it. Without projecting, a daily task would
+   * show on a single day. They are drawn differently and open the real task for
+   * editing, so there is never any doubt which one you can tick off.
+   */
+  const projected = useMemo(() => {
+    const first = weeks[0][0];
+    const last = weeks[5][6];
+    const map = new Map();
+    for (const task of tasks) {
+      // A completed one has already spawned its successor; projecting it too
+      // would show the same series twice.
+      if (!isRecurring(task) || isCompleted(task)) continue;
+      for (const date of occurrencesInRange(task, first, last)) {
+        const list = map.get(date);
+        if (list) list.push(task);
+        else map.set(date, [task]);
+      }
+    }
+    return map;
+  }, [tasks, weeks]);
+
   const undated = useMemo(() => selectNoDate(tasks), [tasks]);
   const dayTasks = useMemo(() => sortTasks(selectDueOn(tasks, activeDay), 'priority'), [tasks, activeDay]);
+  const dayRepeats = useMemo(() => projected.get(activeDay) ?? [], [projected, activeDay]);
 
   useEffect(() => {
     if (focusTarget.current) {
@@ -108,6 +135,7 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
               <div key={week[0]} role="row" className="grid grid-cols-7">
                 {week.map((iso) => {
                   const dayList = byDate.get(iso) ?? [];
+                  const repeats = projected.get(iso) ?? [];
                   const open = dayList.filter((t) => !isCompleted(t));
                   const overdue = iso < today && open.length > 0;
                   const inMonth = isSameMonth(iso, cursor);
@@ -128,6 +156,7 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
                         aria-label={[
                           formatLongDate(iso),
                           `${dayList.length} task${dayList.length === 1 ? '' : 's'}`,
+                          repeats.length ? `${repeats.length} repeating` : null,
                           overdue ? `${open.length} overdue` : null,
                           isToday ? 'today' : null,
                         ].filter(Boolean).join(', ')}
@@ -162,6 +191,16 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
                               {task.title}
                             </span>
                           ))}
+                          {/* Projected occurrences: outlined rather than filled,
+                              so a real task is never confused with a repeat. */}
+                          {repeats.slice(0, Math.max(0, MAX_CHIPS - dayList.length)).map((task) => (
+                            <span
+                              key={`repeat-${task.id}`}
+                              className="block truncate rounded-chip border border-dashed border-line-strong px-1.5 py-0.5 text-[10px] leading-tight text-ink-faint"
+                            >
+                              {task.title}
+                            </span>
+                          ))}
                           {hidden > 0 && (
                             <span className="block px-1.5 pt-0.5 text-[10px] font-medium text-ink-faint">+{hidden} more</span>
                           )}
@@ -182,6 +221,7 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
                 <h3 className="text-card font-semibold text-ink">{formatLongDate(activeDay)}</h3>
                 <p className="mt-0.5 text-meta text-ink-faint">
                   {dayTasks.length} task{dayTasks.length === 1 ? '' : 's'} due
+                  {dayRepeats.length > 0 && ` · ${dayRepeats.length} repeating`}
                 </p>
               </div>
               <Button size="sm" tone="primary" onClick={() => onCreateOn(activeDay)}>
@@ -197,13 +237,41 @@ export function Calendar({ selected, onSelect, onOpenTask, onCreateOn, onNavigat
               onToggle={actions.setCompleted}
               onOpen={onOpenTask}
               onDelete={actions.deleteTask}
-              emptyState={(
+              emptyState={dayRepeats.length > 0 ? null : (
                 <EmptyState
                   title="Nothing due on this date"
                   action={<Button size="sm" onClick={() => onCreateOn(activeDay)}>Add a task here</Button>}
                 />
               )}
             />
+
+            {dayRepeats.length > 0 && (
+              <div className={dayTasks.length > 0 ? 'mt-3 border-t border-line pt-3' : ''}>
+                <p className="mb-1.5 text-meta font-medium text-ink-muted">Repeats on this day</p>
+                <ul className="space-y-0.5">
+                  {dayRepeats.map((task) => (
+                    <li key={task.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenTask(task.id)}
+                        title={`Edit “${task.title}” — ${describeRecurrence(task.recurrence)}`}
+                        className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-150 hover:bg-hover"
+                      >
+                        <Icon name="repeat" className="size-3.5 shrink-0 text-ink-faint" />
+                        <span className="min-w-0 flex-1 truncate text-sm text-ink-muted">{task.title}</span>
+                        <span className="shrink-0 text-[10px] text-ink-faint">
+                          {describeRecurrence(task.recurrence).replace(/^Every /, '')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-ink-faint">
+                  Shown from the repeat pattern. Only the current occurrence can be ticked off —
+                  completing it creates the next. Select one to edit the series.
+                </p>
+              </div>
+            )}
           </Panel>
 
           {/* Undated tasks are never invisible: the calendar acknowledges them. */}
