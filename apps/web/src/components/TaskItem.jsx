@@ -1,4 +1,5 @@
-import { PRIORITIES, formatDueDate, isCompleted, isOverdue } from '@vistaar/core';
+import { PRIORITIES, describeRecurrence, formatDueDate, isCompleted, isOverdue, isRecurring } from '@vistaar/core';
+import { Icon } from './icons.jsx';
 import { Badge, IconButton, cx } from './ui.jsx';
 
 const PRIORITY_LABEL = { none: 'No priority', low: 'Low', medium: 'Medium', high: 'High' };
@@ -69,6 +70,12 @@ export function TaskItem({ task, today, onToggle, onOpen, onDelete, compact = fa
             </Badge>
           )}
           {!task.due && !done && showDate && <Badge tone="neutral">No date</Badge>}
+          {isRecurring(task) && (
+            <Badge tone="neutral" title={describeRecurrence(task.recurrence)}>
+              <Icon name="repeat" className="size-3" />
+              {describeRecurrence(task.recurrence).replace(/^Every /, '')}
+            </Badge>
+          )}
           {task.tags.map((tag) => (
             <Badge key={tag} tone="neutral">#{tag}</Badge>
           ))}

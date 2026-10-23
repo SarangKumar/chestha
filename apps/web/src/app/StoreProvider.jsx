@@ -2,8 +2,8 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
-  createEvent, createStore, createTask, newId, normalizeTag, normalizeTags,
-  requestPersistence, scheduleAfterEvent, tagKey,
+  createEvent, createStore, createTask, isRecurring, newId, nextInstance, normalizeTag,
+  normalizeTags, requestPersistence, scheduleAfterEvent, tagKey, todayISO,
 } from '@vistaar/core';
 import { useToday } from './useToday.js';
 
@@ -134,6 +134,12 @@ function buildActions(store, notify) {
 
     /** Completion records an instant; reopening clears it. The due date is never
      *  rewritten, so a task finished late stays dated when it was due. */
+    /**
+     * Completing a recurring task spawns the next occurrence rather than
+     * reopening this one: the finished instance keeps its own history, and the
+     * follow-up starts clean. Undo removes the spawned task as well, so one
+     * click never leaves a stray behind.
+     */
     setCompleted(id, completed) {
       let subject = null;
       store.update('tasks', (tasks) => tasks.map((t) => {
@@ -142,12 +148,24 @@ function buildActions(store, notify) {
         return touch(t, { completedAt: completed ? new Date().toISOString() : null });
       }));
       if (!subject) return;
+
       const previous = subject.completedAt;
-      notify(completed ? `Completed “${trim(subject.title)}”` : `Reopened “${trim(subject.title)}”`, {
+      let spawned = null;
+      if (completed && isRecurring(subject)) {
+        const next = nextInstance(subject, todayISO());
+        if (next) {
+          spawned = createTask(next);
+          store.update('tasks', (tasks) => [spawned, ...tasks]);
+        }
+      }
+
+      const label = completed ? `Completed “${trim(subject.title)}”` : `Reopened “${trim(subject.title)}”`;
+      notify(spawned ? `${label} · next on ${spawned.due}` : label, {
         actionLabel: 'Undo',
-        onAction: () => store.update('tasks', (tasks) => tasks.map((t) => (
-          t.id === id ? touch(t, { completedAt: previous }) : t
-        ))),
+        duration: spawned ? 8000 : undefined,
+        onAction: () => store.update('tasks', (tasks) => tasks
+          .filter((t) => !spawned || t.id !== spawned.id)
+          .map((t) => (t.id === id ? touch(t, { completedAt: previous }) : t))),
       });
     },
 

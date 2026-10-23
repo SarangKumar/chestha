@@ -4,7 +4,7 @@ import {
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
-import { useColumns } from '../app/useColumns.js';
+import { useGridMetrics } from '../app/useColumns.js';
 import { useGridDrag } from '../app/useGridDrag.js';
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
 import {
@@ -14,13 +14,7 @@ import { Icon } from '../components/icons.jsx';
 
 const GAP = 16; // px, matches gap-4
 
-/**
- * A 1x1 widget is a small square: CELL wide and CELL tall, fixed at every screen
- * size. Columns are laid out at that exact pixel width rather than `1fr`, because
- * a fractional column stretches with the window and a stretched column cannot be
- * square — on a 2000px screen four fractional columns gave 490x216 tiles.
- */
-const CELL = 176;
+// Cell size is measured from the page; see useGridMetrics.
 
 const PRESENTATIONS = ['card', 'transparent', 'inset'];
 
@@ -47,9 +41,9 @@ export function resolvePresentation(widget, definition) {
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { state, actions, notify } = useWorkspace();
-  // One element drives both the column count and the drag maths.
+  // One element drives the column count, the cell size and the drag maths.
   const gridRef = useRef(null);
-  const columns = useColumns(gridRef);
+  const { columns, cell } = useGridMetrics(gridRef);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -70,13 +64,27 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
   // The layout is stored at four columns and projected for narrower screens, so
   // a phone never rewrites the desktop arrangement.
-  const atFullWidth = columns >= BASE_COLUMNS;
-  const visible = useMemo(
-    () => (atFullWidth ? known : projectToColumns(known, columns)),
-    [known, columns, atFullWidth],
+  /**
+   * Editing is allowed whenever the view *is* the stored layout — that is, when
+   * every widget already fits the current column count, so nothing has been
+   * reflowed for display. Saving then writes back exactly what is on screen.
+   *
+   * It is deliberately not `columns >= BASE_COLUMNS`: the stored grid is 12 wide
+   * and almost no screen shows 12 columns, so that test disabled editing
+   * everywhere. The point of the guard is to stop a narrowed view overwriting a
+   * wider arrangement, which this states directly.
+   */
+  const fitsCurrent = useMemo(
+    () => known.every((widget) => widget.x + widget.w <= columns),
+    [known, columns],
   );
 
-  const canEdit = editing && atFullWidth;
+  const visible = useMemo(
+    () => (fitsCurrent ? known : projectToColumns(known, columns)),
+    [known, columns, fitsCurrent],
+  );
+
+  const canEdit = editing && fitsCurrent;
 
   const commit = (next) => actions.setDashboard(() => next);
 
@@ -87,7 +95,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { drag, surfaceRef, begin, move, end } = useGridDrag({
     surfaceRef: gridRef,
     columns,
-    rowHeight: CELL,
+    rowHeight: cell,
     gap: GAP,
     onCommit: (id, mode, preview) => {
       const definition = WIDGETS[stored.find((w) => w.id === id)?.type];
@@ -161,10 +169,11 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         )}
       </div>
 
-      {editing && !atFullWidth && (
+      {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
-          The layout is arranged on a four-column grid and is edited at desktop width. This screen shows your
-          arrangement reflowed to fit, and your saved positions are left untouched.
+          Some widgets sit beyond the {columns} column{columns === 1 ? '' : 's'} this window fits, so the
+          arrangement below has been reflowed to show it. Editing is paused here to protect your saved
+          positions — widen the window, or use Tidy up on a wider screen.
         </div>
       )}
 
@@ -195,14 +204,11 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           onPointerCancel={canEdit ? end : undefined}
           className="relative grid touch-pan-y"
           style={{
-            // Fixed tracks keep every cell square. A single column is the
-            // exception: it fills the width and keeps the square height.
-            gridTemplateColumns: columns === 1
-              ? 'minmax(0, 1fr)'
-              : `repeat(${columns}, ${CELL}px)`,
-            gridAutoRows: `${CELL}px`,
+            // Fractional tracks so the grid spans the page edge to edge; the
+            // measured cell keeps them square.
+            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+            gridAutoRows: `${cell}px`,
             gap: `${GAP}px`,
-            justifyContent: 'start',
           }}
         >
           {/* The snap preview: where the dragged widget will land. */}
@@ -391,7 +397,7 @@ function WidgetDrawer({ widget, onClose, onResize, onConfig, onRemove }) {
         <section>
           <CardTitle className="mb-2">Size</CardTitle>
           <div role="group" aria-label="Widget size" className="flex flex-wrap gap-1.5">
-            {allowedPresets(definition.limits).map((preset) => (
+            {allowedPresets(definition.limits, definition.sizes).map((preset) => (
               <button
                 key={preset.key}
                 type="button"

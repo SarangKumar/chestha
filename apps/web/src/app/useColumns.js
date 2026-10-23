@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react';
-import { CELL_PX, columnsForWidth } from '@vistaar/core';
+import { cellForWidth, columnsForWidth } from '@vistaar/core';
 
 /**
- * Column count derived from how many fixed-width cells fit the grid, rather than
- * from fixed breakpoints — the cell size is constant, so the count is what has
- * to vary for the grid to reach the right of the screen.
+ * Measures the grid and reports both the column count and the square cell size.
+ *
+ * The grid spans the page edge to edge, so the cell is derived from the width
+ * rather than fixed — which is what makes the rightmost column the right edge of
+ * the screen.
  */
-export function useColumns(ref) {
-  const [columns, setColumns] = useState(4);
+export function useGridMetrics(ref) {
+  const [metrics, setMetrics] = useState({ columns: 12, cell: 132 });
 
   useEffect(() => {
     const element = ref?.current;
     if (!element) return undefined;
     const measure = () => {
       const width = element.getBoundingClientRect().width;
-      if (width) setColumns(columnsForWidth(width, CELL_PX));
+      if (!width) return;
+      const columns = columnsForWidth(width);
+      const cell = cellForWidth(width, columns);
+      setMetrics((previous) => (
+        previous.columns === columns && previous.cell === cell ? previous : { columns, cell }
+      ));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -22,5 +29,5 @@ export function useColumns(ref) {
     return () => observer.disconnect();
   }, [ref]);
 
-  return columns;
+  return metrics;
 }

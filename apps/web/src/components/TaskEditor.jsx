@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PRIORITIES, addDays, completedLocalDay, formatLongDate, isCompleted, normalizeTags, tagKey, todayISO } from '@vistaar/core';
+import {
+  PRIORITIES, addDays, completedLocalDay, describeRecurrence, firstOccurrence, isCompleted,
+  normalizeTags, tagKey, todayISO,
+} from '@vistaar/core';
+import { RepeatPicker } from './RepeatPicker.jsx';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Badge, Button, Dialog, Field, Select, TextArea, TextInput, cx } from './ui.jsx';
 import { PRIORITY_LABEL } from './TaskItem.jsx';
 
-const EMPTY = { title: '', notes: '', due: '', priority: 'none', tags: [] };
+const EMPTY = { title: '', notes: '', due: '', priority: 'none', tags: [], recurrence: null };
 
 export function TaskEditor({ open, taskId, defaultDue, onClose }) {
   const { state, today, actions } = useWorkspace();
@@ -26,6 +30,7 @@ export function TaskEditor({ open, taskId, defaultDue, onClose }) {
         due: existing.due ?? '',
         priority: existing.priority,
         tags: existing.tags,
+        recurrence: existing.recurrence ?? null,
       });
     } else {
       setDraft({ ...EMPTY, due: defaultDue ?? '' });
@@ -49,12 +54,19 @@ export function TaskEditor({ open, taskId, defaultDue, onClose }) {
 
   const save = () => {
     if (!canSave) return;
+    // A repeating task needs a date to repeat from, so the first matching day is
+    // filled in rather than leaving a pattern that can never fire.
+    const due = draft.recurrence
+      ? (firstOccurrence(draft.due || todayISO(), draft.recurrence) ?? draft.due ?? null)
+      : (draft.due || null);
+
     const payload = {
       title: draft.title.trim(),
       notes: draft.notes,
-      due: draft.due || null,
+      due,
       priority: draft.priority,
       tags: draft.tags,
+      recurrence: draft.recurrence,
     };
     if (existing) actions.updateTask(existing.id, payload);
     else actions.addTask(payload);
@@ -77,7 +89,7 @@ export function TaskEditor({ open, taskId, defaultDue, onClose }) {
       title={existing ? 'Edit task' : 'New task'}
       description={existing && isCompleted(existing)
         ? `Completed ${formatLongDate(completedLocalDay(existing))}. Its due date is left as it was.`
-        : 'Only a title is required.'}
+        : draft.recurrence ? describeRecurrence(draft.recurrence) : 'Only a title is required.'}
       footer={(
         <>
           {existing && <Button tone="danger" onClick={remove} className="mr-auto">Delete</Button>}
@@ -177,6 +189,16 @@ export function TaskEditor({ open, taskId, defaultDue, onClose }) {
                 </div>
               )}
             </div>
+          )}
+        </Field>
+
+        <Field label="Repeat" hint="Pick the days, as you would for an alarm.">
+          {() => (
+            <RepeatPicker
+              value={draft.recurrence}
+              dueDate={draft.due}
+              onChange={(recurrence) => patch({ recurrence })}
+            />
           )}
         </Field>
 

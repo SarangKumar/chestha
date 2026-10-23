@@ -24,42 +24,79 @@ import { newId } from './ids.js';
  */
 export const BASE_COLUMNS = 12;
 
-/** Cell edge in px. Columns are laid out at this exact width to stay square. */
-export const CELL_PX = 176;
+/**
+ * The grid spans the page from edge to edge, so the cell is derived from the
+ * available width rather than fixed. A column narrower than this is unusable, and
+ * that is what reduces the column count on small screens.
+ */
+export const MIN_CELL_PX = 64;
+
+/** Bounds on the square cell, so it neither vanishes nor balloons. */
+export const MIN_ROW_PX = 96;
+export const MAX_ROW_PX = 168;
 
 /**
- * How many fixed-width columns fit the available page. Replaces fixed
- * breakpoints: the cell size is constant, so the column count is what varies.
+ * The column count for a given page width. The full grid is used wherever the
+ * columns stay usable, so the rightmost column really is the right edge of the
+ * page; narrow screens drop columns rather than shrink them to nothing.
  */
-export function columnsForWidth(width, cell = CELL_PX, gap = 16) {
-  if (!width || width <= 0) return 1;
-  const fits = Math.floor((width + gap) / (cell + gap));
-  return Math.min(BASE_COLUMNS, Math.max(1, fits));
+export function columnsForWidth(width, minCell = MIN_CELL_PX) {
+  if (!width || width <= 0) return 4;
+  return Math.min(BASE_COLUMNS, Math.max(4, Math.floor(width / minCell)));
+}
+
+/** A square cell, derived from the page so the grid fills it exactly. */
+export function cellForWidth(width, columns, gap = 16) {
+  if (!width || !columns) return MIN_ROW_PX;
+  const square = (width - gap * (columns - 1)) / columns;
+  return Math.round(Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, square)));
 }
 
 export const MIN_W = 1;
 export const MIN_H = 1;
 
 /**
- * The named sizes offered in the dashboard's edit mode. A widget declares
- * `limits`, and only the presets that fit inside them are shown — a size a
- * widget genuinely cannot render well is not offered at all, rather than offered
- * and then looking broken.
+ * A shared vocabulary of named sizes. Widgets pick the ones that suit their
+ * content rather than all being offered the same five: a search box wants to be
+ * wide and short, a task list wants height, and a clock is happiest square.
+ *
+ * Keeping the vocabulary shared means two widgets never label the same shape
+ * differently.
  */
 export const SIZE_PRESETS = [
   { key: 'small', label: 'S', title: 'Small', w: 1, h: 1 },
   { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
   { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
   { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
-  { key: 'full', label: 'F', title: 'Extra wide', w: 4, h: 2 },
+  { key: 'bar', label: 'B3', title: 'Bar', w: 3, h: 1 },
+  { key: 'banner', label: 'B4', title: 'Banner', w: 4, h: 1 },
+  { key: 'panel', label: 'P', title: 'Panel', w: 3, h: 2 },
+  { key: 'block', label: 'BL', title: 'Block', w: 4, h: 2 },
+  { key: 'column', label: 'C', title: 'Column', w: 2, h: 3 },
 ];
 
-export function allowedPresets(limits = {}) {
+export function presetByKey(key) {
+  return SIZE_PRESETS.find((p) => p.key === key) ?? null;
+}
+
+/**
+ * The sizes a widget offers: the ones it names, still filtered by its limits so a
+ * declared size can never contradict a declared bound. A widget that names none
+ * falls back to the whole vocabulary.
+ *
+ * @param keys optional list of preset keys, in the order the widget wants them
+ */
+export function allowedPresets(limits = {}, keys = null) {
   const minW = limits.minW ?? MIN_W;
   const minH = limits.minH ?? MIN_H;
   const maxW = limits.maxW ?? BASE_COLUMNS;
   const maxH = limits.maxH ?? 8;
-  return SIZE_PRESETS.filter((p) => p.w >= minW && p.w <= maxW && p.h >= minH && p.h <= maxH);
+
+  const pool = Array.isArray(keys) && keys.length > 0
+    ? keys.map(presetByKey).filter(Boolean)
+    : SIZE_PRESETS;
+
+  return pool.filter((p) => p.w >= minW && p.w <= maxW && p.h >= minH && p.h <= maxH);
 }
 
 export function presetKeyFor(widget) {

@@ -113,7 +113,7 @@ function OverdueWidget({ onOpenTask, onNavigate, span }) {
   );
 }
 
-function ClockWidget({ widget }) {
+function ClockWidget({ widget, span }) {
   const { today } = useWorkspace();
   const [now, setNow] = useState(() => new Date());
   const seconds = widget.config.showSeconds === true;
@@ -137,17 +137,27 @@ function ClockWidget({ widget }) {
     .join('');
   const meridiem = parts.find((part) => part.type === 'dayPeriod')?.value ?? '';
 
+  // Lock-screen proportions: the time dominates and the date recedes. The size
+  // is chosen from the widget's own span rather than a container query, because
+  // the limit here is height — a tall font in a one-row cell simply clips, and
+  // container queries only see width.
+  const wide = (span?.w ?? 1) > 1;
+  const tall = (span?.h ?? 1) > 1;
+  const timeSize = !wide
+    ? 'text-2xl'
+    : tall ? 'text-6xl @[22rem]:text-7xl' : 'text-4xl @[16rem]:text-5xl';
+
   return (
     <div className="flex h-full flex-col items-center justify-center overflow-hidden text-center">
-      <p className="flex items-baseline justify-center gap-1 whitespace-nowrap">
-        <span className="tabular text-xl font-semibold tracking-tight text-ink @[9rem]:text-stat @[15rem]:text-display @[24rem]:text-5xl">
+      <p className="flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+        <span className={cx('tabular font-bold leading-none tracking-tight text-ink', timeSize)}>
           {clock}
         </span>
         {meridiem && (
-          <span className="text-[10px] font-medium uppercase text-ink-muted @[15rem]:text-xs">{meridiem}</span>
+          <span className="text-[10px] font-medium uppercase text-ink-faint @[16rem]:text-xs">{meridiem}</span>
         )}
       </p>
-      <p className="mt-1.5 hidden truncate text-meta text-ink-muted @[11rem]:block">{formatLongDate(today)}</p>
+      <p className="mt-2 hidden truncate text-meta text-ink-muted @[11rem]:block">{formatLongDate(today)}</p>
     </div>
   );
 }
@@ -375,11 +385,69 @@ const SHORTCUT_FLOWS = {
  * dashboard. The default is a letter tile derived from the domain, which needs
  * no network at all.
  */
-function ShortcutsWidget({ widget, onChange, editing }) {
+function shortcutHost(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+/**
+ * Just the tiles. Everything that edits the list — adding, removing, alignment,
+ * icons — lives in the widget's edit drawer, where there is room for a form. A
+ * 176px tile is not somewhere to type a URL.
+ */
+function ShortcutsWidget({ widget, editing }) {
   const links = Array.isArray(widget.config.links) ? widget.config.links : [];
   const showFavicons = widget.config.favicons === true;
   const flow = SHORTCUT_FLOWS[widget.config.flow] ?? SHORTCUT_FLOWS.ltr;
-  const [adding, setAdding] = useState(false);
+
+  if (links.length === 0) {
+    return (
+      <p className="py-2 text-meta leading-relaxed text-ink-faint">
+        {editing
+          ? 'No links yet — open this widget’s edit panel to add some.'
+          : 'No links yet. Use Edit layout, then the pencil on this widget.'}
+      </p>
+    );
+  }
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+      <ul className={cx('flex h-full gap-1.5', flow.className)}>
+        {links.map((link) => {
+          const host = shortcutHost(link.url);
+          return (
+            <li key={link.id} className="w-14 shrink-0">
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={`${link.label} — ${host}`}
+                className="flex flex-col items-center gap-1 rounded-control p-1.5 transition-colors duration-150 hover:bg-hover"
+              >
+                <span className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-chip border border-line bg-inset text-xs font-semibold uppercase text-ink-muted">
+                  {showFavicons ? (
+                    <img
+                      src={`${new URL(link.url).origin}/favicon.ico`}
+                      alt=""
+                      width="20"
+                      height="20"
+                      className="size-5 object-contain"
+                      onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                    />
+                  ) : host.slice(0, 1)}
+                </span>
+                <span className="w-full truncate text-center text-[10px] text-ink-muted">{link.label}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** Alignment, icons, and the links themselves — all in the drawer. */
+function ShortcutsConfig({ widget, onChange }) {
+  const links = Array.isArray(widget.config.links) ? widget.config.links : [];
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
   const [error, setError] = useState(null);
@@ -401,6 +469,10 @@ function ShortcutsWidget({ widget, onChange, editing }) {
       setError(`A shortcuts widget holds up to ${MAX_SHORTCUTS} links.`);
       return;
     }
+    if (links.some((l) => l.url === parsed.toString())) {
+      setError('That link is already here.');
+      return;
+    }
     onChange({
       links: [...links, {
         id: `lnk_${Date.now().toString(36)}`,
@@ -408,98 +480,9 @@ function ShortcutsWidget({ widget, onChange, editing }) {
         label: label.trim() || parsed.hostname.replace(/^www\./, ''),
       }],
     });
-    setUrl(''); setLabel(''); setError(null); setAdding(false);
+    setUrl(''); setLabel(''); setError(null);
   };
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-        {links.length === 0 ? (
-          <p className="py-2 text-meta text-ink-faint">
-            {editing ? 'No links yet — add one below.' : 'No links yet. Use Edit layout to add some.'}
-          </p>
-        ) : (
-          <ul className={cx('flex h-full gap-1.5', flow.className)}>
-            {links.map((link) => {
-              let host = link.url;
-              try { host = new URL(link.url).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
-              return (
-                <li key={link.id} className="group relative w-14 shrink-0">
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    title={`${link.label} — ${host}`}
-                    className="flex flex-col items-center gap-1 rounded-control p-1.5 transition-colors duration-150 hover:bg-hover"
-                  >
-                    {/* shrink-0 keeps the tile square: it is a flex item in a
-                        column, so without it the height compresses when vertical
-                        space is tight and the tile turns into a rectangle. */}
-                    <span className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-chip border border-line bg-inset text-xs font-semibold uppercase text-ink-muted">
-                      {showFavicons ? (
-                        <img
-                          src={`${new URL(link.url).origin}/favicon.ico`}
-                          alt=""
-                          width="20"
-                          height="20"
-                          // object-contain so a non-square favicon fits rather
-                          // than being stretched to fill the box.
-                          className="size-5 object-contain"
-                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                        />
-                      ) : host.slice(0, 1)}
-                    </span>
-                    <span className="w-full truncate text-center text-[10px] text-ink-muted">{link.label}</span>
-                  </a>
-                  {editing && (
-                    <button
-                      type="button"
-                      onClick={() => onChange({ links: links.filter((l) => l.id !== link.id) })}
-                      aria-label={`Remove ${link.label}`}
-                      className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] text-ink-muted hover:text-danger"
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      {!editing ? null : adding ? (
-        <form onSubmit={add} className="mt-2 space-y-1.5">
-          <input
-            value={url}
-            onChange={(event) => { setUrl(event.target.value); setError(null); }}
-            placeholder="example.com"
-            autoComplete="off"
-            className="w-full rounded-control border border-line bg-inset px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint"
-          />
-          <input
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="Label (optional)"
-            autoComplete="off"
-            className="w-full rounded-control border border-line bg-inset px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint"
-          />
-          {error && <p className="text-[10px] text-danger">{error}</p>}
-          <div className="flex gap-1.5">
-            <Button type="submit" size="sm" tone="primary" disabled={!url.trim()}>Add</Button>
-            <Button type="button" size="sm" tone="quiet" onClick={() => { setAdding(false); setError(null); }}>Cancel</Button>
-          </div>
-        </form>
-      ) : (
-        <Button size="sm" tone="quiet" className="mt-2 justify-start" onClick={() => setAdding(true)}>
-          <Icon name="plus" className="size-3.5" /> Add link
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function ShortcutsConfig({ widget, onChange }) {
   return (
     <>
       <label className="flex items-center gap-2 text-meta text-ink-muted">
@@ -510,22 +493,73 @@ function ShortcutsConfig({ widget, onChange }) {
           size="sm"
         className="w-auto"
         >
-          {Object.entries(SHORTCUT_FLOWS).map(([key, { label }]) => (
-            <option key={key} value={key}>{label}</option>
+          {Object.entries(SHORTCUT_FLOWS).map(([key, { label: name }]) => (
+            <option key={key} value={key}>{name}</option>
           ))}
         </Select>
       </label>
+
       <label className="flex items-center gap-2 text-meta text-ink-muted">
-      <input
-        type="checkbox"
-        checked={widget.config.favicons === true}
-        onChange={(event) => onChange({ favicons: event.target.checked })}
-        className="size-3.5 accent-[var(--app-accent)]"
-      />
-      <span title="Each site is contacted for its icon, which tells it when you open your dashboard.">
-        Load site icons
-      </span>
+        <input
+          type="checkbox"
+          checked={widget.config.favicons === true}
+          onChange={(event) => onChange({ favicons: event.target.checked })}
+          className="size-3.5 accent-[var(--app-accent)]"
+        />
+        <span title="Each site is contacted for its icon, which tells it when you open your dashboard.">
+          Load site icons
+        </span>
       </label>
+
+      <div className="space-y-2 border-t border-line pt-3">
+        <p className="text-meta font-medium text-ink">
+          Links <span className="tabular text-ink-faint">{links.length}/{MAX_SHORTCUTS}</span>
+        </p>
+
+        {links.length > 0 && (
+          <ul className="divide-y divide-line overflow-hidden rounded-control border border-line">
+            {links.map((link) => (
+              <li key={link.id} className="flex items-center gap-2 px-2.5 py-1.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs text-ink">{link.label}</span>
+                  <span className="block truncate text-[10px] text-ink-faint">{shortcutHost(link.url)}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ links: links.filter((l) => l.id !== link.id) })}
+                  aria-label={`Remove ${link.label}`}
+                  className="shrink-0 rounded-chip px-1.5 text-ink-faint hover:text-danger"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form onSubmit={add} className="space-y-2">
+          <input
+            value={url}
+            onChange={(event) => { setUrl(event.target.value); setError(null); }}
+            placeholder="example.com"
+            aria-label="Link address"
+            autoComplete="off"
+            className="w-full rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+          />
+          <input
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="Label (optional)"
+            aria-label="Link label"
+            autoComplete="off"
+            className="w-full rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+          />
+          {error && <p className="text-[10px] leading-relaxed text-danger">{error}</p>}
+          <Button type="submit" size="sm" disabled={!url.trim() || links.length >= MAX_SHORTCUTS}>
+            Add link
+          </Button>
+        </form>
+      </div>
     </>
   );
 }
@@ -573,7 +607,8 @@ export const WIDGETS = {
     presentation: 'card',
     name: "Today's tasks",
     defaultSize: { w: 2, h: 2 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 4 },
+    sizes: ['large', 'panel', 'block', 'column'],
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
     description: 'Due today, plus everything overdue.',
     render: TodayWidget,
   },
@@ -581,7 +616,8 @@ export const WIDGETS = {
     presentation: 'card',
     name: 'Upcoming',
     defaultSize: { w: 2, h: 1 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 4 },
+    sizes: ['wide', 'large', 'panel', 'column'],
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
     description: 'What is due within a horizon you choose.',
     render: UpcomingWidget,
     Config: HorizonConfig,
@@ -590,6 +626,7 @@ export const WIDGETS = {
     presentation: 'card',
     name: 'Overdue',
     defaultSize: { w: 1, h: 1 },
+    sizes: ['small', 'wide', 'large'],
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
     description: 'A count, and the oldest few.',
     render: OverdueWidget,
@@ -599,6 +636,7 @@ export const WIDGETS = {
     presentation: 'transparent',
     name: 'Clock and date',
     defaultSize: { w: 1, h: 1 },
+    sizes: ['small', 'wide', 'large'],
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
     description: 'Local time and today’s date.',
     render: ClockWidget,
@@ -608,7 +646,8 @@ export const WIDGETS = {
     presentation: 'card',
     name: 'Scratchpad',
     defaultSize: { w: 2, h: 1 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 4 },
+    sizes: ['wide', 'large', 'panel', 'block', 'column'],
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
     description: 'One plain note, saved as you type.',
     render: NotesWidget,
   },
@@ -619,7 +658,8 @@ export const WIDGETS = {
     defaultSize: { w: 2, h: 1 },
     // An input narrower than two columns cannot show a usable query, so the
     // one-column sizes are not offered.
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    sizes: ['wide', 'bar', 'banner'],
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 1 },
     render: SearchWidget,
     Config: SearchConfig,
   },
@@ -629,6 +669,7 @@ export const WIDGETS = {
     description: 'One question from your library, chosen fresh each day.',
     defaultSize: { w: 2, h: 1 },
     // The content is a question title; one column cannot show enough of it.
+    sizes: ['wide', 'bar', 'banner', 'panel'],
     limits: { minW: 2, minH: 1, maxW: 4, maxH: 2 },
     render: DailyQuestionWidget,
   },
@@ -639,6 +680,7 @@ export const WIDGETS = {
     defaultSize: { w: 2, h: 1 },
     // The add control only appears while editing, so a one-column widget is
     // three usable tiles rather than one tile and a button.
+    sizes: ['small', 'wide', 'bar', 'banner', 'large'],
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
     render: ShortcutsWidget,
     Config: ShortcutsConfig,
@@ -648,6 +690,7 @@ export const WIDGETS = {
     name: 'DSA today',
     description: 'Both daily targets as two compact figures. Reads well at any size.',
     defaultSize: { w: 1, h: 1 },
+    sizes: ['small', 'wide', 'tall', 'large'],
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
     render: DsaTodayWidget,
   },
@@ -655,6 +698,7 @@ export const WIDGETS = {
     presentation: 'card',
     name: 'No due date',
     defaultSize: { w: 1, h: 1 },
+    sizes: ['small', 'wide', 'large'],
     limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
     description: 'Open tasks that are not on the calendar.',
     render: UndatedWidget,

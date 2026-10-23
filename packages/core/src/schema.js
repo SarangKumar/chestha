@@ -1,6 +1,7 @@
 import { newId } from './ids.js';
 import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
+import { coerceRecurrence } from './recurrence.js';
 import { coerceShortcuts } from './shortcuts.js';
 import {
   BASE_COLUMNS, createPlacement, migrateOrderedLayout, needsMigration, normalizeLayout,
@@ -32,14 +33,24 @@ export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
 /** Direction the Shortcuts widget lays its tiles out in. */
 export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 
+/**
+ * The shipped layout, laid out to a sketch rather than packed to the top-left:
+ * DSA in the top-right corner, the clock centred with the search bar directly
+ * beneath it, the scratchpad bottom-left and shortcuts bottom-right.
+ *
+ * Every widget is `pinned`, which is load-bearing. Compaction floats unpinned
+ * widgets upward, so without anchors the deliberate spacing here would collapse
+ * into a block in the first column the moment the dashboard rendered. "Tidy up"
+ * releases the anchors for anyone who does want it packed.
+ */
 export const DEFAULT_DASHBOARD = {
   version: 2,
   widgets: [
-    { id: 'w_today', type: 'today', x: 0, y: 0, w: 2, h: 2, config: {} },
-    { id: 'w_clock', type: 'clock', x: 2, y: 0, w: 1, h: 1, config: {} },
-    { id: 'w_overdue', type: 'overdue', x: 3, y: 0, w: 1, h: 1, config: {} },
-    { id: 'w_upcoming', type: 'upcoming', x: 2, y: 1, w: 2, h: 1, config: { horizonDays: 7 } },
-    { id: 'w_notes', type: 'notes', x: 0, y: 2, w: 2, h: 1, config: {} },
+    { id: 'w_dsa', type: 'dsaToday', x: 11, y: 0, w: 1, h: 1, pinned: true, config: {} },
+    { id: 'w_clock', type: 'clock', x: 5, y: 1, w: 2, h: 1, pinned: true, config: {} },
+    { id: 'w_search', type: 'search', x: 4, y: 2, w: 4, h: 1, pinned: true, config: {} },
+    { id: 'w_notes', type: 'notes', x: 0, y: 4, w: 2, h: 2, pinned: true, config: {} },
+    { id: 'w_shortcuts', type: 'shortcuts', x: 10, y: 4, w: 2, h: 1, pinned: true, config: {} },
   ],
 };
 
@@ -135,6 +146,7 @@ function coerceTasks(raw) {
       due: isValidISODate(item.due) ? item.due : null,
       priority: PRIORITIES.includes(item.priority) ? item.priority : 'none',
       tags: normalizeTags(item.tags),
+      recurrence: coerceRecurrence(item.recurrence),
       completedAt: isoInstant(item.completedAt),
       createdAt,
       updatedAt: isoInstant(item.updatedAt) ?? createdAt,

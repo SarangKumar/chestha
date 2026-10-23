@@ -4,7 +4,8 @@ import {
   BASE_COLUMNS, addItem, coerceArea, collisionsFor, compact, createPlacement, createStore,
   DEFAULT_DASHBOARD, allowedPresets, findFreeSpot, isValidLayout, layoutHeight,
   migrateOrderedLayout, moveItem, needsMigration, normalizeLayout, overlaps, presetKeyFor,
-  projectToColumns, removeItem, resizeItem, tidy, columnsForWidth,
+  projectToColumns, removeItem, resizeItem, tidy, columnsForWidth, cellForWidth,
+  MIN_ROW_PX, MAX_ROW_PX, SIZE_PRESETS, presetByKey,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -347,30 +348,41 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
   assert.equal(saved.find((w) => w.id === 'b').pinned, false);
 });
 
-test('the default layout is unanchored, so it stays tight', () => {
-  assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => !w.pinned));
+test('the default layout is anchored, so its spacing survives compaction', () => {
+  // The shipped layout is positioned deliberately — DSA top-right, clock centred
+  // with search beneath it, scratchpad and shortcuts along the bottom. Without
+  // anchors, compaction would collapse all of it into the first column on the
+  // very first render.
+  assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => w.pinned), 'every widget is anchored');
+  assert.ok(isValidLayout(DEFAULT_DASHBOARD.widgets, BASE_COLUMNS));
+
+  const before = layoutHeight(DEFAULT_DASHBOARD.widgets);
+  assert.equal(layoutHeight(compact(DEFAULT_DASHBOARD.widgets)), before, 'compaction leaves it alone');
+  assert.ok(layoutHeight(tidy(DEFAULT_DASHBOARD.widgets)) < before, 'tidy still packs it on request');
+
+  // It occupies the full width, so the rightmost widget reaches the last column.
+  assert.equal(Math.max(...DEFAULT_DASHBOARD.widgets.map((w) => w.x + w.w)), BASE_COLUMNS);
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────
 
 test('only the presets a widget can actually render are offered', () => {
-  // No limits: everything is on the table.
-  assert.deepEqual(allowedPresets().map((p) => p.key), ['small', 'wide', 'tall', 'large', 'full']);
+  // No limits and no named sizes: the whole vocabulary is on the table.
+  assert.deepEqual(allowedPresets().map((p) => p.key), SIZE_PRESETS.map((p) => p.key));
 
-  // A text-led widget that needs two columns loses the one-column sizes.
-  assert.deepEqual(
-    allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 2 }).map((p) => p.key),
-    ['wide', 'large', 'full'],
-  );
+  // A widget needing two columns loses every one-column size.
+  assert.ok(allowedPresets({ minW: 2 }).every((p) => p.w >= 2));
+  assert.ok(!allowedPresets({ minW: 2 }).some((p) => p.key === 'small'));
 
-  // A short widget loses the tall ones.
+  // A single-row widget loses everything taller.
   assert.deepEqual(
     allowedPresets({ maxH: 1 }).map((p) => p.key),
-    ['small', 'wide'],
+    ['small', 'wide', 'bar', 'banner'],
   );
 
-  // A widget capped below full width loses the full-width preset.
-  assert.ok(!allowedPresets({ maxW: 2 }).some((p) => p.key === 'full'));
+  // A widget capped at two columns loses the wider shapes.
+  assert.ok(allowedPresets({ maxW: 2 }).every((p) => p.w <= 2));
+  assert.ok(!allowedPresets({ maxW: 2 }).some((p) => p.key === 'block'));
 });
 
 test('every offered preset fits inside the limits that produced it', () => {
@@ -391,8 +403,10 @@ test('every offered preset fits inside the limits that produced it', () => {
 test('a preset is recognised from a widget that already matches it', () => {
   assert.equal(presetKeyFor({ w: 1, h: 1 }), 'small');
   assert.equal(presetKeyFor({ w: 2, h: 2 }), 'large');
-  assert.equal(presetKeyFor({ w: 4, h: 2 }), 'full');
-  assert.equal(presetKeyFor({ w: 3, h: 1 }), null, 'a hand-dragged size matches no preset');
+  assert.equal(presetKeyFor({ w: 3, h: 1 }), 'bar');
+  assert.equal(presetKeyFor({ w: 4, h: 1 }), 'banner');
+  assert.equal(presetKeyFor({ w: 4, h: 2 }), 'block');
+  assert.equal(presetKeyFor({ w: 5, h: 4 }), null, 'a hand-dragged size matches no preset');
 });
 
 test('resizing to a preset respects the widget limits regardless', () => {
@@ -403,17 +417,77 @@ test('resizing to a preset respects the widget limits regardless', () => {
   assert.ok(isValidLayout(resized, BASE_COLUMNS));
 });
 
-test('the stored grid is wide enough to reach a wide screen', () => {
-  // A fixed 176px cell can only cover 752px in four columns, which left the right
-  // of a large monitor unreachable.
+test('the grid spans the page, so the last column is the right edge', () => {
   assert.equal(BASE_COLUMNS, 12);
-  assert.equal(columnsForWidth(1888), 9, 'a ~2000px window fits nine cells');
-  assert.equal(columnsForWidth(912), 4);
-  assert.equal(columnsForWidth(358), 1);
-  assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more columns than the stored space');
-  assert.equal(columnsForWidth(0), 1, 'degenerate width still yields a usable grid');
+
+  // Anything with room for usable columns gets the whole grid, which is what
+  // makes the rightmost column reachable.
+  assert.equal(columnsForWidth(1888), BASE_COLUMNS, 'a ~2000px window');
+  assert.equal(columnsForWidth(1328), BASE_COLUMNS, 'a 1440px laptop');
+  assert.equal(columnsForWidth(912), BASE_COLUMNS, 'a 1024px window');
+  assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more than the stored space');
+
+  // Narrow screens drop columns rather than shrink them into uselessness.
+  assert.ok(columnsForWidth(656) < BASE_COLUMNS, 'a tablet sheds columns');
+  assert.ok(columnsForWidth(358) < columnsForWidth(656), 'a phone sheds more');
+  assert.ok(columnsForWidth(358) >= 4, 'but never fewer than four');
+  assert.equal(columnsForWidth(0), 4, 'a degenerate width still yields a usable grid');
+
+  // The cell stays within bounds at every width, so it neither vanishes nor balloons.
+  for (const width of [358, 656, 912, 1328, 1888, 2448]) {
+    const cell = cellForWidth(width, columnsForWidth(width));
+    assert.ok(cell >= MIN_ROW_PX && cell <= MAX_ROW_PX, `cell is bounded at ${width}px`);
+  }
 
   // A layout saved in the old four-column space is still valid in the new one.
   const legacy = [at('a', 0, 0, 2, 2), at('b', 2, 0), at('c', 3, 0)];
   assert.ok(isValidLayout(normalizeLayout(legacy, BASE_COLUMNS), BASE_COLUMNS));
+});
+
+// ─── Size options are per widget, from a shared vocabulary ───────────────────
+
+test('a widget is offered only the sizes it names', () => {
+  // A search box wants to be wide and short, never square or tall.
+  const search = allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 1 }, ['wide', 'bar', 'banner']);
+  assert.deepEqual(search.map((p) => `${p.w}x${p.h}`), ['2x1', '3x1', '4x1']);
+  assert.ok(!search.some((p) => p.h > 1), 'nothing tall is offered');
+
+  // A task list wants height.
+  const list = allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 4 }, ['large', 'panel', 'block', 'column']);
+  assert.deepEqual(list.map((p) => `${p.w}x${p.h}`), ['2x2', '3x2', '4x2', '2x3']);
+  assert.ok(list.every((p) => p.h >= 2), 'every option has room for rows');
+});
+
+test('the order a widget names its sizes in is preserved', () => {
+  const keys = ['banner', 'small', 'panel'];
+  assert.deepEqual(allowedPresets({}, keys).map((p) => p.key), keys);
+});
+
+test('limits still win over a named size, so the two cannot contradict', () => {
+  // 'block' is 4x2, but a widget capped at one row cannot have it.
+  assert.deepEqual(
+    allowedPresets({ maxH: 1 }, ['wide', 'block', 'bar']).map((p) => p.key),
+    ['wide', 'bar'],
+  );
+  assert.deepEqual(allowedPresets({ minW: 3 }, ['small', 'wide', 'panel']).map((p) => p.key), ['panel']);
+});
+
+test('naming no sizes falls back to the whole vocabulary', () => {
+  assert.equal(allowedPresets({}, null).length, SIZE_PRESETS.length);
+  assert.equal(allowedPresets({}, []).length, SIZE_PRESETS.length);
+});
+
+test('an unknown size key is ignored rather than crashing the picker', () => {
+  assert.deepEqual(allowedPresets({}, ['wide', 'nonsense', 'bar']).map((p) => p.key), ['wide', 'bar']);
+  assert.equal(presetByKey('nonsense'), null);
+});
+
+test('every size in the vocabulary fits the stored grid', () => {
+  for (const preset of SIZE_PRESETS) {
+    assert.ok(preset.w <= BASE_COLUMNS, `${preset.key} fits the grid width`);
+    assert.ok(preset.w >= 1 && preset.h >= 1);
+    assert.ok(preset.title && preset.label, `${preset.key} is labelled`);
+  }
+  // Keys are unique, or presetByKey would be ambiguous.
+  assert.equal(new Set(SIZE_PRESETS.map((p) => p.key)).size, SIZE_PRESETS.length);
 });

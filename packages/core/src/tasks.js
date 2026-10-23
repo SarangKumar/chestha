@@ -1,5 +1,6 @@
 import { newId } from './ids.js';
 import { compareISO, isValidISODate, todayISO } from './dates.js';
+import { coerceRecurrence } from './recurrence.js';
 
 export const PRIORITIES = ['none', 'low', 'medium', 'high'];
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2, none: 3 };
@@ -13,6 +14,7 @@ export function createTask(input = {}) {
     due: isValidISODate(input.due) ? input.due : null,
     priority: PRIORITIES.includes(input.priority) ? input.priority : 'none',
     tags: normalizeTags(input.tags),
+    recurrence: coerceRecurrence(input.recurrence),
     completedAt: null,
     createdAt: now,
     updatedAt: now,
