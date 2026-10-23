@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayISO } from '@vistaar/core';
 import { useShortcutDispatch } from './app/useShortcutDispatch.js';
+import { useGroveDrain } from './grove/useGroveDrain.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
 import { useHashRoute } from './app/useHashRoute.js';
 import { Shell } from './components/Shell.jsx';
@@ -11,6 +12,7 @@ import { Dashboard } from './sections/Dashboard.jsx';
 import { Tasks } from './sections/Tasks.jsx';
 import { Calendar } from './sections/Calendar.jsx';
 import { DsaSection } from './sections/dsa/DsaSection.jsx';
+import { GroveSection } from './sections/grove/GroveSection.jsx';
 import { Sounds } from './sections/Sounds.jsx';
 import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
@@ -33,6 +35,7 @@ function Workspace() {
   const [taskView, setTaskView] = useState('today');
   const [calendarDay, setCalendarDay] = useState(null);
   const [dsaTab, setDsaTab] = useState('home');
+  const [groveTab, setGroveTab] = useState('session');
 
   const { section, param } = route;
 
@@ -41,6 +44,7 @@ function Workspace() {
     if (section === 'tasks' && param && TASK_VIEWS.includes(param)) setTaskView(param);
     if (section === 'calendar' && param) setCalendarDay(param);
     if (section === 'dsa' && param) setDsaTab(param);
+    if (section === 'grove' && param) setGroveTab(param);
   }, [section, param]);
 
   const openCapture = useCallback(() => setOverlay('capture'), []);
@@ -62,6 +66,9 @@ function Workspace() {
     { id: 'go-calendar', label: 'Go to calendar', group: 'Navigate', shortcut: 'G C', run: () => go('calendar', todayISO()) },
     { id: 'go-dsa', label: 'Go to DSA', group: 'Navigate', keywords: 'algorithms leetcode practice', run: () => go('dsa', 'home') },
     { id: 'go-dsa-library', label: 'Go to the question library', group: 'Navigate', keywords: 'dsa questions', run: () => go('dsa', 'library') },
+    { id: 'go-grove', label: 'Go to the Grove', group: 'Navigate', keywords: 'focus timer plant garden xp', run: () => go('grove') },
+    { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', run: () => { actions.startFocusSession(); go('grove'); } },
+    { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', run: () => actions.endFocusSession() },
     { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', run: () => go('sounds') },
     { id: 'go-settings', label: 'Go to settings', group: 'Navigate', shortcut: 'G S', run: () => go('settings') },
     {
@@ -88,6 +95,8 @@ function Workspace() {
       run: () => go('about'),
     },
   ], [state.settings, actions, go, openCapture]);
+
+  useGroveDrain();
 
   useShortcutDispatch({
     enabled: status.ready,
@@ -140,6 +149,12 @@ function Workspace() {
           <DsaSection
             tab={dsaTab}
             onChangeTab={(next) => { setDsaTab(next); navigate('dsa', next); }}
+          />
+        )}
+        {section === 'grove' && (
+          <GroveSection
+            tab={groveTab}
+            onChangeTab={(next) => { setGroveTab(next); navigate('grove', next); }}
           />
         )}
         {section === 'sounds' && <Sounds />}

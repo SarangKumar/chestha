@@ -51,8 +51,8 @@ export function parseImport(text) {
   if (!Number.isInteger(parsed.version)) {
     return { ok: false, error: 'That export is missing a version number, so it cannot be read safely.' };
   }
-  // A version 1 file predates the DSA areas; coerceArea fills them with
-  // defaults, so older backups still restore cleanly.
+  // A version 1 file predates the DSA areas and a version 2 file predates the Grove
+  // areas; coerceArea fills them with defaults, so older backups still restore cleanly.
   if (parsed.version > EXPORT_VERSION) {
     return {
       ok: false,
@@ -86,6 +86,10 @@ export function parseImport(text) {
       dsaQuestions: data['dsa.library'].questions.length,
       dsaEvents: data['dsa.progress'].events.length,
       dsaLists: data['dsa.lists'].lists.length,
+      groveXp: data['grove.ledger'].lifetime.xp,
+      focusSessions: data['grove.focus'].sessions.length,
+      plants: data['grove.garden'].plants.length,
+      websiteRules: data['grove.settings'].rules.length,
     },
   };
 }

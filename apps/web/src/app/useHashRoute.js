@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
  * navigation rail — it is reached from the command palette or a direct link, so
  * it needs a route without taking up a permanent slot.
  */
-export const SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'sounds', 'settings', 'about'];
+export const SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'sounds', 'settings', 'about'];
 
 function read() {
   const raw = window.location.hash.replace(/^#\/?/, '');

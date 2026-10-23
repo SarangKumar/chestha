@@ -13,20 +13,27 @@ import {
   DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
   defaultDsaProgress, defaultDsaSettings,
 } from './dsa/schema.js';
+import {
+  GROVE_AREAS, GROVE_LAZY_AREAS, coerceGroveArea, defaultGroveFocus, defaultGroveGarden,
+  defaultGroveSettings, defaultGroveTime,
+} from './grove/schema.js';
+import { defaultLedger } from './grove/ledger.js';
 
-// 2 adds the four dsa.* areas. Version 1 files still import: missing areas
-// fall back to their defaults rather than being treated as corrupt.
-export const STATE_VERSION = 2;
+// 2 adds the four dsa.* areas; 3 adds the five grove.* areas. Version 1 and 2 files
+// still import: missing areas fall back to their defaults rather than being treated
+// as corrupt.
+export const STATE_VERSION = 3;
 
 // Each area is loaded, validated and persisted independently, so one corrupt
 // area degrades to its default without taking the rest of the app with it.
 export const AREAS = [
   'tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings',
   ...DSA_AREAS,
+  ...GROVE_AREAS,
 ];
 
 /** Areas skipped by init() and loaded on first use instead. */
-export const LAZY_AREAS = [...DSA_LAZY_AREAS];
+export const LAZY_AREAS = [...DSA_LAZY_AREAS, ...GROVE_LAZY_AREAS];
 
 export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 
@@ -47,23 +54,62 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
  * releases the anchors for anyone who does want it packed.
  */
 /**
- * The shipped arrangement, kept inside 16 columns.
+ * The shipped arrangement, described by where each widget is anchored rather
+ * than by fixed coordinates.
  *
- * The canonical grid is far wider, but only as many fixed-size columns as fit
- * are on screen — 16 at a 1024px window. A default that spanned the whole
- * canvas would not fit a laptop, and a layout that does not fit has its editing
- * paused to protect it, so the app would open in a guarded state on a perfectly
- * ordinary screen. Everything to the right is yours to fill.
+ * The number of columns on screen depends on the window, so a layout written as
+ * absolute x positions only looks right at one width — it bunched into the left
+ * third of a large monitor. Anchoring says what was actually meant: the weather
+ * tile belongs in the top-right corner, the clock and search box are centred,
+ * the scratchpad and shortcuts sit in the bottom corners.
+ *
+ * `offset` shifts a widget inward from its anchor, in columns.
  */
+const DEFAULT_SKETCH = [
+  { id: 'w_weather', type: 'weather', anchor: 'right', offset: 0, y: 0, w: 2, h: 2 },
+  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 4, h: 2 },
+  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 8, h: 2 },
+  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 8, w: 4, h: 4 },
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 8, w: 4, h: 2 },
+];
+
+/**
+ * The width the stored default is resolved at.
+ *
+ * Only as many fixed-size columns as fit are on screen — 16 at a 1024px window.
+ * A default resolved against the whole canvas would not fit a laptop, and a
+ * layout that does not fit has its editing paused to protect it, so the app
+ * would open in a guarded state on an ordinary screen. Restoring the default
+ * from the dashboard re-resolves it against the real width, so it reaches the
+ * corners of whatever screen you are actually on.
+ */
+const DEFAULT_COLUMNS = 16;
+
+/**
+ * The default arrangement resolved against a given number of columns.
+ *
+ * Everything is anchored (`pinned`), because the positions are deliberate and
+ * compaction would otherwise collapse the whole thing into the first column on
+ * the very first render.
+ */
+export function defaultWidgetsFor(columns = DEFAULT_COLUMNS) {
+  // The widest widget is 8 columns, so below that nothing can be placed as
+  // drawn; above BASE_COLUMNS is off the canonical grid.
+  const cols = Math.max(8, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+
+  return DEFAULT_SKETCH.map(({ anchor, offset, ...widget }) => {
+    const x = anchor === 'right'
+      ? Math.max(0, cols - widget.w - offset)
+      : anchor === 'center'
+        ? Math.max(0, Math.round((cols - widget.w) / 2) + offset)
+        : Math.min(offset, Math.max(0, cols - widget.w));
+    return { ...widget, x, pinned: true, config: {} };
+  });
+}
+
 export const DEFAULT_DASHBOARD = {
   version: 3,
-  widgets: [
-    { id: 'w_dsa', type: 'dsaToday', x: 14, y: 0, w: 2, h: 2, pinned: true, config: {} },
-    { id: 'w_clock', type: 'clock', x: 6, y: 2, w: 4, h: 2, pinned: true, config: {} },
-    { id: 'w_search', type: 'search', x: 4, y: 4, w: 8, h: 2, pinned: true, config: {} },
-    { id: 'w_notes', type: 'notes', x: 0, y: 8, w: 4, h: 4, pinned: true, config: {} },
-    { id: 'w_shortcuts', type: 'shortcuts', x: 12, y: 8, w: 4, h: 2, pinned: true, config: {} },
-  ],
+  widgets: defaultWidgetsFor(DEFAULT_COLUMNS),
 };
 
 export const DEFAULT_SETTINGS = {
@@ -92,7 +138,7 @@ export const DEFAULT_SETTINGS = {
  * Hiding only affects the rail. A hidden section still renders from a deep link
  * or the palette, so nothing becomes unreachable and no data is touched.
  */
-export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'sounds'];
+export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'sounds'];
 
 /**
  * How the app paints behind the interface.
@@ -140,6 +186,11 @@ export function defaultState() {
     'dsa.progress': defaultDsaProgress(),
     'dsa.lists': defaultDsaLists(),
     'dsa.settings': defaultDsaSettings(),
+    'grove.settings': defaultGroveSettings(),
+    'grove.time': defaultGroveTime(),
+    'grove.ledger': defaultLedger(),
+    'grove.focus': defaultGroveFocus(),
+    'grove.garden': defaultGroveGarden(),
   };
 }
 
@@ -174,6 +225,7 @@ export function coerceArea(area, raw) {
     case 'settings': return coerceSettings(raw);
     default:
       if (DSA_AREAS.includes(area)) return coerceDsaArea(area, raw);
+      if (GROVE_AREAS.includes(area)) return coerceGroveArea(area, raw);
       return { value: null, issues: [`Unknown area "${area}"`] };
   }
 }

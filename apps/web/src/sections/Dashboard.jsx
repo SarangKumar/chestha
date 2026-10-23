@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
+  addItem, allowedPresets, defaultWidgetsFor, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
@@ -46,9 +46,19 @@ export function resolvePresentation(widget, definition) {
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { state, status, actions, notify } = useWorkspace();
-  // One element drives the column count, the cell size and the drag maths.
+  /**
+   * Two refs, deliberately.
+   *
+   * `measureRef` sits on a wrapper that is always rendered; `gridRef` is on the
+   * grid itself, which is replaced by an empty state when there is nothing to
+   * place. Measuring the grid meant that whenever it was absent at mount — which
+   * is every load, since widgets wait for storage — the measurement never ran,
+   * and the hook's initial guess of 12 columns became permanent. The two
+   * elements are the same width, so measuring the wrapper costs nothing.
+   */
+  const measureRef = useRef(null);
   const gridRef = useRef(null);
-  const { columns, cell } = useGridMetrics(gridRef);
+  const { columns, cell } = useGridMetrics(measureRef);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -73,7 +83,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const [viewportRows, setViewportRows] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
-      const top = gridRef.current?.getBoundingClientRect().top ?? 0;
+      const top = measureRef.current?.getBoundingClientRect().top ?? 0;
       setViewportRows(Math.max(0, (window.innerHeight - top) / (cell + GAP)));
     };
     measure();
@@ -259,9 +269,43 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
       {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
-          Some widgets sit beyond the {columns} column{columns === 1 ? '' : 's'} this window fits, so the
-          arrangement below has been reflowed to show it. Editing is paused here to protect your saved
-          positions — widen the window, or use Tidy up on a wider screen.
+          <p>
+            Some widgets sit beyond the {columns} column{columns === 1 ? '' : 's'} this window fits, so the
+            arrangement below has been reflowed to show it. Editing is paused here so a narrower window
+            cannot overwrite the positions you saved on a wider one.
+          </p>
+          {/* Without this the guard is a dead end: editing is off, so there is
+              no way to make the layout fit from inside the app. Fitting is
+              offered explicitly, and it is undoable. */}
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              tone="primary"
+              onClick={() => {
+                const before = stored;
+                commit(projectToColumns(known, columns));
+                notify(`Fitted the layout to ${columns} columns`, {
+                  actionLabel: 'Undo',
+                  onAction: () => commit(before),
+                });
+              }}
+            >
+              Fit to this window
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                const before = stored;
+                commit(defaultWidgetsFor(columns));
+                notify('Default layout restored', {
+                  actionLabel: 'Undo',
+                  onAction: () => commit(before),
+                });
+              }}
+            >
+              Restore default
+            </Button>
+          </div>
         </div>
       )}
 
@@ -469,7 +513,10 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
               tone="primary"
               onClick={() => {
                 const previous = stored;
-                commit(structuredClone(DEFAULT_DASHBOARD.widgets));
+                // Resolved against the columns actually on screen, so the
+                // default reaches the corners of this window rather than the
+                // laptop width the stored copy is written for.
+                commit(defaultWidgetsFor(columns));
                 setResetting(false);
                 notify('Default layout restored', { actionLabel: 'Undo', onAction: () => commit(previous) });
               }}

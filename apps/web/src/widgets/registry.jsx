@@ -9,7 +9,12 @@ import {
   selectCompletedOn, selectNoDate, selectOverdue, selectToday, selectUpcoming, shortAge, sortTasks,
   summariseEvents, summariseGeocode, summariseRepos, summariseWeather,
 } from '@vistaar/core';
+import {
+  availableSeeds, isPaused as sessionPaused, levelFromXp, remainingMs, sessionProgress,
+  stageForProgress, todayISO, xpOnDay,
+} from '@vistaar/core';
 import * as engine from '../audio/engine.js';
+import { Plant } from '../grove/plants.jsx';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
@@ -1438,6 +1443,112 @@ function WeatherConfig({ widget, onChange }) {
   );
 }
 
+
+/**
+ * The Grove on the dashboard: the plant, the timer and a way in. Deliberately not a
+ * second copy of the session screen — everything else lives one click away.
+ *
+ * Container queries, not breakpoints: a narrow tile shows the plant and the clock, a
+ * wider one earns the level meter, and a wider one still earns the duration chips.
+ */
+function GroveWidget({ onNavigate }) {
+  const { state, actions, notify } = useWorkspace();
+  const session = state['grove.focus'].active;
+  const garden = state['grove.garden'];
+  const ledger = state['grove.ledger'];
+  const settings = state['grove.settings'];
+
+  const [now, setNow] = useState(() => Date.now());
+  const running = Boolean(session) && !sessionPaused(session);
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const progress = session ? sessionProgress(session, now) : 0;
+  const level = levelFromXp(ledger.lifetime.xp);
+  const remaining = session ? remainingMs(session, now) : settings.focus.defaultMinutes * 60000;
+  const total = Math.ceil(remaining / 1000);
+  const clock = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+      <Plant
+        speciesId={garden.selectedSpeciesId}
+        stage={session ? stageForProgress(progress) : 'seed'}
+        className="size-14 text-ink @[9rem]:size-20"
+      />
+      <p className="tabular text-stat font-semibold text-ink">{clock}</p>
+      <p className="text-meta text-ink-faint">
+        {session ? (sessionPaused(session) ? 'Paused' : `${session.plannedMinutes} min session`) : `Level ${level.level}`}
+      </p>
+
+      <div className="hidden w-full px-2 @[9rem]:block">
+        <Meter value={level.into} max={level.needed} label={`Level ${level.level}, ${level.into} of ${level.needed} XP`} />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        {session ? (
+          <>
+            <Button size="sm" tone="quiet" onClick={sessionPaused(session) ? actions.resumeFocusSession : actions.pauseFocusSession}>
+              <Icon name={sessionPaused(session) ? 'play' : 'pause'} className="size-4" />
+            </Button>
+            <Button
+              size="sm"
+              tone="quiet"
+              onClick={() => {
+                const result = actions.endFocusSession();
+                if (result) notify(`Ended · +${result.earned.xp} XP`);
+              }}
+            >
+              <Icon name="stop" className="size-4" />
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" onClick={() => { setNow(Date.now()); actions.startFocusSession(); }}>
+            <Icon name="play" className="size-4" /> Start
+          </Button>
+        )}
+        <Button size="sm" tone="quiet" className="hidden @[13rem]:inline-flex" onClick={() => onNavigate('grove', 'session')}>
+          Open Grove
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The numbers, kept out of the Grove widget so neither has to be two things. */
+function XpSummaryWidget({ onNavigate }) {
+  const { state } = useWorkspace();
+  const ledger = state['grove.ledger'];
+  const today = todayISO();
+  const level = levelFromXp(ledger.lifetime.xp);
+
+  const bySource = { task: 0, website: 0, focus: 0 };
+  for (const event of ledger.events) {
+    if (event.localDay === today && event.source in bySource) bySource[event.source] += event.xp;
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <Stat value={xpOnDay(ledger, today)} label="XP today" meter={{ value: level.into, max: level.needed, label: `Level ${level.level}` }} />
+      <dl className="mt-3 hidden grid-cols-3 gap-2 text-center @[11rem]:grid">
+        {[['Tasks', bySource.task], ['Sites', bySource.website], ['Focus', bySource.focus]].map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-meta text-ink-faint">{label}</dt>
+            <dd className="tabular text-card font-medium text-ink">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-auto flex items-center justify-between pt-2">
+        <span className="text-meta text-ink-faint">{availableSeeds(ledger)} seeds</span>
+        <Button size="sm" tone="quiet" onClick={() => onNavigate('grove', 'stats')}>Details</Button>
+      </div>
+    </div>
+  );
+}
+
 export const WIDGETS = {
   today: {
     presentation: 'card',
@@ -1498,14 +1609,20 @@ export const WIDGETS = {
     render: NotesWidget,
   },
   search: {
-    presentation: 'card',
+    // Transparent by default: a bare search field floating on the dashboard
+    // reads as part of the page, where a card around it reads as a component
+    // someone installed.
+    presentation: 'transparent',
     name: 'Web search',
     description: 'A search box that opens results in the current tab.',
-    defaultSize: { w: 2, h: 1 },
-    // An input narrower than two columns cannot show a usable query, so the
-    // one-column sizes are not offered.
+    defaultSize: { w: 8, h: 2 },
+    // An input narrower than four columns cannot show a usable query, so the
+    // narrow sizes are not offered.
     sizes: ['wide', 'bar', 'banner', 'row'],
-    limits: { minW: 2, minH: 1, maxW: 12, maxH: 1 },
+    // maxH was 1, which excluded every preset in the vocabulary — the halved
+    // grid made the shortest preset two rows tall, so the size controls came up
+    // empty. Two rows is also what the field plus its hint actually needs.
+    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 2 },
     render: SearchWidget,
     Config: SearchConfig,
   },
@@ -1570,6 +1687,24 @@ export const WIDGETS = {
     sizes: ['small', 'tall', 'wide', 'large', 'column'],
     limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     render: SoundsWidget,
+  },
+  grove: {
+    presentation: 'card',
+    name: 'Grove',
+    description: 'Your plant, the focus timer and your level. The session screen is one click away.',
+    defaultSize: { w: 4, h: 4 },
+    sizes: ['small', 'tall', 'wide', 'large', 'column'],
+    limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
+    render: GroveWidget,
+  },
+  xpSummary: {
+    presentation: 'card',
+    name: 'XP today',
+    description: 'What you have earned today, and from which of the three sources.',
+    defaultSize: { w: 4, h: 2 },
+    sizes: ['small', 'wide', 'bar', 'large'],
+    limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 4 },
+    render: XpSummaryWidget,
   },
   undated: {
     presentation: 'card',

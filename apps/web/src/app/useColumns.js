@@ -24,7 +24,16 @@ export function useGridMetrics(ref) {
 
   useLayoutEffect(() => {
     const element = ref?.current;
-    if (!element) return undefined;
+    // A null node here cannot be recovered from: the dependency is the ref
+    // object, which never changes, so the effect would not run again and the
+    // guess above would become permanent. Measure a node that is always
+    // rendered — never one behind a conditional.
+    if (!element) {
+      if (typeof console !== 'undefined') {
+        console.warn('useGridMetrics: nothing to measure. The ref must be on an element that always renders.');
+      }
+      return undefined;
+    }
     const measure = () => {
       const width = element.getBoundingClientRect().width;
       if (!width) return;

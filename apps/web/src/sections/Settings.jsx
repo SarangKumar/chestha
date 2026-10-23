@@ -7,12 +7,14 @@ import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
+import { WebsiteRules } from '../components/WebsiteRules.jsx';
 
 const SECTION_LABELS = {
   dashboard: 'Dashboard',
   tasks: 'Tasks',
   calendar: 'Calendar',
   dsa: 'DSA',
+  grove: 'Grove',
   sounds: 'Sounds',
 };
 
@@ -206,6 +208,10 @@ export function Settings() {
         />
 
         <TagCleanup />
+      </Group>
+
+      <Group title="Productive time">
+        <WebsiteRules />
       </Group>
 
       <Group title="Navigation">

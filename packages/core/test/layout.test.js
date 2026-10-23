@@ -6,6 +6,7 @@ import {
   migrateOrderedLayout, moveItem, needsMigration, normalizeLayout, overlaps, presetKeyFor,
   projectToColumns, removeItem, resizeItem, tidy, columnsForWidth, cellForWidth,
   CELL_PX, SIZE_PRESETS, presetByKey, scaleLayout, LEGACY_BASE_COLUMNS, V3_COLUMNS,
+  defaultWidgetsFor,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -388,6 +389,39 @@ test('the default layout is anchored, so its spacing survives compaction', () =>
   assert.ok(widest <= columnsForWidth(912), `the default spans ${widest}, a 1024px window fits ${columnsForWidth(912)}`);
   assert.ok(widest <= columnsForWidth(1328), 'and a 1440px laptop too');
   assert.ok(widest > 8, 'while still using the width it has');
+});
+
+test('the default layout reaches the corners of whatever width it is resolved at', () => {
+  // Written as fixed coordinates it only looked right at one width, bunching
+  // into the left third of a large monitor. Anchors state the intent instead.
+  for (const columns of [16, 21, 28, 43, BASE_COLUMNS]) {
+    const widgets = defaultWidgetsFor(columns);
+    assert.ok(isValidLayout(widgets, columns), `valid at ${columns} columns`);
+    assert.ok(widgets.every((w) => w.pinned), 'and still anchored');
+
+    const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
+    // The weather tile is the top-right corner, and shortcuts the bottom-right.
+    assert.equal(byId.w_weather.x + byId.w_weather.w, columns, `weather hugs the right edge at ${columns}`);
+    assert.equal(byId.w_weather.y, 0, 'at the top');
+    assert.equal(byId.w_shortcuts.x + byId.w_shortcuts.w, columns, 'shortcuts hug the right edge');
+    assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
+
+    // The clock and the search box are centred, and centred on each other.
+    const clockMid = byId.w_clock.x + byId.w_clock.w / 2;
+    const searchMid = byId.w_search.x + byId.w_search.w / 2;
+    assert.equal(clockMid, searchMid, 'the clock sits over the search box');
+    assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
+  }
+
+  // Nothing is placed off the grid, however absurd the column count.
+  for (const columns of [0, 1, 4, 999, NaN]) {
+    const widgets = defaultWidgetsFor(columns);
+    assert.ok(widgets.every((w) => w.x >= 0), `no negative x at ${columns}`);
+    assert.ok(widgets.every((w) => w.x + w.w <= BASE_COLUMNS), `inside the canvas at ${columns}`);
+  }
+
+  // The DSA tile is deliberately absent; the section is paused.
+  assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'dsaToday'));
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────

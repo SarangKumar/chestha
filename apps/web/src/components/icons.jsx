@@ -55,6 +55,7 @@ export function Icon({ name, className = 'size-5' }) {
     fog: <><path d="M7.5 11.5h9a3.2 3.2 0 0 0 .3-6.4 5 5 0 0 0-9.6 1.1 2.8 2.8 0 0 0 .3 5.3Z" /><path d="M5 15h14M7 18.5h10" /></>,
     wind: <path d="M3.5 9h9a2.5 2.5 0 1 0-2.5-2.5M3.5 15h12a2.5 2.5 0 1 1-2.5 2.5M3.5 12h6" />,
     moon: <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />,
+    leaf: <><path d="M12 21v-7.5" /><path d="M12 13.5c0-4.4 3.1-8 7-8.5.5 4.9-2.6 9.1-7 8.5Z" /><path d="M11.5 16c-3.4.4-5.8-2.8-5.4-6.6C9 10 11.2 12.7 11.5 16Z" /></>,
   };
   return <svg {...base} className={className} aria-hidden="true">{paths[name] ?? null}</svg>;
 }

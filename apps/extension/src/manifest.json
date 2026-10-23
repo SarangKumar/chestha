@@ -24,13 +24,17 @@
     "512": "icon-512.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
   "permissions": [
-    "tabs"
+    "tabs",
+    "idle",
+    "alarms",
+    "storage"
   ],
   "offline_enabled": true
 }

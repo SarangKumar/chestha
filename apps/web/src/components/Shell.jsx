@@ -12,6 +12,7 @@ const TITLES = {
   tasks: 'Tasks',
   calendar: 'Calendar',
   dsa: 'DSA',
+  grove: 'Grove',
   sounds: 'Sounds',
   settings: 'Settings',
   about: 'About',

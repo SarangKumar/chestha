@@ -404,7 +404,7 @@ test('export round-trips DSA data, and a version 1 backup still restores', async
   await store.flush();
 
   const payload = buildExport(store.getState());
-  assert.equal(payload.version, 2);
+  assert.equal(payload.version, 3);
   const result = parseImport(JSON.stringify(payload));
   assert.equal(result.ok, true);
   assert.equal(result.summary.dsaEvents, 1);

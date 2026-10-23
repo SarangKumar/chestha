@@ -9,6 +9,7 @@ const PRIMARY = [
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
   { id: 'dsa', label: 'DSA', icon: 'dsa' },
+  { id: 'grove', label: 'Grove', icon: 'leaf' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
 ];
 
