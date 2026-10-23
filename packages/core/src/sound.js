@@ -139,6 +139,47 @@ export const SOUNDS = [
       { noise: 'brown', filters: [{ type: 'lowpass', freq: 180 }], gain: 0.22 },
     ],
   },
+  {
+    id: 'cafe', name: 'Café murmur', group: 'Room', builtin: true,
+    description: 'Distant conversation, no words.',
+    layers: [
+      { noise: 'brown', filters: [{ type: 'lowpass', freq: 500 }], gain: 0.6,
+        lfo: { target: 'gain', rate: 0.25, depth: 0.5 } },
+      { noise: 'white', filters: [{ type: 'bandpass', freq: 900, q: 1.1 }], gain: 0.4,
+        grains: { rate: 2.2, decay: 0.6, jitter: 0.9, attack: 0.18 } },
+      { noise: 'white', filters: [{ type: 'bandpass', freq: 3000, q: 4 }], gain: 0.18,
+        grains: { rate: 0.5, decay: 0.12, jitter: 0.95 } },
+    ],
+  },
+  {
+    id: 'cabin', name: 'Aircraft cabin', group: 'Room', builtin: true,
+    description: 'Even pressurised rumble.',
+    layers: [
+      { noise: 'brown', filters: [{ type: 'lowpass', freq: 260 }], gain: 0.95 },
+      { noise: 'pink', filters: [{ type: 'bandpass', freq: 600, q: 0.7 }], gain: 0.3 },
+      { tone: 82, type: 'sine', gain: 0.08 },
+    ],
+  },
+  {
+    id: 'bowl', name: 'Singing bowl', group: 'Tonal', builtin: true,
+    description: 'A struck bowl, left to ring out.',
+    layers: [
+      { tone: 196, type: 'sine', gain: 0.5, grains: { rate: 0.12, decay: 6, jitter: 0.5, attack: 0.08 } },
+      { tone: 392.6, type: 'sine', gain: 0.22, grains: { rate: 0.12, decay: 4.5, jitter: 0.5, attack: 0.1 } },
+      { tone: 589, type: 'sine', gain: 0.1, grains: { rate: 0.12, decay: 3, jitter: 0.5, attack: 0.12 } },
+    ],
+  },
+  {
+    id: 'chimes', name: 'Wind chimes', group: 'Outdoors', builtin: true,
+    description: 'Occasional tuned notes on the breeze.',
+    layers: [
+      { noise: 'brown', filters: [{ type: 'lowpass', freq: 380 }], gain: 0.35,
+        lfo: { target: 'gain', rate: 0.09, depth: 0.6 } },
+      { tone: 523.25, type: 'sine', gain: 0.3, grains: { rate: 0.35, decay: 2.4, jitter: 0.95, attack: 0.01 } },
+      { tone: 659.25, type: 'sine', gain: 0.26, grains: { rate: 0.3, decay: 2.6, jitter: 0.95, attack: 0.01 } },
+      { tone: 783.99, type: 'sine', gain: 0.22, grains: { rate: 0.26, decay: 2.2, jitter: 0.95, attack: 0.01 } },
+    ],
+  },
 ];
 
 export const SOUND_IDS = SOUNDS.map((s) => s.id);

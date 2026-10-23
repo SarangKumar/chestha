@@ -1,4 +1,25 @@
 /**
+ * Starter prompts, so the widget says something useful before you write your own.
+ *
+ * These are plain working reminders written for this app — deliberately not
+ * quotations, because shipping someone else's words would mean redistributing
+ * their writing, and a borrowed mantra is a poor substitute for your own. Replace
+ * any of them in the widget's edit panel.
+ */
+export const DEFAULT_INTENTIONS = [
+  'Pick the hardest thing first.',
+  'Make a start, however small.',
+  'One task, then a break.',
+  'Write it down before you forget it.',
+  'Check the simple cause first.',
+  'Finish before you polish.',
+  'Close the loops you opened.',
+  'Protect one hour for the work that matters.',
+  'Ask for help earlier than feels comfortable.',
+  'Rest is part of the work.',
+];
+
+/**
  * Deterministic "one per day" selection.
  *
  * The same date always yields the same item, so a daily pick is stable across

@@ -98,6 +98,8 @@ export function TaskItem({ task, today, onToggle, onOpen, onDelete, compact = fa
 }
 
 export function TaskList({ tasks, today, onToggle, onOpen, onDelete, compact, showDate, emptyState }) {
+  // Returned bare, so a caller passing `className="h-full"` can make the empty
+  // state fill the space rather than being boxed by a wrapper.
   if (tasks.length === 0) return emptyState ?? null;
   return (
     <ul className="-mx-1 space-y-0.5">

@@ -72,9 +72,14 @@ test('presets can be renamed and deleted without touching the others', () => {
 });
 
 test('loading a preset reports sounds this build no longer ships', () => {
-  const { mix, missing } = applyPreset({ name: 'Old', mix: { rain: 0.5, cafe: 0.7 } });
+  // A deliberately absent id — not merely one that happens to be missing today,
+  // which is what broke this test when 'cafe' was later added for real.
+  const absent = 'sound-that-does-not-exist';
+  assert.ok(!SOUNDS.some((s) => s.id === absent), 'the fixture id really is absent');
+
+  const { mix, missing } = applyPreset({ name: 'Old', mix: { rain: 0.5, [absent]: 0.7 } });
   assert.deepEqual(Object.keys(mix), ['rain']);
-  assert.deepEqual(missing, ['cafe'], 'the omission is reported, not hidden');
+  assert.deepEqual(missing, [absent], 'the omission is reported, not hidden');
 });
 
 test('every built-in sound is synthesised, so nothing needs downloading', () => {

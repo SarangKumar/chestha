@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  SOUNDS, activeSoundIds, applyPreset, clampVolume, coerceAudioManifest, createPreset,
-  deletePreset, renamePreset,
+  activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, renamePreset,
 } from '@vistaar/core';
+import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import {
   Badge, Button, CardTitle, Dialog, EmptyState, Field, IconButton, Panel, SectionHeader, TextInput, cx,
@@ -18,20 +18,10 @@ export function Sounds() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [renaming, setRenaming] = useState(null);
-  const [userSounds, setUserSounds] = useState([]);
   const nameRef = useRef(null);
 
-  // Any files the user dropped into public/audio/ join the built-in catalogue.
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/audio/manifest.json')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (!cancelled && data) setUserSounds(coerceAudioManifest(data)); })
-      .catch(() => { /* the folder is optional */ });
-    return () => { cancelled = true; };
-  }, []);
-
-  const catalogue = useMemo(() => [...SOUNDS, ...userSounds], [userSounds]);
+  // Shared with the dashboard widget, so both judge a preset against the same list.
+  const catalogue = useSoundCatalogue();
   const knownIds = useMemo(() => catalogue.map((s) => s.id), [catalogue]);
   const groups = useMemo(() => [...new Set(catalogue.map((s) => s.group))], [catalogue]);
 
@@ -189,62 +179,77 @@ export function Sounds() {
       <Panel className="overflow-hidden">
         <div className="border-b border-line px-4 py-3">
           <CardTitle>Sound library</CardTitle>
+          <p className="mt-1 text-meta leading-relaxed text-ink-faint">
+            These are generated from filtered noise and tones, so they are honest
+            approximations rather than recordings — the noise colours and the tonal
+            ones are faithful, while rain, fire and crowds are suggestions of the real
+            thing. For true fidelity, drop recordings into{' '}
+            <span className="font-mono">public/audio/</span>; they appear here beside these.
+          </p>
         </div>
         {groups.map((group) => (
-        <div key={group}>
-        <p className="border-b border-line bg-inset px-4 py-1.5 text-meta font-medium text-ink-muted">{group}</p>
-        <ul className="divide-y divide-line">
-          {catalogue.filter((s) => s.group === group).map((item) => {
-            const on = item.id in mix;
-            const failure = audio.failed[item.id];
-            return (
-              <li key={item.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => toggleSound(item.id)}
-                  aria-pressed={on}
-                  className={cx(
-                    'flex size-9 shrink-0 items-center justify-center rounded-control border transition-colors duration-150',
-                    on ? 'border-transparent bg-accent text-on-accent' : 'border-line text-ink-muted hover:bg-hover hover:text-ink',
-                  )}
-                >
-                  <Icon name={on && audio.running ? 'pause' : 'play'} className="size-4" />
-                  <span className="sr-only">{on ? `Turn off ${item.name}` : `Turn on ${item.name}`}</span>
-                </button>
+          <div key={group}>
+            <p className="border-b border-line bg-inset px-4 py-1.5 text-meta font-medium text-ink-muted">
+              {group}
+            </p>
+            {/* Two columns: eighteen sounds in one list is a long scroll, and a
+                full-width row wastes space on a name and a slider. */}
+            <ul className="grid gap-px bg-line sm:grid-cols-2">
+              {catalogue.filter((s) => s.group === group).map((item) => {
+                const on = item.id in mix;
+                const failure = audio.failed[item.id];
+                return (
+                  <li key={item.id} className="flex items-center gap-3 bg-surface px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSound(item.id)}
+                      aria-pressed={on}
+                      className={cx(
+                        'flex size-9 shrink-0 items-center justify-center rounded-control border transition-colors duration-150',
+                        on
+                          ? 'border-transparent bg-accent text-on-accent'
+                          : 'border-line text-ink-muted hover:bg-hover hover:text-ink',
+                      )}
+                    >
+                      <Icon name={on && audio.running ? 'pause' : 'play'} className="size-4" />
+                      <span className="sr-only">{on ? `Turn off ${item.name}` : `Turn on ${item.name}`}</span>
+                    </button>
 
-                <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
-                    {item.name}
-                    {failure && <Badge tone="danger">Unavailable</Badge>}
-                    {on && !failure && <Badge tone={audio.running ? 'ok' : 'neutral'}>{audio.running ? 'Playing' : 'Paused'}</Badge>}
-                  </p>
-                  <p className="mt-0.5 text-meta text-ink-faint">
-                    {failure ? `This file ${failure}.` : item.description}
-                    {item.credit && !failure && ` · ${item.credit}`}
-                  </p>
-                </div>
-
-                <div className="flex w-full items-center gap-2 sm:w-44">
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={mix[item.id] ?? 0.5}
-                    disabled={!on}
-                    onChange={(e) => setSoundVolume(item.id, e.target.value)}
-                    aria-label={`${item.name} volume`}
-                    className="w-full accent-[var(--app-accent)] disabled:opacity-40"
-                  />
-                  <span className="tabular w-9 shrink-0 text-right text-meta text-ink-faint">
-                    {Math.round((mix[item.id] ?? 0) * 100)}%
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-ink">
+                        <span className="truncate">{item.name}</span>
+                        {failure && <Badge tone="danger">Unavailable</Badge>}
+                        {on && !failure && (
+                          <Badge tone={audio.running ? 'ok' : 'neutral'}>
+                            {audio.running ? 'Playing' : 'Paused'}
+                          </Badge>
+                        )}
+                        {!item.builtin && <Badge tone="neutral">Your file</Badge>}
+                      </p>
+                      <p className="mt-0.5 truncate text-meta text-ink-faint">
+                        {failure ? `This file ${failure}.` : item.description}
+                        {item.credit && !failure && ` · ${item.credit}`}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="0" max="1" step="0.01"
+                          value={mix[item.id] ?? 0.5}
+                          disabled={!on}
+                          onChange={(e) => setSoundVolume(item.id, e.target.value)}
+                          aria-label={`${item.name} volume`}
+                          className="w-full accent-[var(--app-accent)] disabled:opacity-40"
+                        />
+                        <span className="tabular w-9 shrink-0 text-right text-meta text-ink-faint">
+                          {Math.round((mix[item.id] ?? 0) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ))}
       </Panel>
 

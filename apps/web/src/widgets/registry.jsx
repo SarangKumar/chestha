@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import {
   SOUNDS, applyPreset, describeEvent, describeGithubError, formatLongDate, githubEventsUrl,
   githubProfileUrl, goalState, isValidGithubUsername, normalizeLines, pickForDay, questionUrl,
-  selectCompletedOn, selectNoDate, selectOverdue, selectToday, selectUpcoming, sortTasks,
+  DEFAULT_INTENTIONS, selectCompletedOn, selectNoDate, selectOverdue, selectToday,
+  selectUpcoming, sortTasks,
   summariseEvents,
 } from '@vistaar/core';
 import * as engine from '../audio/engine.js';
+import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
 import { Badge, Button, EmptyState, Meter, Select, Stat, TextArea, cx } from '../components/ui.jsx';
@@ -43,7 +45,7 @@ function TodayWidget({ onOpenTask, onCapture, span }) {
           <p className="mt-1.5 hidden tabular text-meta text-ink-faint @[9rem]:block">{done} of {total} done</p>
         )}
       </div>
-      <div className={LIST_SCROLL}>
+      <div className={cx(LIST_SCROLL, 'flex flex-col')}>
         <TaskList
           tasks={tasks.slice(0, rowBudget(span))}
           today={today}
@@ -51,7 +53,10 @@ function TodayWidget({ onOpenTask, onCapture, span }) {
           onToggle={actions.setCompleted}
           onOpen={onOpenTask}
           emptyState={(
+            // h-full so the empty state fills the widget rather than leaving a
+            // short box with dead space beneath it.
             <EmptyState
+              className="h-full"
               title={done > 0 ? 'Nothing left today' : 'Nothing due today'}
               action={<Button size="sm" onClick={onCapture}>Add a task</Button>}
             />
@@ -633,7 +638,9 @@ function DsaTodayWidget({ onNavigate }) {
  */
 function InspirationWidget({ widget, onChange, editing, span }) {
   const { today } = useWorkspace();
-  const lines = normalizeLines(widget.config.lines ?? []);
+  // No stored list means the starter prompts; an empty stored list means the
+  // user cleared them deliberately, so that stays empty.
+  const lines = normalizeLines(widget.config.lines ?? DEFAULT_INTENTIONS);
   const rotate = widget.config.rotate !== false;
   const [draft, setDraft] = useState('');
 
@@ -672,7 +679,7 @@ function InspirationWidget({ widget, onChange, editing, span }) {
   }
 
   return (
-    <div className="flex h-full flex-col justify-center">
+    <div className="flex h-full flex-col items-center justify-center text-center">
       <p className={cx(
         'text-balance font-medium leading-snug text-ink',
         (span?.h ?? 1) > 1 ? 'text-base @[20rem]:text-lg' : 'text-sm @[18rem]:text-base',
@@ -689,7 +696,7 @@ function InspirationWidget({ widget, onChange, editing, span }) {
 }
 
 function InspirationConfig({ widget, onChange }) {
-  const lines = normalizeLines(widget.config.lines ?? []);
+  const lines = normalizeLines(widget.config.lines ?? DEFAULT_INTENTIONS);
   const [draft, setDraft] = useState('');
 
   return (
@@ -876,13 +883,15 @@ function GithubConfig({ widget, onChange }) {
 function SoundsWidget({ onNavigate }) {
   const { state, actions, notify } = useWorkspace();
   const sound = state.sound;
+  const catalogue = useSoundCatalogue();
+  const knownIds = useMemo(() => catalogue.map((item) => item.id), [catalogue]);
   const audio = useSyncExternalStore(engine.subscribe, engine.getEngineState);
   const playing = audio.running && Object.keys(sound.lastMix ?? {}).length > 0;
 
   const play = async (preset) => {
-    const { mix, missing } = applyPreset(preset);
+    const { mix, missing } = applyPreset(preset, knownIds);
     actions.setSound({ lastMix: mix });
-    engine.setCatalogue(SOUNDS);
+    engine.setCatalogue(catalogue);
     const ok = await engine.ensureContext();
     if (!ok) { notify('The browser blocked audio. Press play again.', { tone: 'danger' }); return; }
     engine.applyMix(mix, sound.masterVolume);
