@@ -64,7 +64,11 @@ export const DEFAULT_SETTINGS = {
   exportReminderDismissed: false,
   lastExportAt: null,
   shortcuts: {},
+  background: { kind: 'none', image: '', dim: 0.45 },
 };
+
+/** How the app paints behind the interface. */
+export const BACKGROUND_KINDS = ['none', 'glow', 'image'];
 
 export const DEFAULT_SOUND = {
   presets: [],
@@ -81,7 +85,11 @@ export function defaultState() {
     notes: { text: '' },
     dashboard: structuredClone(DEFAULT_DASHBOARD),
     sound: structuredClone(DEFAULT_SOUND),
-    settings: { ...DEFAULT_SETTINGS, shortcuts: {} },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      shortcuts: {},
+      background: { kind: 'none', image: '', dim: 0.45 },
+    },
     'dsa.library': defaultDsaLibrary(),
     'dsa.progress': defaultDsaProgress(),
     'dsa.lists': defaultDsaLists(),
@@ -213,6 +221,27 @@ function coerceDashboard(raw) {
   return { value: { version: 2, widgets }, issues };
 }
 
+/**
+ * A background image is a local filename only. Absolute paths, parent paths and
+ * remote URLs are rejected, so a stored setting can never make the app load an
+ * image from somewhere else.
+ */
+function coerceBackground(raw) {
+  const fallback = { kind: 'none', image: '', dim: 0.45 };
+  if (!raw || typeof raw !== 'object') return fallback;
+  const image = str(raw.image).trim();
+  const safe = image && !image.includes('..') && !image.startsWith('/') && !/^[a-z]+:/i.test(image)
+    ? image
+    : '';
+  const kind = BACKGROUND_KINDS.includes(raw.kind) ? raw.kind : 'none';
+  return {
+    // Asking for an image without naming a usable one is not a background.
+    kind: kind === 'image' && !safe ? 'none' : kind,
+    image: safe,
+    dim: num(raw.dim, 0.45, 0, 0.9),
+  };
+}
+
 function coerceWidgetConfig(raw) {
   if (!raw || typeof raw !== 'object') return {};
   const config = { ...raw };
@@ -292,6 +321,7 @@ function coerceSettings(raw) {
       exportReminderDismissed: bool(raw.exportReminderDismissed, false),
       lastExportAt: isoInstant(raw.lastExportAt),
       shortcuts: coerceShortcuts(raw.shortcuts),
+      background: coerceBackground(raw.background),
     },
     issues: [],
   };

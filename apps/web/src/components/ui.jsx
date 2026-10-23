@@ -271,7 +271,15 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * Focus enters the dialog, is trapped inside it, and returns to where it came
  * from on close. Escape always closes.
  */
-export function Dialog({ open, onClose, title, description, children, footer, size = 'md', initialFocus }) {
+/**
+ * @param maxHeight caps the panel and makes only the body scroll, keeping the
+ *   title and footer in place. Without it the whole panel grows and the page
+ *   scrolls instead — fine for a short form, wrong for a long list where the
+ *   action buttons would scroll out of reach.
+ */
+export function Dialog({
+  open, onClose, title, description, children, footer, size = 'md', initialFocus, maxHeight,
+}) {
   const panelRef = useRef(null);
   const returnTo = useRef(null);
   const titleId = useId();
@@ -329,20 +337,25 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
+        style={maxHeight ? { maxHeight } : undefined}
         className={cx(
-          'relative w-full rounded-panel border border-line bg-overlay shadow-overlay',
+          'relative flex w-full flex-col overflow-hidden rounded-panel border border-line bg-overlay shadow-overlay',
           widths[size],
         )}
       >
-        <div className="px-5 pb-4 pt-5">
+        <div className="shrink-0 px-5 pb-4 pt-5">
           <h2 id={titleId} className="text-card font-semibold text-ink">{title}</h2>
           {description && (
             <p id={descId} className="mt-1.5 text-meta leading-relaxed text-ink-muted">{description}</p>
           )}
         </div>
-        <div className="px-5 pb-5">{children}</div>
+        <div className={cx('px-5 pb-5', maxHeight && 'min-h-0 flex-1 overflow-y-auto scrollbar-thin')}>
+          {children}
+        </div>
         {footer && (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3.5">{footer}</div>
+          <div className="shrink-0 flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3.5">
+            {footer}
+          </div>
         )}
       </div>
     </div>

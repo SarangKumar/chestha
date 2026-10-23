@@ -29,6 +29,46 @@ export function Settings() {
           )}
         </Field>
 
+        <Field label="Background" hint="Images come from apps/web/public/backgrounds — see the README there.">
+          {(id) => (
+            <div className="space-y-2">
+              <Select
+                id={id}
+                value={settings.background?.kind ?? 'none'}
+                onChange={(e) => actions.setSetting('background', { ...settings.background, kind: e.target.value })}
+              >
+                <option value="none">None</option>
+                <option value="glow">Soft glow (generated, no file)</option>
+                <option value="image">Your own image</option>
+              </Select>
+
+              {settings.background?.kind === 'image' && (
+                <input
+                  value={settings.background?.image ?? ''}
+                  onChange={(e) => actions.setSetting('background', { ...settings.background, image: e.target.value })}
+                  placeholder="my-wallpaper.jpg"
+                  aria-label="Background image filename"
+                  className="w-full rounded-control border border-line bg-inset px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+                />
+              )}
+
+              {settings.background?.kind !== 'none' && (
+                <label className="flex items-center gap-3 text-meta text-ink-muted">
+                  Dim
+                  <input
+                    type="range"
+                    min="0" max="0.9" step="0.05"
+                    value={settings.background?.dim ?? 0.45}
+                    onChange={(e) => actions.setSetting('background', { ...settings.background, dim: Number(e.target.value) })}
+                    className="flex-1 accent-[var(--app-accent)]"
+                  />
+                  <span className="tabular w-9 text-right">{Math.round((settings.background?.dim ?? 0.45) * 100)}%</span>
+                </label>
+              )}
+            </div>
+          )}
+        </Field>
+
         <Field label="Week starts on">
           {(id) => (
             <Select

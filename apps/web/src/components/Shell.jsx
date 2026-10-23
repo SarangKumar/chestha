@@ -24,8 +24,25 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
   const { state, today, actions } = useWorkspace();
   const sidebarOpen = state.settings.sidebarOpen;
 
+  const background = state.settings.background ?? { kind: 'none', image: '', dim: 0.45 };
+
   return (
-    <div className="min-h-dvh bg-canvas">
+    <div className="relative min-h-dvh bg-canvas">
+      {/* Painted behind everything, inert, and dimmed so interface contrast —
+          which was verified against the app's own surfaces — still holds. */}
+      {background.kind !== 'none' && (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+          {background.kind === 'image' && background.image ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url("/backgrounds/${background.image}")` }}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(60rem_40rem_at_20%_-10%,var(--app-surface-raised),transparent_70%),radial-gradient(50rem_35rem_at_100%_110%,var(--app-surface-raised),transparent_65%)]" />
+          )}
+          <div className="absolute inset-0 bg-canvas" style={{ opacity: background.dim }} />
+        </div>
+      )}
       <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />
 
       <RightSidebar

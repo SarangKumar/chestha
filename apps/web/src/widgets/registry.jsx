@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  formatLongDate, goalState, questionUrl, selectCompletedOn, selectNoDate, selectOverdue,
-  selectToday, selectUpcoming, sortTasks,
+  SOUNDS, applyPreset, describeEvent, describeGithubError, formatLongDate, githubEventsUrl,
+  githubProfileUrl, goalState, isValidGithubUsername, normalizeLines, pickForDay, questionUrl,
+  selectCompletedOn, selectNoDate, selectOverdue, selectToday, selectUpcoming, sortTasks,
+  summariseEvents,
 } from '@vistaar/core';
+import * as engine from '../audio/engine.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
-import { Badge, Button, EmptyState, Meter, Select, Stat, cx } from '../components/ui.jsx';
+import { Badge, Button, EmptyState, Meter, Select, Stat, TextArea, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
 /** How many list rows comfortably fit a widget of this height. */
@@ -621,6 +624,312 @@ function DsaTodayWidget({ onNavigate }) {
   );
 }
 
+/**
+ * Something of your own to hold onto for the day.
+ *
+ * The lines are yours — nothing is bundled. A shipped quote library would mean
+ * redistributing other people's writing, and a mantra someone else wrote is not
+ * much of a mantra anyway.
+ */
+function InspirationWidget({ widget, onChange, editing, span }) {
+  const { today } = useWorkspace();
+  const lines = normalizeLines(widget.config.lines ?? []);
+  const rotate = widget.config.rotate !== false;
+  const [draft, setDraft] = useState('');
+
+  const chosen = rotate ? pickForDay(lines, today) : lines[0] ?? null;
+
+  if (lines.length === 0) {
+    return (
+      <div className="flex h-full flex-col justify-center gap-2">
+        {editing ? (
+          <form
+            className="space-y-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const text = draft.trim();
+              if (!text) return;
+              onChange({ lines: [...lines, text] });
+              setDraft('');
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="An intention for today…"
+              aria-label="Add an intention"
+              className="w-full rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+            />
+            <Button type="submit" size="sm" disabled={!draft.trim()}>Add</Button>
+          </form>
+        ) : (
+          <p className="text-meta leading-relaxed text-ink-faint">
+            Nothing set. Open this widget’s edit panel to write an intention.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col justify-center">
+      <p className={cx(
+        'text-balance font-medium leading-snug text-ink',
+        (span?.h ?? 1) > 1 ? 'text-base @[20rem]:text-lg' : 'text-sm @[18rem]:text-base',
+      )}>
+        {chosen}
+      </p>
+      {rotate && lines.length > 1 && (
+        <p className="mt-2 hidden text-[10px] text-ink-faint @[12rem]:block">
+          One of {lines.length}, chosen for {today}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function InspirationConfig({ widget, onChange }) {
+  const lines = normalizeLines(widget.config.lines ?? []);
+  const [draft, setDraft] = useState('');
+
+  return (
+    <>
+      <label className="flex items-center gap-2 text-meta text-ink-muted">
+        <input
+          type="checkbox"
+          checked={widget.config.rotate !== false}
+          onChange={(event) => onChange({ rotate: event.target.checked })}
+          className="size-3.5 accent-[var(--app-accent)]"
+        />
+        Rotate daily
+      </label>
+
+      <div className="space-y-2 border-t border-line pt-3">
+        <p className="text-meta font-medium text-ink">Your lines <span className="tabular text-ink-faint">{lines.length}</span></p>
+        {lines.length > 0 && (
+          <ul className="divide-y divide-line overflow-hidden rounded-control border border-line">
+            {lines.map((line, index) => (
+              <li key={`${line}-${index}`} className="flex items-start gap-2 px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 text-xs leading-relaxed text-ink">{line}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ lines: lines.filter((_, i) => i !== index) })}
+                  aria-label={`Remove “${line.slice(0, 30)}”`}
+                  className="shrink-0 rounded-chip px-1.5 text-ink-faint hover:text-danger"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form
+          className="space-y-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const text = draft.trim();
+            if (!text) return;
+            onChange({ lines: [...lines, text] });
+            setDraft('');
+          }}
+        >
+          <TextArea
+            rows={2}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="An intention, a reminder, something you want to keep in view"
+            aria-label="Add a line"
+            className="text-xs"
+          />
+          <Button type="submit" size="sm" disabled={!draft.trim()}>Add line</Button>
+        </form>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Recent public GitHub activity.
+ *
+ * This is the one widget that reaches the network, so it stays off until a
+ * username is entered, and says so. GitHub allows browser requests and caps
+ * unauthenticated callers at 60 per hour per IP, so a refusal is routine and is
+ * reported rather than hidden.
+ */
+function GithubWidget({ widget, editing, span }) {
+  const username = String(widget.config.username ?? '').trim();
+  const [state, setState] = useState({ status: 'idle', summary: null, error: null });
+
+  useEffect(() => {
+    if (!username || !isValidGithubUsername(username)) {
+      setState({ status: 'idle', summary: null, error: null });
+      return undefined;
+    }
+    let cancelled = false;
+    setState({ status: 'loading', summary: null, error: null });
+
+    fetch(githubEventsUrl(username), { headers: { Accept: 'application/vnd.github+json' } })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (!response.ok) {
+          setState({
+            status: 'error',
+            summary: null,
+            error: describeGithubError(response.status, response.headers.get('x-ratelimit-remaining')),
+          });
+          return;
+        }
+        const summary = summariseEvents(await response.json());
+        if (!cancelled) setState({ status: 'ready', summary, error: null });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', summary: null, error: 'Could not reach GitHub.' });
+      });
+
+    return () => { cancelled = true; };
+  }, [username]);
+
+  if (!username) {
+    return (
+      <div className="flex h-full flex-col justify-center">
+        <p className="text-meta leading-relaxed text-ink-faint">
+          {editing
+            ? 'Add a GitHub username in the edit panel. This is the only widget that contacts the internet.'
+            : 'No GitHub user set. Use Edit layout, then the pencil on this widget.'}
+        </p>
+      </div>
+    );
+  }
+
+  if (state.status === 'loading') {
+    return <p className="flex h-full items-center text-meta text-ink-faint">Reading public activity…</p>;
+  }
+
+  if (state.status === 'error') {
+    return (
+      <div className="flex h-full flex-col justify-center gap-1">
+        <Badge tone="danger">Unavailable</Badge>
+        <p className="text-meta leading-relaxed text-ink-muted">{state.error}</p>
+      </div>
+    );
+  }
+
+  const { summary } = state;
+  if (!summary) return null;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <Stat value={summary.commits} label="commits" />
+        <Stat value={summary.totals.pullRequests} label="PRs" />
+        <Stat value={summary.repoCount} label="repos" />
+      </div>
+
+      {(span?.h ?? 1) > 1 && summary.recent.length > 0 && (
+        <ul className="mt-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {summary.recent.map((item) => (
+            <li key={item.id} className="truncate text-[11px] text-ink-muted">
+              {describeEvent(item.type)}{' '}
+              <span className="text-ink">{item.repo}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <a
+        href={githubProfileUrl(username)}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="mt-auto hidden text-[10px] text-ink-faint underline-offset-2 hover:underline @[12rem]:block"
+      >
+        {username} · public activity only
+      </a>
+    </div>
+  );
+}
+
+function GithubConfig({ widget, onChange }) {
+  const [draft, setDraft] = useState(widget.config.username ?? '');
+  const valid = draft.trim() === '' || isValidGithubUsername(draft);
+
+  return (
+    <div className="space-y-2">
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => { if (valid) onChange({ username: draft.trim() }); }}
+        placeholder="github-username"
+        aria-label="GitHub username"
+        autoComplete="off"
+        className="w-full rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+      />
+      {!valid && <p className="text-[10px] text-danger">That is not a valid GitHub username.</p>}
+      <p className="text-[10px] leading-relaxed text-ink-faint">
+        Reads public activity from GitHub’s API — the only outbound request this app makes. Leave it
+        empty and nothing is fetched. Unauthenticated access is limited to 60 requests an hour.
+      </p>
+    </div>
+  );
+}
+
+/** Starts a saved ambient mix without leaving the dashboard. */
+function SoundsWidget({ onNavigate }) {
+  const { state, actions, notify } = useWorkspace();
+  const sound = state.sound;
+  const audio = useSyncExternalStore(engine.subscribe, engine.getEngineState);
+  const playing = audio.running && Object.keys(sound.lastMix ?? {}).length > 0;
+
+  const play = async (preset) => {
+    const { mix, missing } = applyPreset(preset);
+    actions.setSound({ lastMix: mix });
+    engine.setCatalogue(SOUNDS);
+    const ok = await engine.ensureContext();
+    if (!ok) { notify('The browser blocked audio. Press play again.', { tone: 'danger' }); return; }
+    engine.applyMix(mix, sound.masterVolume);
+    if (missing.length) notify(`${missing.length} sound(s) in that preset are unavailable.`);
+  };
+
+  const stop = () => { engine.stopAll(); actions.setSound({ lastMix: {} }); };
+
+  if (sound.presets.length === 0) {
+    return (
+      <div className="flex h-full flex-col justify-center gap-2">
+        <p className="text-meta leading-relaxed text-ink-faint">No saved mixes yet.</p>
+        <Button size="sm" onClick={() => onNavigate('sounds')}>Open sounds</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+        <ul className="space-y-1">
+          {sound.presets.map((preset) => (
+            <li key={preset.id}>
+              <button
+                type="button"
+                onClick={() => play(preset)}
+                className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-150 hover:bg-hover"
+              >
+                <Icon name="play" className="size-3.5 shrink-0 text-ink-muted" />
+                <span className="min-w-0 flex-1 truncate text-xs text-ink">{preset.name}</span>
+                <span className="tabular shrink-0 text-[10px] text-ink-faint">
+                  {Object.keys(preset.mix).length}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {playing && (
+        <Button size="sm" tone="quiet" className="mt-1 justify-start" onClick={stop}>
+          <Icon name="pause" className="size-3.5" /> Stop
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /** Widget configuration exists only where it changes meaning, never for decoration. */
 export const WIDGETS = {
   today: {
@@ -713,6 +1022,35 @@ export const WIDGETS = {
     sizes: ['small', 'wide', 'tall', 'large'],
     limits: { minW: 1, minH: 1, maxW: 12, maxH: 2 },
     render: DsaTodayWidget,
+  },
+  inspiration: {
+    presentation: 'card',
+    name: 'Daily intention',
+    description: 'A line of your own, optionally rotating each day.',
+    defaultSize: { w: 2, h: 1 },
+    sizes: ['wide', 'bar', 'banner', 'large', 'panel', 'row'],
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 3 },
+    render: InspirationWidget,
+    Config: InspirationConfig,
+  },
+  github: {
+    presentation: 'card',
+    name: 'GitHub activity',
+    description: 'Recent public activity for a GitHub user. Contacts the internet.',
+    defaultSize: { w: 2, h: 1 },
+    sizes: ['wide', 'bar', 'large', 'panel', 'banner'],
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 3 },
+    render: GithubWidget,
+    Config: GithubConfig,
+  },
+  sounds: {
+    presentation: 'card',
+    name: 'Ambient mixes',
+    description: 'Start a saved sound mix without leaving the dashboard.',
+    defaultSize: { w: 1, h: 2 },
+    sizes: ['small', 'tall', 'wide', 'large', 'column'],
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 4 },
+    render: SoundsWidget,
   },
   undated: {
     presentation: 'card',

@@ -569,6 +569,9 @@ function AddWidgetDialog({ open, onClose, placed, onAdd }) {
     <Dialog
       open={open}
       onClose={onClose}
+      // The catalogue is long enough that the Close button would otherwise
+      // scroll out of reach.
+      maxHeight="75vh"
       title="Add a widget"
       description="A widget can be added more than once — two Upcoming widgets can use different horizons."
       footer={<Button onClick={onClose}>Close</Button>}
