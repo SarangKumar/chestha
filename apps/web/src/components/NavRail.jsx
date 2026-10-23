@@ -49,7 +49,7 @@ export function NavRail({ section, onNavigate, onCapture }) {
           aria-hidden="true"
           width="36"
           height="36"
-          className="mb-3 size-9 rounded-card"
+          className="mb-3 size-9 rounded-chip"
         />
 
         <button

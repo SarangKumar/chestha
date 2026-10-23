@@ -14,6 +14,7 @@
     "test": "node --test packages/core/test apps/web/test",
     "build:extension": "npm run build && node tools/build-extension.mjs",
     "extension": "npm run build:extension",
-    "backgrounds": "node tools/build-backgrounds.mjs"
+    "backgrounds": "node tools/build-backgrounds.mjs",
+    "watch:extension": "node tools/watch-extension.mjs"
   }
 }

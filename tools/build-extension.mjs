@@ -6,33 +6,38 @@
  * rather than a separate build. Absolute asset paths (/icon-192.png,
  * /dsa-packs/*.json, /audio/*) resolve against the extension root, which is why
  * no base-path rewriting is needed.
+ *
+ * The assembly step is exported so the watcher can reuse it rather than
+ * duplicating the copy rules.
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const webDist = `${root}apps/web/dist`;
-const extSrc = `${root}apps/extension/src`;
-const out = `${root}apps/extension/dist`;
 
-if (!existsSync(webDist)) {
-  console.error('apps/web/dist is missing — run `npm run build` first.');
-  process.exit(1);
+export const WEB_DIST = `${root}apps/web/dist`;
+export const EXTENSION_SRC = `${root}apps/extension/src`;
+export const EXTENSION_DIST = `${root}apps/extension/dist`;
+
+/** @returns {boolean} whether the extension was written */
+export function assembleExtension({ quiet = false } = {}) {
+  if (!existsSync(WEB_DIST)) {
+    if (!quiet) console.error('apps/web/dist is missing — run `npm run build` first.');
+    return false;
+  }
+
+  rmSync(EXTENSION_DIST, { recursive: true, force: true });
+  mkdirSync(EXTENSION_DIST, { recursive: true });
+  cpSync(WEB_DIST, EXTENSION_DIST, { recursive: true });
+  cpSync(EXTENSION_SRC, EXTENSION_DIST, { recursive: true });
+  return true;
 }
 
-rmSync(out, { recursive: true, force: true });
-mkdirSync(out, { recursive: true });
-
-cpSync(webDist, out, { recursive: true });
-cpSync(extSrc, out, { recursive: true });
-
-console.log(`Unpacked extension written to apps/extension/dist
-
-Load it in Chrome:
+export const LOAD_INSTRUCTIONS = `Load it in Chrome:
   1. Open chrome://extensions
   2. Turn on "Developer mode" (top right)
   3. Click "Load unpacked" and choose:
-     ${out}
+     ${EXTENSION_DIST}
   4. Pin the icon and click it to open the workspace
 
 This also replaces Chrome's New Tab page. Chrome will ask you to confirm the
@@ -45,6 +50,13 @@ workspace open when Chrome launches, set it yourself:
   extension's index.html URL (copy it from the extension's card, or open a new
   tab and copy the address).
 
+Its data lives on the chrome-extension:// origin, separate from the dev server's
+— move data across with Settings > Export / Import.`;
+
+// Only act when invoked directly, so importing this does not rebuild anything.
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+  if (!assembleExtension()) process.exit(1);
+  console.log(`Unpacked extension written to apps/extension/dist\n\n${LOAD_INSTRUCTIONS}\n
 Re-run \`npm run build:extension\` after changes, then press the reload icon on
-the extension card. Its data lives on the chrome-extension:// origin, separate
-from the dev server's — move data across with Settings > Export / Import.`);
+the extension card — or use \`npm run watch:extension\` to rebuild automatically.`);
+}

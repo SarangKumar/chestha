@@ -213,7 +213,7 @@
     background-image:
       linear-gradient(to right, var(--app-border) 1px, transparent 1px),
       linear-gradient(to bottom, var(--app-border) 1px, transparent 1px);
-    background-size: 3rem 3rem;
+    background-size: 1.5rem 1.5rem;
   }
 
   .bg-pattern-dots {
