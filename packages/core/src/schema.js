@@ -3,9 +3,11 @@ import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
 import { coerceRecurrence } from './recurrence.js';
 import { coerceShortcuts } from './shortcuts.js';
+import { coerceGithubForm } from './github.js';
+import { coerceTemperatureUnit, coerceWeatherPlace } from './weather.js';
 import {
-  BASE_COLUMNS, LEGACY_BASE_COLUMNS, createPlacement, migrateOrderedLayout, needsMigration,
-  normalizeLayout, scaleLayout,
+  BASE_COLUMNS, LEGACY_BASE_COLUMNS, V3_COLUMNS, createPlacement, migrateOrderedLayout,
+  needsMigration, normalizeLayout, scaleLayout,
 } from './layout.js';
 import {
   DSA_AREAS, DSA_LAZY_AREAS, coerceDsaArea, defaultDsaLibrary, defaultDsaLists,
@@ -44,14 +46,23 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
  * into a block in the first column the moment the dashboard rendered. "Tidy up"
  * releases the anchors for anyone who does want it packed.
  */
+/**
+ * The shipped arrangement, kept inside 16 columns.
+ *
+ * The canonical grid is far wider, but only as many fixed-size columns as fit
+ * are on screen — 16 at a 1024px window. A default that spanned the whole
+ * canvas would not fit a laptop, and a layout that does not fit has its editing
+ * paused to protect it, so the app would open in a guarded state on a perfectly
+ * ordinary screen. Everything to the right is yours to fill.
+ */
 export const DEFAULT_DASHBOARD = {
   version: 3,
   widgets: [
-    { id: 'w_dsa', type: 'dsaToday', x: 22, y: 0, w: 2, h: 2, pinned: true, config: {} },
-    { id: 'w_clock', type: 'clock', x: 10, y: 2, w: 4, h: 2, pinned: true, config: {} },
-    { id: 'w_search', type: 'search', x: 8, y: 4, w: 8, h: 2, pinned: true, config: {} },
+    { id: 'w_dsa', type: 'dsaToday', x: 14, y: 0, w: 2, h: 2, pinned: true, config: {} },
+    { id: 'w_clock', type: 'clock', x: 6, y: 2, w: 4, h: 2, pinned: true, config: {} },
+    { id: 'w_search', type: 'search', x: 4, y: 4, w: 8, h: 2, pinned: true, config: {} },
     { id: 'w_notes', type: 'notes', x: 0, y: 8, w: 4, h: 4, pinned: true, config: {} },
-    { id: 'w_shortcuts', type: 'shortcuts', x: 20, y: 8, w: 4, h: 2, pinned: true, config: {} },
+    { id: 'w_shortcuts', type: 'shortcuts', x: 12, y: 8, w: 4, h: 2, pinned: true, config: {} },
   ],
 };
 
@@ -66,7 +77,22 @@ export const DEFAULT_SETTINGS = {
   lastExportAt: null,
   shortcuts: {},
   background: { kind: 'none', image: '', dim: 0.45 },
+  hiddenSections: [],
+  glass: 0.55,
 };
+
+/**
+ * Sections that may be hidden from the navigation rail.
+ *
+ * Settings is deliberately absent. Hiding it would leave the command palette as
+ * the only way back to the switch that unhides it — fine with a keyboard,
+ * a dead end on a phone. A setting that can lock you out of settings is not a
+ * preference, it is a trap.
+ *
+ * Hiding only affects the rail. A hidden section still renders from a deep link
+ * or the palette, so nothing becomes unreachable and no data is touched.
+ */
+export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'sounds'];
 
 /**
  * How the app paints behind the interface.
@@ -239,7 +265,7 @@ function coerceDashboard(raw) {
     // Version 2 was stored against a grid half as fine. Doubling keeps every
     // widget exactly the size and position it had on screen.
     if (Number(raw.version) < 3) {
-      placed = scaleLayout(placed, BASE_COLUMNS / LEGACY_BASE_COLUMNS);
+      placed = scaleLayout(placed, V3_COLUMNS / LEGACY_BASE_COLUMNS);
     }
     widgets = normalizeLayout(placed, BASE_COLUMNS);
   }
@@ -292,6 +318,16 @@ function coerceWidgetConfig(raw) {
       return out;
     }, []);
   }
+  // A weather place arrives from a geocoder response and ends up in a request
+  // URL, so it is re-validated on read rather than trusted from storage.
+  if ('place' in config) {
+    const place = coerceWeatherPlace(config.place);
+    if (place) config.place = place;
+    else delete config.place;
+  }
+  if ('unit' in config) config.unit = coerceTemperatureUnit(config.unit);
+  // A widget shape from a newer build falls back rather than rendering nothing.
+  if ('form' in config) config.form = coerceGithubForm(config.form);
   return config;
 }
 
@@ -334,6 +370,18 @@ function coerceMix(raw) {
   return mix;
 }
 
+/**
+ * Only known, hideable ids survive, and never all of them: an empty rail reads
+ * as a broken app rather than a configured one, so the last visible section
+ * cannot be hidden. Order follows HIDEABLE_SECTIONS so the stored value does not
+ * depend on the order the boxes were ticked.
+ */
+function coerceHiddenSections(raw) {
+  if (!Array.isArray(raw)) return [];
+  const hidden = HIDEABLE_SECTIONS.filter((id) => raw.includes(id));
+  return hidden.length >= HIDEABLE_SECTIONS.length ? hidden.slice(0, -1) : hidden;
+}
+
 function coerceSettings(raw) {
   if (!raw || typeof raw !== 'object') return { value: { ...DEFAULT_SETTINGS }, issues: [] };
   return {
@@ -348,6 +396,8 @@ function coerceSettings(raw) {
       lastExportAt: isoInstant(raw.lastExportAt),
       shortcuts: coerceShortcuts(raw.shortcuts),
       background: coerceBackground(raw.background),
+      hiddenSections: coerceHiddenSections(raw.hiddenSections),
+      glass: num(raw.glass, 0.55, 0, 1),
     },
     issues: [],
   };

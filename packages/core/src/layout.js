@@ -22,37 +22,51 @@ import { newId } from './ids.js';
  * here, so old arrangements simply keep the left of the grid and the columns to
  * their right become available.
  */
-export const BASE_COLUMNS = 24;
+/**
+ * The canonical grid width — wide enough that a 48px cell still reaches the
+ * right edge of a large desktop, so the placement grid covers the whole screen
+ * rather than stopping short of it.
+ *
+ * It is a storage space, not a promise that 48 columns are on screen:
+ * `columnsForWidth` reports how many actually fit, and a layout wider than that
+ * is projected rather than overwritten.
+ */
+export const BASE_COLUMNS = 48;
 
 /** The column count layouts were stored at before the grid was halved. */
 export const LEGACY_BASE_COLUMNS = 12;
 
 /**
- * The grid spans the page from edge to edge, so the cell is derived from the
- * available width rather than fixed. A column narrower than this is unusable, and
- * that is what reduces the column count on small screens.
+ * The width version 3 coordinates were written against.
+ *
+ * `BASE_COLUMNS` has since grown so the grid reaches the edge of a wide screen,
+ * but that widened the canvas without moving anything on it. Migrations must
+ * scale by the ratio the coordinates actually changed by — 12 → 24 — not by
+ * whatever the canonical width happens to be today, or every future widening
+ * would silently rescale old layouts again.
  */
-export const MIN_CELL_PX = 32;
-
-/** Bounds on the square cell, so it neither vanishes nor balloons. */
-export const MIN_ROW_PX = 48;
-export const MAX_ROW_PX = 84;
+export const V3_COLUMNS = 24;
 
 /**
- * The column count for a given page width. The full grid is used wherever the
- * columns stay usable, so the rightmost column really is the right edge of the
- * page; narrow screens drop columns rather than shrink them to nothing.
+ * The cell is a fixed square, so resizing the window never changes how large a
+ * widget is — only how many columns fit beside it. Deriving the cell from the
+ * width instead made every square shrink as the window narrowed.
  */
-export function columnsForWidth(width, minCell = MIN_CELL_PX) {
+export const CELL_PX = 48;
+
+/**
+ * How many fixed-size columns fit the page. The cell never changes size, so this
+ * is what varies: a wider window gets more columns, not bigger squares.
+ */
+export function columnsForWidth(width, cell = CELL_PX, gap = 8) {
   if (!width || width <= 0) return 4;
-  return Math.min(BASE_COLUMNS, Math.max(4, Math.floor(width / minCell)));
+  const fits = Math.floor((width + gap) / (cell + gap));
+  return Math.min(BASE_COLUMNS, Math.max(4, fits));
 }
 
-/** A square cell, derived from the page so the grid fills it exactly. */
-export function cellForWidth(width, columns, gap = 16) {
-  if (!width || !columns) return MIN_ROW_PX;
-  const square = (width - gap * (columns - 1)) / columns;
-  return Math.round(Math.min(MAX_ROW_PX, Math.max(MIN_ROW_PX, square)));
+/** Always the same square, whatever the viewport. */
+export function cellForWidth() {
+  return CELL_PX;
 }
 
 export const MIN_W = 1;

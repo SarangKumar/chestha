@@ -5,7 +5,7 @@ import {
   DEFAULT_DASHBOARD, allowedPresets, findFreeSpot, isValidLayout, layoutHeight,
   migrateOrderedLayout, moveItem, needsMigration, normalizeLayout, overlaps, presetKeyFor,
   projectToColumns, removeItem, resizeItem, tidy, columnsForWidth, cellForWidth,
-  MIN_ROW_PX, MAX_ROW_PX, SIZE_PRESETS, presetByKey,
+  CELL_PX, SIZE_PRESETS, presetByKey, scaleLayout, LEGACY_BASE_COLUMNS, V3_COLUMNS,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -232,6 +232,27 @@ test('an ordered v1 layout migrates to coordinates in its stored order', () => {
   assert.equal(needsMigration(migrated), false, 'migrating twice is not needed');
 });
 
+test('a layout stored against the coarser grid is doubled, not reset', () => {
+  const { value } = coerceArea('dashboard', {
+    version: 2,
+    widgets: [
+      { id: 'a', type: 'clock', x: 5, y: 1, w: 2, h: 1, pinned: true, config: {} },
+      { id: 'b', type: 'notes', x: 0, y: 4, w: 2, h: 2, config: {} },
+    ],
+  });
+
+  assert.equal(value.version, 3);
+  const clock = value.widgets.find((w) => w.id === 'a');
+  // Doubling keeps it exactly the size and place it occupied on screen.
+  assert.deepEqual([clock.x, clock.y, clock.w, clock.h], [10, 2, 4, 2]);
+  assert.equal(clock.pinned, true, 'anchors survive the rescale');
+  assert.ok(isValidLayout(value.widgets, BASE_COLUMNS));
+
+  // Scaling is exact, so nothing is lost or rounded away.
+  const scaled = scaleLayout([at('x', 3, 2, 2, 2)], V3_COLUMNS / LEGACY_BASE_COLUMNS);
+  assert.deepEqual([scaled[0].x, scaled[0].y, scaled[0].w, scaled[0].h], [6, 4, 4, 4]);
+});
+
 test('the stored dashboard area migrates on read and reports it', () => {
   const { value, issues } = coerceArea('dashboard', {
     widgets: [
@@ -239,27 +260,27 @@ test('the stored dashboard area migrates on read and reports it', () => {
       { id: 'b', type: 'clock', size: '1x1', config: { presentation: 'transparent' } },
     ],
   });
-  assert.equal(value.version, 2);
+  assert.equal(value.version, 3);
   assert.ok(isValidLayout(value.widgets, BASE_COLUMNS));
   assert.equal(value.widgets.length, 2, 'no widget silently lost');
   assert.match(issues[0], /upgraded to the new grid/);
   assert.equal(value.widgets.find((w) => w.type === 'clock').config.presentation, 'transparent');
 });
 
-test('a v2 layout round-trips through storage unchanged', async () => {
+test('a current layout round-trips through storage unchanged', async () => {
   const store = createStore();
   await store.init();
   const arrangement = [
-    { id: 'w1', type: 'clock', x: 3, y: 0, w: 1, h: 1, config: { presentation: 'transparent' } },
-    { id: 'w2', type: 'notes', x: 0, y: 0, w: 3, h: 2, config: {} },
+    { id: 'w1', type: 'clock', x: 6, y: 0, w: 2, h: 2, config: { presentation: 'transparent' } },
+    { id: 'w2', type: 'notes', x: 0, y: 0, w: 6, h: 4, config: {} },
   ];
-  store.update('dashboard', () => ({ version: 2, widgets: arrangement }));
+  store.update('dashboard', () => ({ version: 3, widgets: arrangement }));
   await store.flush();
 
   const saved = store.getState().dashboard.widgets;
   assert.ok(isValidLayout(saved, BASE_COLUMNS));
-  assert.equal(saved.find((w) => w.id === 'w1').x, 3, 'position preserved exactly');
-  assert.equal(saved.find((w) => w.id === 'w2').w, 3, 'span preserved exactly');
+  assert.equal(saved.find((w) => w.id === 'w1').x, 6, 'position preserved exactly');
+  assert.equal(saved.find((w) => w.id === 'w2').w, 6, 'span preserved exactly');
   assert.equal(saved.find((w) => w.id === 'w1').config.presentation, 'transparent');
 });
 
@@ -333,10 +354,10 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
   const store = createStore();
   await store.init();
   store.update('dashboard', () => ({
-    version: 2,
+    version: 3,
     widgets: [
-      { id: 'a', type: 'clock', x: 3, y: 2, w: 1, h: 1, pinned: true, config: {} },
-      { id: 'b', type: 'notes', x: 0, y: 0, w: 2, h: 1, config: {} },
+      { id: 'a', type: 'clock', x: 6, y: 4, w: 2, h: 2, pinned: true, config: {} },
+      { id: 'b', type: 'notes', x: 0, y: 0, w: 4, h: 2, config: {} },
     ],
   }));
   await store.flush();
@@ -344,7 +365,7 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
   const saved = store.getState().dashboard.widgets;
   const anchored = saved.find((w) => w.id === 'a');
   assert.equal(anchored.pinned, true, 'the anchor was stored');
-  assert.equal(anchored.y, 2, 'and its row was not compacted away on read');
+  assert.equal(anchored.y, 4, 'and its row was not compacted away on read');
   assert.equal(saved.find((w) => w.id === 'b').pinned, false);
 });
 
@@ -360,8 +381,13 @@ test('the default layout is anchored, so its spacing survives compaction', () =>
   assert.equal(layoutHeight(compact(DEFAULT_DASHBOARD.widgets)), before, 'compaction leaves it alone');
   assert.ok(layoutHeight(tidy(DEFAULT_DASHBOARD.widgets)) < before, 'tidy still packs it on request');
 
-  // It occupies the full width, so the rightmost widget reaches the last column.
-  assert.equal(Math.max(...DEFAULT_DASHBOARD.widgets.map((w) => w.x + w.w)), BASE_COLUMNS);
+  // It fits a 1024px window unchanged. The canonical grid is far wider, but a
+  // default that needed every column would not fit a laptop — and a layout that
+  // does not fit has its editing paused, so the app would open guarded.
+  const widest = Math.max(...DEFAULT_DASHBOARD.widgets.map((w) => w.x + w.w));
+  assert.ok(widest <= columnsForWidth(912), `the default spans ${widest}, a 1024px window fits ${columnsForWidth(912)}`);
+  assert.ok(widest <= columnsForWidth(1328), 'and a 1440px laptop too');
+  assert.ok(widest > 8, 'while still using the width it has');
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────
@@ -372,19 +398,15 @@ test('only the presets a widget can actually render are offered', () => {
 
   // A widget needing two columns loses every one-column size.
   assert.ok(allowedPresets({ minW: 2 }).every((p) => p.w >= 2));
-  assert.ok(!allowedPresets({ minW: 2 }).some((p) => p.key === 'small'));
+  assert.ok(!allowedPresets({ minW: 2 }).some((p) => p.key === 'tiny'));
 
-  // A single-row widget loses everything taller — but keeps the full-row span,
-  // which is one row by definition.
-  assert.deepEqual(
-    allowedPresets({ maxH: 1 }).map((p) => p.key),
-    ['small', 'wide', 'bar', 'banner', 'row'],
-  );
-  assert.ok(allowedPresets({ maxH: 1 }).every((p) => p.h === 1));
+  // A widget limited to two rows loses everything taller.
+  assert.ok(allowedPresets({ maxH: 2 }).every((p) => p.h <= 2));
+  assert.ok(!allowedPresets({ maxH: 2 }).some((p) => p.key === 'large'));
 
-  // A widget capped at two columns loses the wider shapes.
-  assert.ok(allowedPresets({ maxW: 2 }).every((p) => p.w <= 2));
-  assert.ok(!allowedPresets({ maxW: 2 }).some((p) => p.key === 'block'));
+  // A widget capped at four columns loses the wider shapes.
+  assert.ok(allowedPresets({ maxW: 4 }).every((p) => p.w <= 4));
+  assert.ok(!allowedPresets({ maxW: 4 }).some((p) => p.key === 'block'));
 });
 
 test('every offered preset fits inside the limits that produced it', () => {
@@ -403,12 +425,12 @@ test('every offered preset fits inside the limits that produced it', () => {
 });
 
 test('a preset is recognised from a widget that already matches it', () => {
-  assert.equal(presetKeyFor({ w: 1, h: 1 }), 'small');
-  assert.equal(presetKeyFor({ w: 2, h: 2 }), 'large');
-  assert.equal(presetKeyFor({ w: 3, h: 1 }), 'bar');
-  assert.equal(presetKeyFor({ w: 4, h: 1 }), 'banner');
-  assert.equal(presetKeyFor({ w: 4, h: 2 }), 'block');
-  assert.equal(presetKeyFor({ w: 5, h: 4 }), null, 'a hand-dragged size matches no preset');
+  assert.equal(presetKeyFor({ w: 1, h: 1 }), 'tiny');
+  assert.equal(presetKeyFor({ w: 2, h: 2 }), 'small');
+  assert.equal(presetKeyFor({ w: 4, h: 4 }), 'large');
+  assert.equal(presetKeyFor({ w: 6, h: 2 }), 'bar');
+  assert.equal(presetKeyFor({ w: 8, h: 4 }), 'block');
+  assert.equal(presetKeyFor({ w: 7, h: 5 }), null, 'a hand-dragged size matches no preset');
 });
 
 test('resizing to a preset respects the widget limits regardless', () => {
@@ -419,27 +441,24 @@ test('resizing to a preset respects the widget limits regardless', () => {
   assert.ok(isValidLayout(resized, BASE_COLUMNS));
 });
 
-test('the grid spans the page, so the last column is the right edge', () => {
-  assert.equal(BASE_COLUMNS, 12);
+test('a grid square is the same size at every viewport', () => {
+  // Wide enough that a fixed 48px cell still reaches the right edge of a large
+  // desktop, so the placement grid covers the screen rather than stopping short.
+  assert.equal(BASE_COLUMNS, 48);
+  assert.equal(V3_COLUMNS, 24, 'the width old coordinates were written against');
 
-  // Anything with room for usable columns gets the whole grid, which is what
-  // makes the rightmost column reachable.
-  assert.equal(columnsForWidth(1888), BASE_COLUMNS, 'a ~2000px window');
-  assert.equal(columnsForWidth(1328), BASE_COLUMNS, 'a 1440px laptop');
-  assert.equal(columnsForWidth(912), BASE_COLUMNS, 'a 1024px window');
-  assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more than the stored space');
-
-  // Narrow screens drop columns rather than shrink them into uselessness.
-  assert.ok(columnsForWidth(656) < BASE_COLUMNS, 'a tablet sheds columns');
-  assert.ok(columnsForWidth(358) < columnsForWidth(656), 'a phone sheds more');
-  assert.ok(columnsForWidth(358) >= 4, 'but never fewer than four');
-  assert.equal(columnsForWidth(0), 4, 'a degenerate width still yields a usable grid');
-
-  // The cell stays within bounds at every width, so it neither vanishes nor balloons.
+  // The reported bug: squares shrank as the window narrowed. The cell is now
+  // fixed, so only the column count responds to width.
   for (const width of [358, 656, 912, 1328, 1888, 2448]) {
-    const cell = cellForWidth(width, columnsForWidth(width));
-    assert.ok(cell >= MIN_ROW_PX && cell <= MAX_ROW_PX, `cell is bounded at ${width}px`);
+    assert.equal(cellForWidth(width, columnsForWidth(width)), CELL_PX, `same square at ${width}px`);
   }
+
+  // More room means more columns, never larger squares.
+  assert.ok(columnsForWidth(1888) > columnsForWidth(912));
+  assert.ok(columnsForWidth(912) > columnsForWidth(358));
+  assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more than the stored space');
+  assert.ok(columnsForWidth(358) >= 4, 'never fewer than four');
+  assert.equal(columnsForWidth(0), 4, 'a degenerate width still yields a usable grid');
 
   // A layout saved in the old four-column space is still valid in the new one.
   const legacy = [at('a', 0, 0, 2, 2), at('b', 2, 0), at('c', 3, 0)];
@@ -450,14 +469,14 @@ test('the grid spans the page, so the last column is the right edge', () => {
 
 test('a widget is offered only the sizes it names', () => {
   // A search box wants to be wide and short, never square or tall.
-  const search = allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 1 }, ['wide', 'bar', 'banner']);
-  assert.deepEqual(search.map((p) => `${p.w}x${p.h}`), ['2x1', '3x1', '4x1']);
-  assert.ok(!search.some((p) => p.h > 1), 'nothing tall is offered');
+  const search = allowedPresets({ minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 2 }, ['wide', 'bar', 'banner', 'row']);
+  assert.deepEqual(search.map((p) => `${p.w}x${p.h}`), ['4x2', '6x2', '8x2', `${BASE_COLUMNS}x2`]);
+  assert.ok(search.every((p) => p.h === 2), 'nothing taller is offered');
 
   // A task list wants height.
-  const list = allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 4 }, ['large', 'panel', 'block', 'column']);
-  assert.deepEqual(list.map((p) => `${p.w}x${p.h}`), ['2x2', '3x2', '4x2', '2x3']);
-  assert.ok(list.every((p) => p.h >= 2), 'every option has room for rows');
+  const list = allowedPresets({ minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 8 }, ['large', 'panel', 'block', 'column']);
+  assert.deepEqual(list.map((p) => `${p.w}x${p.h}`), ['4x4', '6x4', '8x4', '4x6']);
+  assert.ok(list.every((p) => p.h >= 4), 'every option has room for rows');
 });
 
 test('the order a widget names its sizes in is preserved', () => {
@@ -466,12 +485,12 @@ test('the order a widget names its sizes in is preserved', () => {
 });
 
 test('limits still win over a named size, so the two cannot contradict', () => {
-  // 'block' is 4x2, but a widget capped at one row cannot have it.
+  // 'block' is 8x4, but a widget capped at two rows cannot have it.
   assert.deepEqual(
-    allowedPresets({ maxH: 1 }, ['wide', 'block', 'bar']).map((p) => p.key),
+    allowedPresets({ maxH: 2 }, ['wide', 'block', 'bar']).map((p) => p.key),
     ['wide', 'bar'],
   );
-  assert.deepEqual(allowedPresets({ minW: 3 }, ['small', 'wide', 'panel']).map((p) => p.key), ['panel']);
+  assert.deepEqual(allowedPresets({ minW: 6 }, ['small', 'wide', 'panel']).map((p) => p.key), ['panel']);
 });
 
 test('naming no sizes falls back to the whole vocabulary', () => {
@@ -497,10 +516,10 @@ test('every size in the vocabulary fits the stored grid', () => {
 test('a widget can span the whole grid, not just four columns', () => {
   const row = presetByKey('row');
   assert.equal(row.w, BASE_COLUMNS, 'the full-row preset spans every column');
-  assert.equal(row.h, 1);
+  assert.equal(row.h, 2);
 
   // And arbitrary widths in between are reachable, which presets alone cannot cover.
-  for (const width of [5, 7, 8, 11, 12]) {
+  for (const width of [5, 7, 13, 19, 24]) {
     const resized = resizeItem([at('a', 0, 0)], 'a', width, 1, BASE_COLUMNS, { minW: 1, maxW: BASE_COLUMNS });
     assert.equal(resized.find((i) => i.id === 'a').w, width, `${width} columns wide`);
     assert.ok(isValidLayout(resized, BASE_COLUMNS));
@@ -509,7 +528,7 @@ test('a widget can span the whole grid, not just four columns', () => {
 
 test('a resize is bounded by the grid it is performed in', () => {
   // Resizing in a ten-column view cannot produce something only twelve fit.
-  const resized = resizeItem([at('a', 0, 0)], 'a', 12, 1, 10, { minW: 1, maxW: BASE_COLUMNS });
+  const resized = resizeItem([at('a', 0, 0)], 'a', 24, 1, 10, { minW: 1, maxW: BASE_COLUMNS });
   assert.equal(resized.find((i) => i.id === 'a').w, 10, 'clamped to the visible grid');
   assert.ok(isValidLayout(resized, 10));
 });

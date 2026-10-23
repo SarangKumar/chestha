@@ -1,3 +1,4 @@
+import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Icon } from './icons.jsx';
 import { cx } from './ui.jsx';
 
@@ -12,8 +13,6 @@ const PRIMARY = [
 ];
 
 const SETTINGS = { id: 'settings', label: 'Settings', icon: 'settings' };
-
-const ITEMS = [...PRIMARY, SETTINGS];
 
 /** A rail on wide screens, a bottom bar on phones. The same items either way. */
 function RailButton({ item, section, onNavigate }) {
@@ -37,6 +36,15 @@ function RailButton({ item, section, onNavigate }) {
 }
 
 export function NavRail({ section, onNavigate, onCapture }) {
+  const { state } = useWorkspace();
+  const hidden = state.settings.hiddenSections ?? [];
+
+  // The section you are currently looking at always shows, even if hidden: the
+  // alternative is a rail with no current item while its page fills the screen,
+  // which reads as a bug. Arriving by palette or link is the normal way in.
+  const primary = PRIMARY.filter((item) => !hidden.includes(item.id) || item.id === section);
+  const items = [...primary, SETTINGS];
+
   return (
     <>
       <nav
@@ -62,7 +70,7 @@ export function NavRail({ section, onNavigate, onCapture }) {
           <Icon name="plus" />
         </button>
 
-        {PRIMARY.map((item) => (
+        {primary.map((item) => (
           <RailButton key={item.id} item={item} section={section} onNavigate={onNavigate} />
         ))}
 
@@ -77,7 +85,7 @@ export function NavRail({ section, onNavigate, onCapture }) {
         aria-label="Sections"
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden"
       >
-        {ITEMS.map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             type="button"

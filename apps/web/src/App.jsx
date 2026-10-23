@@ -13,6 +13,7 @@ import { Calendar } from './sections/Calendar.jsx';
 import { DsaSection } from './sections/dsa/DsaSection.jsx';
 import { Sounds } from './sections/Sounds.jsx';
 import { Settings } from './sections/Settings.jsx';
+import { About } from './sections/About.jsx';
 
 const TASK_VIEWS = ['today', 'upcoming', 'overdue', 'nodate', 'completed', 'all'];
 
@@ -79,6 +80,13 @@ function Workspace() {
     },
     { id: 'export', label: 'Export my data', group: 'Data', keywords: 'backup download save', run: () => go('settings') },
     { id: 'import', label: 'Import a backup', group: 'Data', keywords: 'restore upload', run: () => go('settings') },
+    {
+      id: 'go-about',
+      label: 'About Vistaar',
+      group: 'Navigate',
+      keywords: 'version privacy credits licence license help what is this',
+      run: () => go('about'),
+    },
   ], [state.settings, actions, go, openCapture]);
 
   useShortcutDispatch({
@@ -136,6 +144,7 @@ function Workspace() {
         )}
         {section === 'sounds' && <Sounds />}
         {section === 'settings' && <Settings />}
+        {section === 'about' && <About onNavigate={go} />}
       </Shell>
 
       <CommandPalette

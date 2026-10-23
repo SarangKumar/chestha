@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  SOUNDS, applyPreset, describeEvent, describeGithubError, formatLongDate, githubEventsUrl,
-  githubProfileUrl, goalState, isValidGithubUsername, normalizeLines, pickForDay, questionUrl,
-  DEFAULT_INTENTIONS, selectCompletedOn, selectNoDate, selectOverdue, selectToday,
-  selectUpcoming, sortTasks,
-  summariseEvents,
+  BASE_COLUMNS, DEFAULT_INTENTIONS, GITHUB_FORMS, GITHUB_FORM_LABELS, SOUNDS, activityLevel,
+  applyPreset,
+  buildActivityCalendar, coerceGithubForm, coerceTemperatureUnit, coerceWeatherPlace,
+  describeEvent, describeGithubError, describePlace, describeWeatherError,
+  forecastUrl, formatLongDate, formatTemperature, geocodeUrl, githubEventsUrl, githubProfileUrl,
+  githubReposUrl, goalState, isValidGithubUsername, normalizeLines, pickForDay, questionUrl,
+  selectCompletedOn, selectNoDate, selectOverdue, selectToday, selectUpcoming, shortAge, sortTasks,
+  summariseEvents, summariseGeocode, summariseRepos, summariseWeather,
 } from '@vistaar/core';
 import * as engine from '../audio/engine.js';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
@@ -173,16 +176,54 @@ function ClockWidget({ widget, span }) {
 function NotesWidget({ span }) {
   const { state, actions } = useWorkspace();
   const roomy = (span?.w ?? 1) > 1 || (span?.h ?? 1) > 1;
+  const text = state.notes.text;
+  const [copied, setCopied] = useState(false);
+
+  // The clipboard write is async and can be refused (no permission, no secure
+  // context), so the confirmation waits for it to actually resolve.
+  const copy = async () => {
+    if (!text.trim()) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  // One timer, cleared on unmount, so a copy just before a resize cannot set
+  // state on a widget that is no longer mounted.
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   return (
     <div className="flex h-full flex-col">
-      <textarea
-        value={state.notes.text}
-        onChange={(event) => actions.setNotes(event.target.value)}
-        placeholder={roomy ? 'Anything you need for an hour — a link, a number, a half-thought.' : 'Notes…'}
-        aria-label="Scratchpad"
-        className="min-h-24 flex-1 resize-none rounded-control border border-line bg-inset p-3 text-sm leading-relaxed text-ink transition-colors duration-150 placeholder:text-ink-faint hover:border-line-strong focus:border-line-strong"
-      />
-      <p className="mt-2 hidden text-[10px] text-ink-faint @[12rem]:block">Saved as you type.</p>
+      <div className="relative flex-1">
+        <textarea
+          value={text}
+          onChange={(event) => actions.setNotes(event.target.value)}
+          placeholder={roomy ? 'Anything you need for an hour — a link, a number, a half-thought.' : 'Notes…'}
+          aria-label="Scratchpad"
+          className="size-full min-h-24 resize-none rounded-control border border-line bg-inset p-3 pr-9 text-sm leading-relaxed text-ink transition-colors duration-150 placeholder:text-ink-faint hover:border-line-strong focus:border-line-strong"
+        />
+        {text.trim() !== '' && (
+          <button
+            type="button"
+            onClick={copy}
+            title={copied ? 'Copied' : 'Copy to clipboard'}
+            aria-label={copied ? 'Scratchpad copied' : 'Copy scratchpad'}
+            className="absolute right-1.5 top-1.5 rounded-control border border-line bg-surface p-1.5 text-ink-muted transition-colors duration-150 hover:border-line-strong hover:text-ink"
+          >
+            <Icon name={copied ? 'check' : 'copy'} className="size-3.5" />
+          </button>
+        )}
+      </div>
+      <p aria-live="polite" className="mt-2 hidden text-[10px] text-ink-faint @[12rem]:block">
+        {copied ? 'Copied to clipboard.' : 'Saved as you type.'}
+      </p>
     </div>
   );
 }
@@ -686,11 +727,6 @@ function InspirationWidget({ widget, onChange, editing, span }) {
       )}>
         {chosen}
       </p>
-      {rotate && lines.length > 1 && (
-        <p className="mt-2 hidden text-[10px] text-ink-faint @[12rem]:block">
-          One of {lines.length}, chosen for {today}.
-        </p>
-      )}
     </div>
   );
 }
@@ -763,45 +799,81 @@ function InspirationConfig({ widget, onChange }) {
  * unauthenticated callers at 60 per hour per IP, so a refusal is routine and is
  * reported rather than hidden.
  */
+const EVENTS_PER_PAGE = 100;
+
+/** Shades for the activity heatmap, from "nothing" to "a lot for this person". */
+const HEAT = [
+  'bg-inset',
+  'bg-accent-soft',
+  'bg-accent/40',
+  'bg-accent/70',
+  'bg-accent',
+];
+
 function GithubWidget({ widget, editing, span }) {
+  const { today, state: workspace } = useWorkspace();
   const username = String(widget.config.username ?? '').trim();
-  const [state, setState] = useState({ status: 'idle', summary: null, error: null });
+  const form = coerceGithubForm(widget.config.form);
+  const [state, setState] = useState({ status: 'idle', data: null, error: null });
+
+  // The two shapes read different endpoints, so the form is a fetch dependency.
+  // Repositories need the repo list; both activity shapes share the event feed,
+  // so switching between them does not spend another request.
+  const endpoint = form === 'repos' ? 'repos' : 'events';
 
   useEffect(() => {
     if (!username || !isValidGithubUsername(username)) {
-      setState({ status: 'idle', summary: null, error: null });
+      setState({ status: 'idle', data: null, error: null });
       return undefined;
     }
     let cancelled = false;
-    setState({ status: 'loading', summary: null, error: null });
+    setState({ status: 'loading', data: null, error: null });
 
-    fetch(githubEventsUrl(username), { headers: { Accept: 'application/vnd.github+json' } })
+    const url = endpoint === 'repos'
+      ? githubReposUrl(username)
+      // The calendar wants as much history as one request can carry; the summary
+      // only shows totals, and is happy with the same page.
+      : githubEventsUrl(username, EVENTS_PER_PAGE);
+
+    fetch(url, { headers: { Accept: 'application/vnd.github+json' } })
       .then(async (response) => {
         if (cancelled) return;
         if (!response.ok) {
           setState({
             status: 'error',
-            summary: null,
+            data: null,
             error: describeGithubError(response.status, response.headers.get('x-ratelimit-remaining')),
           });
           return;
         }
-        const summary = summariseEvents(await response.json());
-        if (!cancelled) setState({ status: 'ready', summary, error: null });
+        const payload = await response.json();
+        if (cancelled) return;
+        if (endpoint === 'repos') {
+          setState({ status: 'ready', data: { repos: summariseRepos(payload) }, error: null });
+        } else {
+          const raw = Array.isArray(payload) ? payload : [];
+          setState({
+            status: 'ready',
+            // A full page may have older events behind it; a short one is the
+            // whole feed, which is what lets the calendar trust its quiet days.
+            data: { events: raw, truncated: raw.length >= EVENTS_PER_PAGE, summary: summariseEvents(raw) },
+            error: null,
+          });
+        }
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error', summary: null, error: 'Could not reach GitHub.' });
+        if (!cancelled) setState({ status: 'error', data: null, error: 'Could not reach GitHub.' });
       });
 
     return () => { cancelled = true; };
-  }, [username]);
+  }, [username, endpoint]);
 
   if (!username) {
     return (
       <div className="flex h-full flex-col justify-center">
         <p className="text-meta leading-relaxed text-ink-faint">
           {editing
-            ? 'Add a GitHub username in the edit panel. This is the only widget that contacts the internet.'
+            ? 'Add a GitHub username in the edit panel. Nothing is fetched until you do.'
             : 'No GitHub user set. Use Edit layout, then the pencil on this widget.'}
         </p>
       </div>
@@ -809,7 +881,11 @@ function GithubWidget({ widget, editing, span }) {
   }
 
   if (state.status === 'loading') {
-    return <p className="flex h-full items-center text-meta text-ink-faint">Reading public activity…</p>;
+    return (
+      <p className="flex h-full items-center text-meta text-ink-faint">
+        {endpoint === 'repos' ? 'Reading public repositories…' : 'Reading public activity…'}
+      </p>
+    );
   }
 
   if (state.status === 'error') {
@@ -821,9 +897,125 @@ function GithubWidget({ widget, editing, span }) {
     );
   }
 
-  const { summary } = state;
-  if (!summary) return null;
+  if (!state.data) return null;
 
+  const footer = (
+    <a
+      href={githubProfileUrl(username)}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="mt-auto hidden shrink-0 pt-1.5 text-[10px] text-ink-faint underline-offset-2 hover:underline @[12rem]:block"
+    >
+      {username} · public {endpoint === 'repos' ? 'repositories' : 'activity'} only
+    </a>
+  );
+
+  if (form === 'repos') {
+    const { repos } = state.data;
+    if (repos.length === 0) {
+      return (
+        <div className="flex h-full flex-col justify-center">
+          <p className="text-meta leading-relaxed text-ink-faint">No public, non-forked repositories.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-full flex-col">
+        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-thin">
+          {repos.slice(0, Math.max(2, rowBudget(span) + 1)).map((repo) => (
+            <li key={repo.id}>
+              <a
+                href={repo.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="block rounded-control px-1.5 py-1 transition-colors duration-150 hover:bg-hover"
+              >
+                <span className="flex items-baseline gap-1.5">
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">{repo.name}</span>
+                  {repo.stars > 0 && (
+                    <span className="tabular shrink-0 text-[10px] text-ink-faint">★ {repo.stars}</span>
+                  )}
+                </span>
+                {/* Only where there is room for a second line: a truncated
+                    description is noise, not information. */}
+                {(span?.w ?? 1) > 2 && (repo.description || repo.language) && (
+                  <span className="mt-0.5 hidden truncate text-[10px] text-ink-muted @[14rem]:block">
+                    {repo.description || repo.language}
+                  </span>
+                )}
+                {(span?.w ?? 1) > 3 && repo.pushedAt && (
+                  <span className="mt-0.5 hidden text-[10px] text-ink-faint @[20rem]:block">
+                    {repo.language && `${repo.language} · `}{shortAge(repo.pushedAt)}
+                    {repo.archived && ' · archived'}
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+        {footer}
+      </div>
+    );
+  }
+
+  if (form === 'calendar') {
+    // Columns are capped by the width actually available: one column needs about
+    // 10px, and a grid squeezed below that is a smear rather than a chart.
+    const available = Math.max(1, (span?.w ?? 1) * 48);
+    const weeks = Math.max(4, Math.min(26, Math.floor((available - 24) / 10)));
+    const calendar = buildActivityCalendar(
+      state.data.events,
+      today,
+      weeks,
+      workspace.settings.weekStartsOn,
+      { truncated: state.data.truncated },
+    );
+
+    return (
+      <div className="flex h-full flex-col">
+        <p className="shrink-0 text-meta text-ink-muted">
+          <span className="tabular font-medium text-ink">{calendar.total}</span> public event{calendar.total === 1 ? '' : 's'}
+          <span className="hidden @[14rem]:inline"> in the last {weeks} weeks</span>
+        </p>
+
+        <div className="mt-2 flex min-h-0 flex-1 items-center">
+          <div
+            role="img"
+            aria-label={`${calendar.total} public GitHub events over the last ${weeks} weeks`}
+            className="flex w-full gap-[2px]"
+          >
+            {calendar.columns.map((column) => (
+              <div key={column[0].date} className="flex flex-1 flex-col gap-[2px]">
+                {column.map((day) => (
+                  <span
+                    key={day.date}
+                    title={day.future
+                      ? day.date
+                      : day.known
+                        ? `${day.date}: ${day.count} event${day.count === 1 ? '' : 's'}`
+                        : `${day.date}: outside the range this feed covers`}
+                    className={cx(
+                      'aspect-square w-full rounded-[2px]',
+                      day.future
+                        ? 'bg-transparent'
+                        // An unknown day is drawn as an empty outline, never as
+                        // a quiet day — the data does not support that claim.
+                        : !day.known
+                          ? 'border border-dashed border-line'
+                          : HEAT[activityLevel(day.count, calendar.max)],
+                    )}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  const { summary } = state.data;
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -843,14 +1035,7 @@ function GithubWidget({ widget, editing, span }) {
         </ul>
       )}
 
-      <a
-        href={githubProfileUrl(username)}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="mt-auto hidden text-[10px] text-ink-faint underline-offset-2 hover:underline @[12rem]:block"
-      >
-        {username} · public activity only
-      </a>
+      {footer}
     </div>
   );
 }
@@ -858,6 +1043,7 @@ function GithubWidget({ widget, editing, span }) {
 function GithubConfig({ widget, onChange }) {
   const [draft, setDraft] = useState(widget.config.username ?? '');
   const valid = draft.trim() === '' || isValidGithubUsername(draft);
+  const form = coerceGithubForm(widget.config.form);
 
   return (
     <div className="space-y-2">
@@ -871,9 +1057,28 @@ function GithubConfig({ widget, onChange }) {
         className="w-full rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
       />
       {!valid && <p className="text-[10px] text-danger">That is not a valid GitHub username.</p>}
+
+      <Select
+        size="sm"
+        value={form}
+        onChange={(event) => onChange({ form: event.target.value })}
+        aria-label="What this widget shows"
+      >
+        {GITHUB_FORMS.map((key) => (
+          <option key={key} value={key}>{GITHUB_FORM_LABELS[key]}</option>
+        ))}
+      </Select>
+
       <p className="text-[10px] leading-relaxed text-ink-faint">
-        Reads public activity from GitHub’s API — the only outbound request this app makes. Leave it
-        empty and nothing is fetched. Unauthenticated access is limited to 60 requests an hour.
+        {form === 'calendar'
+          ? 'Public events per day. This is not GitHub’s contribution graph — that counts private contributions and a year of history, and needs an access token. This reads the public feed, which reaches back about 90 days. Days beyond it are drawn as outlines rather than as quiet days.'
+          : form === 'repos'
+            ? 'Public repositories, most recently pushed first. Forks are left out. Each name links to the repository.'
+            : 'Totals and the most recent public events.'}
+      </p>
+      <p className="text-[10px] leading-relaxed text-ink-faint">
+        Reads from GitHub’s API. Leave the username empty and nothing is fetched. Unauthenticated
+        access is limited to 60 requests an hour, shared with everything else on your connection.
       </p>
     </div>
   );
@@ -940,13 +1145,269 @@ function SoundsWidget({ onNavigate }) {
 }
 
 /** Widget configuration exists only where it changes meaning, never for decoration. */
+/**
+ * Current weather for a chosen place.
+ *
+ * Opt-in in the same way as the GitHub widget: nothing is fetched until a
+ * location is set, and the config panel says so. The browser's geolocation
+ * prompt is not used — a city name gets the same answer without handing over a
+ * precise position.
+ *
+ * Refreshes on an hour, which is roughly how often the upstream model updates.
+ * Polling faster would spend requests to redraw the same number.
+ */
+const WEATHER_REFRESH_MS = 60 * 60 * 1000;
+
+function WeatherWidget({ widget, editing, span }) {
+  const place = coerceWeatherPlace(widget.config.place);
+  const unit = coerceTemperatureUnit(widget.config.unit);
+  const [state, setState] = useState({ status: 'idle', weather: null, error: null });
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!place) {
+      setState({ status: 'idle', weather: null, error: null });
+      return undefined;
+    }
+    let cancelled = false;
+    setState({ status: 'loading', weather: null, error: null });
+
+    fetch(forecastUrl(place, unit))
+      .then(async (response) => {
+        if (cancelled) return;
+        if (!response.ok) {
+          setState({ status: 'error', weather: null, error: describeWeatherError(response.status) });
+          return;
+        }
+        const weather = summariseWeather(await response.json(), unit);
+        if (cancelled) return;
+        // A response without a current temperature is a failure, not a reading
+        // of nothing.
+        if (!weather) {
+          setState({ status: 'error', weather: null, error: 'Open-Meteo sent no current reading.' });
+          return;
+        }
+        setState({ status: 'ready', weather, error: null });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', weather: null, error: 'Could not reach Open-Meteo.' });
+      });
+
+    return () => { cancelled = true; };
+    // `place` is rebuilt each render, so its fields are the dependency, not it.
+  }, [place?.latitude, place?.longitude, unit, tick]);
+
+  useEffect(() => {
+    if (!place) return undefined;
+    const timer = setInterval(() => setTick((n) => n + 1), WEATHER_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [place?.latitude, place?.longitude]);
+
+  const tiny = (span?.w ?? 1) <= 1 && (span?.h ?? 1) <= 1;
+
+  if (!place) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+        <Icon name="cloudSun" className={tiny ? 'size-6 text-ink-faint' : 'size-8 text-ink-faint'} />
+        {!tiny && (
+          <p className="text-meta leading-relaxed text-ink-faint">
+            {editing ? 'Set a location in the edit panel.' : 'No location set.'}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (state.status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Icon name="cloudSun" className="size-6 animate-pulse text-ink-faint" />
+        <span className="sr-only">Reading the forecast…</span>
+      </div>
+    );
+  }
+
+  if (state.status === 'error' || !state.weather) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+        <Icon name="alert" className="size-5 text-ink-faint" />
+        {tiny ? (
+          <span className="sr-only">{state.error}</span>
+        ) : (
+          <p className="text-meta leading-relaxed text-ink-muted">{state.error}</p>
+        )}
+      </div>
+    );
+  }
+
+  const weather = state.weather;
+  const reading = formatTemperature(weather.temperature, weather.symbol);
+
+  // At 1×1 there is room for an icon and a number, and nothing else. Anything
+  // more would be a truncated word, which tells you less than no word at all.
+  if (tiny) {
+    return (
+      <div
+        className="flex h-full flex-col items-center justify-center gap-0.5 overflow-hidden"
+        title={`${weather.label}, ${reading} in ${describePlace(place)}`}
+      >
+        <Icon name={weather.icon} className="size-5 shrink-0 text-ink" />
+        <span className="tabular text-sm font-semibold leading-none text-ink">{reading}</span>
+        <span className="sr-only">{weather.label} in {describePlace(place)}</span>
+      </div>
+    );
+  }
+
+  const wide = (span?.w ?? 1) > 1;
+  const tall = (span?.h ?? 1) > 1;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col justify-center overflow-hidden">
+      <div className="flex items-center gap-2.5">
+        <Icon name={weather.icon} className="size-8 shrink-0 text-ink @[14rem]:size-10" />
+        <div className="min-w-0 flex-1">
+          <p className="tabular text-2xl font-semibold leading-none text-ink @[14rem]:text-3xl">
+            {reading}
+          </p>
+          <p className="mt-1 truncate text-meta text-ink-muted">{weather.label}</p>
+        </div>
+      </div>
+
+      {wide && (weather.high !== null || weather.low !== null) && (
+        <p className="mt-2 shrink-0 truncate text-meta text-ink-faint">
+          {weather.high !== null && `H ${formatTemperature(weather.high, weather.symbol)}`}
+          {weather.high !== null && weather.low !== null && ' · '}
+          {weather.low !== null && `L ${formatTemperature(weather.low, weather.symbol)}`}
+          {weather.apparent !== null && (
+            <span className="hidden @[16rem]:inline">
+              {' · feels '}{formatTemperature(weather.apparent, weather.symbol)}
+            </span>
+          )}
+        </p>
+      )}
+
+      {tall && wide && (weather.humidity !== null || weather.wind !== null) && (
+        <p className="mt-1 hidden shrink-0 truncate text-meta text-ink-faint @[16rem]:block">
+          {weather.humidity !== null && `${weather.humidity}% humidity`}
+          {weather.humidity !== null && weather.wind !== null && ' · '}
+          {weather.wind !== null && `${Math.round(weather.wind)} ${weather.windUnit} wind`}
+        </p>
+      )}
+
+      <p className="mt-auto shrink-0 truncate pt-1.5 text-[10px] text-ink-faint">
+        {place.name}
+      </p>
+    </div>
+  );
+}
+
+function WeatherConfig({ widget, onChange }) {
+  const place = coerceWeatherPlace(widget.config.place);
+  const unit = coerceTemperatureUnit(widget.config.unit);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState({ status: 'idle', places: [], error: null });
+
+  // Searching on submit rather than per keystroke: a geocoder request for every
+  // letter typed is a lot of traffic to answer a question nobody asked yet.
+  const find = async (event) => {
+    event.preventDefault();
+    const term = query.trim();
+    if (term.length < 2) return;
+    setSearch({ status: 'loading', places: [], error: null });
+    try {
+      const response = await fetch(geocodeUrl(term));
+      if (!response.ok) {
+        setSearch({ status: 'error', places: [], error: describeWeatherError(response.status) });
+        return;
+      }
+      const places = summariseGeocode(await response.json());
+      setSearch({
+        status: 'ready',
+        places,
+        error: places.length === 0 ? `Nothing found for “${term}”.` : null,
+      });
+    } catch {
+      setSearch({ status: 'error', places: [], error: 'Could not reach the place lookup.' });
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {place && (
+        <div className="flex items-center gap-2 rounded-control border border-line bg-inset px-2.5 py-1.5">
+          <Icon name="target" className="size-3.5 shrink-0 text-ink-faint" />
+          <span className="min-w-0 flex-1 truncate text-xs text-ink">{describePlace(place)}</span>
+          <button
+            type="button"
+            onClick={() => onChange({ place: null })}
+            className="shrink-0 text-[10px] text-ink-faint underline-offset-2 hover:text-ink hover:underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={find} className="flex gap-1.5">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="City or town…"
+          aria-label="Search for a place"
+          autoComplete="off"
+          className="min-w-0 flex-1 rounded-control border border-line bg-inset px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint"
+        />
+        <Button type="submit" size="sm" disabled={query.trim().length < 2}>Find</Button>
+      </form>
+
+      {search.status === 'loading' && <p className="text-[10px] text-ink-faint">Searching…</p>}
+      {search.error && <p className="text-[10px] text-ink-muted">{search.error}</p>}
+
+      {search.places.length > 0 && (
+        <ul className="max-h-40 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {search.places.map((option) => (
+            <li key={option.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ place: { ...option, id: undefined } });
+                  setSearch({ status: 'idle', places: [], error: null });
+                  setQuery('');
+                }}
+                className="w-full truncate rounded-control px-2 py-1 text-left text-xs text-ink hover:bg-hover"
+              >
+                {describePlace(option)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Select
+        size="sm"
+        value={unit}
+        onChange={(event) => onChange({ unit: event.target.value })}
+        aria-label="Temperature unit"
+      >
+        <option value="celsius">Celsius (°C)</option>
+        <option value="fahrenheit">Fahrenheit (°F)</option>
+      </Select>
+
+      <p className="text-[10px] leading-relaxed text-ink-faint">
+        Reads from Open-Meteo, which needs no account or key. Nothing is fetched until you pick a
+        place, and only that place’s coordinates are sent. Your own location is never requested.
+        Refreshes hourly.
+      </p>
+    </div>
+  );
+}
+
 export const WIDGETS = {
   today: {
     presentation: 'card',
     name: "Today's tasks",
     defaultSize: { w: 4, h: 4 },
     sizes: ['large', 'panel', 'block', 'column'],
-    limits: { minW: 4, minH: 2, maxW: 24, maxH: 8 },
+    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     description: 'Due today, plus everything overdue.',
     render: TodayWidget,
   },
@@ -955,7 +1416,7 @@ export const WIDGETS = {
     name: 'Upcoming',
     defaultSize: { w: 4, h: 2 },
     sizes: ['wide', 'large', 'panel', 'column'],
-    limits: { minW: 4, minH: 2, maxW: 24, maxH: 8 },
+    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     description: 'What is due within a horizon you choose.',
     render: UpcomingWidget,
     Config: HorizonConfig,
@@ -965,7 +1426,7 @@ export const WIDGETS = {
     name: 'Overdue',
     defaultSize: { w: 2, h: 2 },
     sizes: ['tiny', 'small', 'wide', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 24, maxH: 6 },
+    limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 6 },
     description: 'A count, and the oldest few.',
     render: OverdueWidget,
   },
@@ -975,17 +1436,27 @@ export const WIDGETS = {
     name: 'Clock and date',
     defaultSize: { w: 2, h: 2 },
     sizes: ['tiny', 'small', 'wide', 'large', 'row'],
-    limits: { minW: 1, minH: 1, maxW: 24, maxH: 4 },
+    limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 4 },
     description: 'Local time and today’s date.',
     render: ClockWidget,
     Config: SecondsConfig,
+  },
+  weather: {
+    presentation: 'card',
+    name: 'Weather',
+    description: 'Current weather for a place you choose. Contacts the internet once you set one.',
+    defaultSize: { w: 1, h: 1 },
+    sizes: ['tiny', 'small', 'wide', 'bar', 'large'],
+    limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 4 },
+    render: WeatherWidget,
+    Config: WeatherConfig,
   },
   notes: {
     presentation: 'card',
     name: 'Scratchpad',
     defaultSize: { w: 4, h: 2 },
     sizes: ['wide', 'large', 'panel', 'block', 'column', 'row'],
-    limits: { minW: 4, minH: 2, maxW: 24, maxH: 8 },
+    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     description: 'One plain note, saved as you type.',
     render: NotesWidget,
   },
@@ -1029,7 +1500,7 @@ export const WIDGETS = {
     description: 'Both daily targets as two compact figures. Reads well at any size.',
     defaultSize: { w: 2, h: 2 },
     sizes: ['tiny', 'small', 'wide', 'tall', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 24, maxH: 4 },
+    limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 4 },
     render: DsaTodayWidget,
   },
   inspiration: {
@@ -1038,17 +1509,19 @@ export const WIDGETS = {
     description: 'A line of your own, optionally rotating each day.',
     defaultSize: { w: 4, h: 2 },
     sizes: ['wide', 'bar', 'banner', 'large', 'panel', 'row'],
-    limits: { minW: 4, minH: 2, maxW: 24, maxH: 6 },
+    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 6 },
     render: InspirationWidget,
     Config: InspirationConfig,
   },
   github: {
     presentation: 'card',
-    name: 'GitHub activity',
-    description: 'Recent public activity for a GitHub user. Contacts the internet.',
+    name: 'GitHub',
+    description: 'Public activity for a GitHub user, as a summary, an activity calendar, or a list of repositories. Contacts the internet once you set a username.',
     defaultSize: { w: 4, h: 2 },
-    sizes: ['wide', 'bar', 'large', 'panel', 'banner'],
-    limits: { minW: 4, minH: 2, maxW: 24, maxH: 6 },
+    // The calendar wants width for its columns and the repository list wants
+    // height for its rows, so the taller and wider shapes are both offered.
+    sizes: ['wide', 'bar', 'large', 'panel', 'banner', 'block', 'column', 'tall'],
+    limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     render: GithubWidget,
     Config: GithubConfig,
   },
@@ -1058,7 +1531,7 @@ export const WIDGETS = {
     description: 'Start a saved sound mix without leaving the dashboard.',
     defaultSize: { w: 2, h: 4 },
     sizes: ['small', 'tall', 'wide', 'large', 'column'],
-    limits: { minW: 2, minH: 2, maxW: 24, maxH: 8 },
+    limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     render: SoundsWidget,
   },
   undated: {
@@ -1066,7 +1539,7 @@ export const WIDGETS = {
     name: 'No due date',
     defaultSize: { w: 2, h: 2 },
     sizes: ['tiny', 'small', 'wide', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 24, maxH: 6 },
+    limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 6 },
     description: 'Open tasks that are not on the calendar.',
     render: UndatedWidget,
   },

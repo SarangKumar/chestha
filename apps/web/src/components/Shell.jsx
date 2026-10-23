@@ -14,6 +14,7 @@ const TITLES = {
   dsa: 'DSA',
   sounds: 'Sounds',
   settings: 'Settings',
+  about: 'About',
 };
 
 // The dashboard is a workspace and uses the whole shell. Widget size is fixed by

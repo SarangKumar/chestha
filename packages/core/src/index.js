@@ -1,5 +1,6 @@
 export * from './daily.js';
 export * from './github.js';
+export * from './weather.js';
 export * from './dates.js';
 export * from './ids.js';
 export * from './recurrence.js';

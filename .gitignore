@@ -1,4 +1,63 @@
+# ── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
+.npm/
+.pnpm-store/
+
+# ── Build output ─────────────────────────────────────────────────────────────
+# Every one of these is reproducible from source: `npm run build` for the web
+# app, `build:extension` for the unpacked extension, `pack:extension` for the
+# Web Store archive and its staging copy.
 dist/
-.DS_Store
+apps/web/dist/
+apps/extension/dist/
+release/
+*.zip
+.vite/
+node_modules/.vite/
+
+# ── Generated manifests ──────────────────────────────────────────────────────
+# Written by tools/build-backgrounds.mjs from whatever is in the folder, so the
+# checked-in copy would go stale the moment someone adds a file.
+apps/web/public/backgrounds/manifest.json
+
+# ── The author's own media ───────────────────────────────────────────────────
+# Wallpaper and audio are personal and licensed to whoever added them, not to
+# the repository. The READMEs in these folders explain how to add your own; the
+# app runs with the folders empty.
+apps/web/public/backgrounds/*
+!apps/web/public/backgrounds/README.md
+apps/web/public/audio/*
+!apps/web/public/audio/README.md
+!apps/web/public/audio/manifest.json
+
+# ── Local configuration and secrets ──────────────────────────────────────────
 *.local
+.env
+.env.*
+!.env.example
+.npmrc
+
+# ── Editor and tooling state ─────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.eslintcache
+*.tsbuildinfo
+
+# ── OS cruft ─────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ── Logs and crash reports ───────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*

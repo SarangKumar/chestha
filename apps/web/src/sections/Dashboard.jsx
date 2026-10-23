@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
@@ -12,7 +12,7 @@ import {
 } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
-const GAP = 16; // px, matches gap-4
+const GAP = 8; // px, matches gap-2 — a finer grid needs a finer gutter
 
 // Cell size is measured from the page; see useGridMetrics.
 
@@ -20,9 +20,14 @@ const PRESENTATIONS = ['card', 'transparent', 'inset'];
 
 
 
+/**
+ * `card` and `inset` take their fill from the glass utilities instead of a flat
+ * `bg-*`, so the Settings slider reaches them. `transparent` is already showing
+ * the background and has nothing to frost.
+ */
 const PRESENTATION_CLASS = {
-  card: 'bg-surface border-line shadow-card',
-  inset: 'bg-inset border-line',
+  card: 'widget-glass widget-glass-card border-line shadow-card',
+  inset: 'widget-glass widget-glass-inset border-line',
   transparent: 'bg-transparent border-transparent',
 };
 
@@ -50,7 +55,20 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const [configuring, setConfiguring] = useState(null);
 
   const sidebarOpen = state.settings.sidebarOpen;
-  const railInset = cx('right-4 sm:right-6', sidebarOpen && 'lg:right-[19.5rem]');
+  const glass = state.settings.glass ?? 0.55;
+
+  // How many grid rows the visible part of the page is tall. Measured from the
+  // grid's own top, so the header and any notices above it are already excluded.
+  const [viewportRows, setViewportRows] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const top = gridRef.current?.getBoundingClientRect().top ?? 0;
+      setViewportRows(Math.max(0, (window.innerHeight - top) / (cell + GAP)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [cell]);
 
   const stored = state.dashboard.widgets;
 
@@ -140,7 +158,10 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   };
 
   const rows = Math.max(layoutHeight(visible), 1);
-  const guideRows = rows + 2;
+  // The guide grid covers the whole screen, not just the rows in use: an empty
+  // lower half with no guides reads as "nothing can go here", when in fact that
+  // is exactly where there is room. `cell + GAP` is one row's pitch.
+  const guideRows = Math.max(rows + 2, Math.ceil(viewportRows));
 
   return (
     <div>
@@ -150,61 +171,65 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         * Both controls float clear of the document flow, so the grid keeps the
         * full width and height for widgets.
         *
+        * The Edit button sits in the bottom-right corner, out of the way of the
+        * grid; the island it opens is centred. They share one wrapper and one
+        * set of offsets, so the two stay vertically aligned and clear the same
+        * obstacles — only the horizontal alignment differs.
+        *
         * `fixed` rather than `absolute`: these are exactly the controls you want
         * while dragging a widget near the bottom of a long grid, so they must not
-        * scroll away. Offsets clear the mobile bottom bar, and the right-hand
-        * inset accounts for the today panel when it is open.
+        * scroll away. The bottom offset clears the mobile bottom bar, and the
+        * right-hand padding keeps the centre measured against the grid rather
+        * than the window when the today panel is open.
         */}
-      {!editing ? (
-        <div className={cx('fixed bottom-20 z-40 sm:bottom-6', railInset)}>
-          {/* Deliberately small and recessive: it is chrome, not content, and
-              should not read as another tile sitting on the grid. */}
+      <div
+        className={cx(
+          'pointer-events-none fixed inset-x-0 bottom-20 z-40 flex flex-col gap-1.5 px-4 sm:bottom-6',
+          editing ? 'items-center' : 'items-end',
+        )}
+      >
+        {!editing ? (
+          /* Deliberately small and recessive: it is chrome, not content, and
+             should not read as another tile sitting on the grid. */
           <Button
             size="sm"
             onClick={() => setEditing(true)}
             title="Edit the dashboard layout"
-            className="h-8 rounded-full px-3 shadow-card"
+            className="pointer-events-auto h-8 rounded-full px-3 shadow-card"
           >
             <Icon name="edit" className="size-3.5" /> Edit
           </Button>
-        </div>
-      ) : (
-        <div
-          className={cx(
-            'pointer-events-none fixed inset-x-0 bottom-20 z-40 flex flex-col items-center gap-1.5 px-4 sm:bottom-6',
-            // Shifts the centred pill so it reads as centred against the grid,
-            // not the window, when the today panel is open.
-            sidebarOpen && 'lg:pr-72',
-          )}
-        >
-          {canEdit && (
-            <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
-              Drag anywhere · Alt + arrows to move · add Shift to resize
-            </p>
-          )}
+        ) : (
+          <>
+            {canEdit && (
+              <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
+                Drag anywhere · Alt + arrows to move · add Shift to resize
+              </p>
+            )}
 
-          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
-            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
-              Reset
-            </Button>
-            <Button
-              size="sm"
-              tone="quiet"
-              className="rounded-full"
-              onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
-              title="Remove deliberate gaps and pack everything to the top"
-            >
-              Tidy up
-            </Button>
-            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
-              <Icon name="plus" className="size-4" /> Add
-            </Button>
-            <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
-              <Icon name="check" className="size-4" /> Done
-            </Button>
-          </div>
-        </div>
-      )}
+            <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
+              <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
+                Reset
+              </Button>
+              <Button
+                size="sm"
+                tone="quiet"
+                className="rounded-full"
+                onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
+                title="Remove deliberate gaps and pack everything to the top"
+              >
+                Tidy up
+              </Button>
+              <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
+                <Icon name="plus" className="size-4" /> Add
+              </Button>
+              <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
+                <Icon name="check" className="size-4" /> Done
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
 
       {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
@@ -241,11 +266,14 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           onPointerCancel={canEdit ? end : undefined}
           className="relative grid touch-pan-y"
           style={{
-            // Fractional tracks so the grid spans the page edge to edge; the
-            // measured cell keeps them square.
-            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+            // Fixed tracks, so a square stays the same size at every viewport.
+            gridTemplateColumns: `repeat(${columns}, ${cell}px)`,
+            // Set once here and inherited by every widget, so the glass slider
+            // costs one property write rather than one per widget.
+            '--glass': glass,
             gridAutoRows: `${cell}px`,
             gap: `${GAP}px`,
+            justifyContent: 'start',
           }}
         >
           {/*
@@ -483,7 +511,12 @@ function WidgetDrawer({ widget, columns, onClose, onResize, onConfig, onRemove }
         <section>
           <CardTitle className="mb-2">Size</CardTitle>
           <div role="group" aria-label="Widget size" className="flex flex-wrap gap-1.5">
-            {allowedPresets(definition.limits, definition.sizes).map((preset) => (
+            {allowedPresets(definition.limits, definition.sizes).map((raw) => {
+              // "Full row" means the row you can actually see. The canonical
+              // grid is wider than any screen, so an unclamped 48 would place a
+              // widget past the edge and pause editing.
+              const preset = { ...raw, w: Math.min(raw.w, columns) };
+              return (
               <button
                 key={preset.key}
                 type="button"
@@ -499,7 +532,8 @@ function WidgetDrawer({ widget, columns, onClose, onResize, onConfig, onRemove }
                 {preset.title}
                 <span className="ml-1.5 tabular text-[10px] text-ink-faint">{preset.w}×{preset.h}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-3 space-y-2">
             <SizeStepper

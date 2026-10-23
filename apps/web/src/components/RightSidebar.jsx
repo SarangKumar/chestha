@@ -2,12 +2,19 @@ import { useMemo } from 'react';
 import { formatLongDate, selectCompletedOn, selectToday, sortTasks } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from './TaskItem.jsx';
-import { Button, EmptyState, IconButton } from './ui.jsx';
+import { Button, Drawer, EmptyState } from './ui.jsx';
 import { Icon } from './icons.jsx';
 
 /**
- * A desktop convenience, not a third core surface: collapsed by default, and
- * absent on phones where its contents would crowd out the main area.
+ * A desktop convenience, not a third core surface: collapsed by default.
+ *
+ * It opens as an overlay drawer, the same as a widget's edit panel, rather than
+ * squeezing the page narrower. Two reasons: reflowing the dashboard to make room
+ * changed how many grid columns fit, which moved widgets around just for opening
+ * a side panel; and a panel that pushes is a different interaction from one that
+ * floats, which made the two panels feel like unrelated parts of the app.
+ *
+ * Only one of the two is ever open — see `Workspace`, which closes the other.
  */
 export function RightSidebar({ open, onClose, onOpenTask, onCapture, onNavigate }) {
   const { state, today, actions } = useWorkspace();
@@ -21,21 +28,8 @@ export function RightSidebar({ open, onClose, onOpenTask, onCapture, onNavigate 
   if (!open) return null;
 
   return (
-    <aside
-      aria-label="Today"
-      className="fixed inset-y-0 right-0 z-30 hidden w-72 flex-col overflow-y-auto border-l border-line bg-canvas scrollbar-thin lg:flex"
-    >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-line bg-canvas/95 px-4 py-3.5 backdrop-blur-md">
-        <div>
-          <p className="text-card font-semibold text-ink">Today</p>
-          <p className="mt-0.5 text-meta text-ink-faint">{formatLongDate(today)}</p>
-        </div>
-        <IconButton label="Hide the today panel" onClick={onClose}>
-          <Icon name="chevronRight" className="size-4" />
-        </IconButton>
-      </div>
-
-      <div className="space-y-5 p-4">
+    <Drawer open onClose={onClose} title="Today" description={formatLongDate(today)}>
+      <div className="space-y-5">
         <section>
           <h3 className="mb-2 flex items-center justify-between text-meta font-medium text-ink-muted">
             Remaining
@@ -85,6 +79,6 @@ export function RightSidebar({ open, onClose, onOpenTask, onCapture, onNavigate 
           </div>
         </section>
       </div>
-    </aside>
+    </Drawer>
   );
 }

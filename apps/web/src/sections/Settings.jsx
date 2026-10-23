@@ -1,12 +1,69 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BACKGROUND_LABELS, BACKGROUND_PATTERNS, buildExport, estimateUsage, exportFilename,
-  formatLongDate, parseImport, tagKey,
+  BACKGROUND_LABELS, BACKGROUND_PATTERNS, HIDEABLE_SECTIONS, buildExport, estimateUsage,
+  exportFilename, formatLongDate, parseImport, tagKey,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
-import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput } from '../components/ui.jsx';
+import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
+
+const SECTION_LABELS = {
+  dashboard: 'Dashboard',
+  tasks: 'Tasks',
+  calendar: 'Calendar',
+  dsa: 'DSA',
+  sounds: 'Sounds',
+};
+
+/**
+ * Checkboxes read as "show", not "hide", because that is how the sidebar is
+ * read — a ticked box means the icon is there. The stored value is the
+ * complement, so a section added in a later version appears by default rather
+ * than being silently absent for anyone who saved this list first.
+ */
+function SectionVisibility() {
+  const { state, actions } = useWorkspace();
+  const hidden = state.settings.hiddenSections ?? [];
+  const visibleCount = HIDEABLE_SECTIONS.length - hidden.length;
+
+  const toggle = (id, show) => {
+    const next = show ? hidden.filter((item) => item !== id) : [...hidden, id];
+    actions.setSetting('hiddenSections', next);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {HIDEABLE_SECTIONS.map((id) => {
+        const shown = !hidden.includes(id);
+        // The last one standing is locked on: an empty sidebar is not a
+        // preference anyone means to express.
+        const locked = shown && visibleCount === 1;
+        return (
+          <label
+            key={id}
+            className={cx(
+              'flex items-center gap-2.5 rounded-control px-2 py-1.5 text-sm',
+              locked ? 'text-ink-muted' : 'text-ink hover:bg-hover',
+            )}
+            title={locked ? 'At least one section stays in the sidebar.' : undefined}
+          >
+            <input
+              type="checkbox"
+              checked={shown}
+              disabled={locked}
+              onChange={(e) => toggle(id, e.target.checked)}
+              className="size-4 accent-[var(--app-accent)] disabled:opacity-50"
+            />
+            <Icon name={id} className="size-4 text-ink-faint" />
+            <span className="flex-1">{SECTION_LABELS[id]}</span>
+            {!shown && <span className="text-meta text-ink-faint">Hidden</span>}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Settings() {
   const { state, status, actions, store, notify } = useWorkspace();
@@ -95,6 +152,25 @@ export function Settings() {
           )}
         </Field>
 
+        <Field
+          label="Widget glass"
+          hint="How much the dashboard's widgets let the background through, in the manner of a frosted macOS panel. At zero they are solid, which is what you want over a busy photograph."
+        >
+          {(id) => (
+            <div className="flex items-center gap-3 text-meta text-ink-muted">
+              <input
+                id={id}
+                type="range"
+                min="0" max="1" step="0.05"
+                value={settings.glass ?? 0.55}
+                onChange={(e) => actions.setSetting('glass', Number(e.target.value))}
+                className="flex-1 accent-[var(--app-accent)]"
+              />
+              <span className="tabular w-9 text-right">{Math.round((settings.glass ?? 0.55) * 100)}%</span>
+            </div>
+          )}
+        </Field>
+
         <Field label="Week starts on">
           {(id) => (
             <Select
@@ -130,6 +206,15 @@ export function Settings() {
         />
 
         <TagCleanup />
+      </Group>
+
+      <Group title="Navigation">
+        <Field
+          label="Sections in the sidebar"
+          hint="Hiding a section only takes it out of the sidebar — it stays reachable from the command palette (⌘K) and keeps all its data. Settings cannot be hidden, since it is the way back."
+        >
+          {() => <SectionVisibility />}
+        </Field>
       </Group>
 
       <ShortcutSettings Group={Group} />

@@ -237,6 +237,55 @@
     scrollbar-width: thin;
     scrollbar-color: var(--app-border-strong) transparent;
   }
+
+  /* ── Frosted widget surfaces ────────────────────────────────────────────
+     macOS-style glass: a translucent surface over a real blur of whatever is
+     behind it, with a hairline top highlight so the panel has an edge where it
+     catches the light.
+
+     `--glass` (0…1) comes from the Settings slider, set on the grid container.
+     Opacity runs 100% → 45% rather than to zero: a fully transparent panel
+     stops being a panel, and text over an arbitrary photograph stops being
+     legible. The blur does the rest of the work.
+
+     `backdrop-filter` samples what is painted behind, so at any glass level the
+     panel is opaque enough to keep interface contrast — which was verified
+     against these same surfaces — while still reading as glass. With no
+     background chosen there is nothing behind to blur and the panel is simply
+     a flat surface, which is the correct outcome rather than a special case. */
+  .widget-glass {
+    --glass-opacity: calc(1 - (var(--glass, 0) * 0.55));
+    --glass-blur: calc(var(--glass, 0) * 18px);
+    background-color: color-mix(
+      in srgb,
+      var(--glass-base) calc(var(--glass-opacity) * 100%),
+      transparent
+    );
+    /* The top highlight is the cue that reads as "glass" rather than merely
+       "faded". It lives in `background-image` rather than a `::before`, because
+       a positioned pseudo-element paints above static children — i.e. over the
+       widget's own text. A background layer always stays underneath. It scales
+       with the slider, so it disappears along with the effect. */
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--app-surface-raised) calc(var(--glass, 0) * 65%), transparent),
+      transparent 45%
+    );
+  }
+
+  @supports (backdrop-filter: blur(1px)) {
+    .widget-glass {
+      backdrop-filter: blur(var(--glass-blur)) saturate(calc(100% + var(--glass, 0) * 80%));
+    }
+  }
+
+  .widget-glass-card {
+    --glass-base: var(--app-surface);
+  }
+
+  .widget-glass-inset {
+    --glass-base: var(--app-surface-inset);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
