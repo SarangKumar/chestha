@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
+  DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
@@ -48,6 +48,9 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [configuring, setConfiguring] = useState(null);
+
+  const sidebarOpen = state.settings.sidebarOpen;
+  const railInset = cx('right-4 sm:right-6', sidebarOpen && 'lg:right-[19.5rem]');
 
   const stored = state.dashboard.widgets;
 
@@ -100,16 +103,16 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
     onCommit: (id, mode, preview) => {
       const definition = WIDGETS[stored.find((w) => w.id === id)?.type];
       commit(mode === 'move'
-        ? moveItem(stored, id, preview.x, preview.y, BASE_COLUMNS)
-        : resizeItem(stored, id, preview.w, preview.h, BASE_COLUMNS, definition?.limits));
+        ? moveItem(stored, id, preview.x, preview.y, columns)
+        : resizeItem(stored, id, preview.w, preview.h, columns, definition?.limits));
     },
   });
 
   const nudge = (widget, dx, dy, resize) => {
     const definition = WIDGETS[widget.type];
     commit(resize
-      ? resizeItem(stored, widget.id, widget.w + dx, widget.h + dy, BASE_COLUMNS, definition?.limits)
-      : moveItem(stored, widget.id, widget.x + dx, widget.y + dy, BASE_COLUMNS));
+      ? resizeItem(stored, widget.id, widget.w + dx, widget.h + dy, columns, definition?.limits)
+      : moveItem(stored, widget.id, widget.x + dx, widget.y + dy, columns));
   };
 
   const remove = (id) => {
@@ -118,7 +121,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
     if (!widget) return;
     notify(`Removed ${WIDGETS[widget.type]?.name ?? widget.type}`, {
       actionLabel: 'Undo',
-      onAction: () => commit(addItem(stored, widget, BASE_COLUMNS)),
+      onAction: () => commit(addItem(stored, widget, columns)),
     });
   };
 
@@ -131,43 +134,77 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
       w: definition.defaultSize?.w ?? 1,
       h: definition.defaultSize?.h ?? 1,
       config: {},
-    }, BASE_COLUMNS));
+    }, columns));
     setAdding(false);
     setEditing(true);
   };
 
   const rows = Math.max(layoutHeight(visible), 1);
+  const guideRows = rows + 2;
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-        <h1 className="sr-only">Dashboard</h1>
-        {canEdit && (
-          <p className="mr-auto text-meta text-ink-faint">
-            Drag a widget anywhere, or focus one and use Alt with the arrow keys. Add Shift to resize.
-          </p>
-        )}
-        {editing ? (
-          <>
-            <Button size="sm" tone="quiet" onClick={() => setResetting(true)}>Reset layout</Button>
+      <h1 className="sr-only">Dashboard</h1>
+
+      {/*
+        * Both controls float clear of the document flow, so the grid keeps the
+        * full width and height for widgets.
+        *
+        * `fixed` rather than `absolute`: these are exactly the controls you want
+        * while dragging a widget near the bottom of a long grid, so they must not
+        * scroll away. Offsets clear the mobile bottom bar, and the right-hand
+        * inset accounts for the today panel when it is open.
+        */}
+      {!editing ? (
+        <div className={cx('fixed bottom-20 z-40 sm:bottom-6', railInset)}>
+          {/* Deliberately small and recessive: it is chrome, not content, and
+              should not read as another tile sitting on the grid. */}
+          <Button
+            size="sm"
+            onClick={() => setEditing(true)}
+            title="Edit the dashboard layout"
+            className="h-8 rounded-full px-3 shadow-card"
+          >
+            <Icon name="edit" className="size-3.5" /> Edit
+          </Button>
+        </div>
+      ) : (
+        <div
+          className={cx(
+            'pointer-events-none fixed inset-x-0 bottom-20 z-40 flex flex-col items-center gap-1.5 px-4 sm:bottom-6',
+            // Shifts the centred pill so it reads as centred against the grid,
+            // not the window, when the today panel is open.
+            sidebarOpen && 'lg:pr-72',
+          )}
+        >
+          {canEdit && (
+            <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
+              Drag anywhere · Alt + arrows to move · add Shift to resize
+            </p>
+          )}
+
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
+            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
+              Reset
+            </Button>
             <Button
               size="sm"
+              tone="quiet"
+              className="rounded-full"
               onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
               title="Remove deliberate gaps and pack everything to the top"
             >
               Tidy up
             </Button>
-            <Button size="sm" onClick={() => setAdding(true)}>
-              <Icon name="plus" className="size-4" /> Add widget
+            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
+              <Icon name="plus" className="size-4" /> Add
             </Button>
-            <Button size="sm" tone="primary" onClick={() => setEditing(false)}>
+            <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
               <Icon name="check" className="size-4" /> Done
             </Button>
-          </>
-        ) : (
-          <Button size="sm" onClick={() => setEditing(true)}>Edit layout</Button>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
@@ -211,6 +248,23 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
             gap: `${GAP}px`,
           }}
         >
+          {/*
+            * A faint dashed cell behind every grid position, so the grid itself
+            * is visible while arranging. Rendered before the widgets so they
+            * paint over it, and inert so it never intercepts a drag.
+            */}
+          {canEdit && Array.from({ length: columns * guideRows }, (_, index) => (
+            <div
+              key={`guide-${index}`}
+              aria-hidden="true"
+              style={{
+                gridColumn: (index % columns) + 1,
+                gridRow: Math.floor(index / columns) + 1,
+              }}
+              className="pointer-events-none rounded-card border border-dashed border-line/60"
+            />
+          ))}
+
           {/* The snap preview: where the dragged widget will land. */}
           {canEdit && drag && (
             <div
@@ -337,7 +391,8 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
       <WidgetDrawer
         widget={stored.find((w) => w.id === configuring) ?? null}
         onClose={() => setConfiguring(null)}
-        onResize={(w, h, limits) => commit(resizeItem(stored, configuring, w, h, BASE_COLUMNS, limits))}
+        columns={columns}
+        onResize={(w, h, limits) => commit(resizeItem(stored, configuring, w, h, columns, limits))}
         onConfig={(patch) => setConfig(configuring, patch)}
         onRemove={() => { remove(configuring); setConfiguring(null); }}
       />
@@ -373,8 +428,39 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   );
 }
 
+/** A bounded number control, for sizes no named preset covers. */
+function SizeStepper({ label, value, min, max, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-meta text-ink-muted">{label}</span>
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          className="size-7 px-0"
+          aria-label={`Fewer ${label.toLowerCase()}`}
+          disabled={value <= min}
+          onClick={() => onChange(value - 1)}
+        >
+          −
+        </Button>
+        <span className="tabular w-7 text-center text-sm font-semibold text-ink">{value}</span>
+        <Button
+          size="sm"
+          className="size-7 px-0"
+          aria-label={`More ${label.toLowerCase()}`}
+          disabled={value >= max}
+          onClick={() => onChange(value + 1)}
+        >
+          +
+        </Button>
+        <span className="tabular ml-1 w-8 text-meta text-ink-faint">/ {max}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Every per-widget control, with room to breathe. */
-function WidgetDrawer({ widget, onClose, onResize, onConfig, onRemove }) {
+function WidgetDrawer({ widget, columns, onClose, onResize, onConfig, onRemove }) {
   if (!widget) return null;
   const definition = WIDGETS[widget.type];
   if (!definition) return null;
@@ -415,8 +501,25 @@ function WidgetDrawer({ widget, onClose, onResize, onConfig, onRemove }) {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-meta text-ink-faint">
-            Currently {widget.w}×{widget.h}. Dragging the corner handle also resizes.
+          <div className="mt-3 space-y-2">
+            <SizeStepper
+              label="Columns"
+              value={widget.w}
+              min={definition.limits?.minW ?? 1}
+              max={Math.min(columns, definition.limits?.maxW ?? columns)}
+              onChange={(w) => onResize(w, widget.h, definition.limits)}
+            />
+            <SizeStepper
+              label="Rows"
+              value={widget.h}
+              min={definition.limits?.minH ?? 1}
+              max={definition.limits?.maxH ?? 8}
+              onChange={(h) => onResize(widget.w, h, definition.limits)}
+            />
+          </div>
+          <p className="mt-2 text-meta leading-relaxed text-ink-faint">
+            Any size within those bounds works — {widget.w}×{widget.h} right now. Dragging the corner
+            handle resizes too.
           </p>
         </section>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   formatLongDate, goalState, questionUrl, selectCompletedOn, selectNoDate, selectOverdue,
   selectToday, selectUpcoming, sortTasks,
@@ -240,8 +240,27 @@ function SecondsConfig({ widget, onChange }) {
  * Opens a web search in a new tab. The app makes no request itself — submitting
  * navigates away, so nothing is sent from here and no API key is involved.
  */
-function SearchWidget({ widget, span }) {
+function SearchWidget({ widget, span, editing }) {
   const [term, setTerm] = useState('');
+  const inputRef = useRef(null);
+
+  /**
+   * Focus the field whenever the dashboard is opened, the way a browser's new
+   * tab page does — this widget is the main reason to replace it.
+   *
+   * Three guards, each for a real case:
+   *  - not while editing the layout, which would fight the drag controls;
+   *  - not if something already holds focus, which also means a second search
+   *    widget cannot steal it from the first;
+   *  - not on a touch pointer, where it would pop the keyboard unasked.
+   */
+  useEffect(() => {
+    if (editing) return;
+    if (window.matchMedia?.('(pointer: coarse)').matches) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    inputRef.current?.focus();
+  }, [editing]);
   const engines = {
     google: { name: 'Google', url: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
     duckduckgo: { name: 'DuckDuckGo', url: (q) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}` },
@@ -265,6 +284,7 @@ function SearchWidget({ widget, span }) {
       <div className="relative">
         <input
           id={`search-${widget.id}`}
+          ref={inputRef}
           value={term}
           onChange={(event) => setTerm(event.target.value)}
           placeholder={(span?.w ?? 1) > 1 ? `Search ${engine.name}…` : 'Search…'}
@@ -608,7 +628,7 @@ export const WIDGETS = {
     name: "Today's tasks",
     defaultSize: { w: 2, h: 2 },
     sizes: ['large', 'panel', 'block', 'column'],
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 4 },
     description: 'Due today, plus everything overdue.',
     render: TodayWidget,
   },
@@ -617,7 +637,7 @@ export const WIDGETS = {
     name: 'Upcoming',
     defaultSize: { w: 2, h: 1 },
     sizes: ['wide', 'large', 'panel', 'column'],
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 4 },
     description: 'What is due within a horizon you choose.',
     render: UpcomingWidget,
     Config: HorizonConfig,
@@ -627,7 +647,7 @@ export const WIDGETS = {
     name: 'Overdue',
     defaultSize: { w: 1, h: 1 },
     sizes: ['small', 'wide', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 3 },
     description: 'A count, and the oldest few.',
     render: OverdueWidget,
   },
@@ -636,8 +656,8 @@ export const WIDGETS = {
     presentation: 'transparent',
     name: 'Clock and date',
     defaultSize: { w: 1, h: 1 },
-    sizes: ['small', 'wide', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    sizes: ['small', 'wide', 'large', 'row'],
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 2 },
     description: 'Local time and today’s date.',
     render: ClockWidget,
     Config: SecondsConfig,
@@ -646,8 +666,8 @@ export const WIDGETS = {
     presentation: 'card',
     name: 'Scratchpad',
     defaultSize: { w: 2, h: 1 },
-    sizes: ['wide', 'large', 'panel', 'block', 'column'],
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 4 },
+    sizes: ['wide', 'large', 'panel', 'block', 'column', 'row'],
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 4 },
     description: 'One plain note, saved as you type.',
     render: NotesWidget,
   },
@@ -658,8 +678,8 @@ export const WIDGETS = {
     defaultSize: { w: 2, h: 1 },
     // An input narrower than two columns cannot show a usable query, so the
     // one-column sizes are not offered.
-    sizes: ['wide', 'bar', 'banner'],
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 1 },
+    sizes: ['wide', 'bar', 'banner', 'row'],
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 1 },
     render: SearchWidget,
     Config: SearchConfig,
   },
@@ -669,8 +689,8 @@ export const WIDGETS = {
     description: 'One question from your library, chosen fresh each day.',
     defaultSize: { w: 2, h: 1 },
     // The content is a question title; one column cannot show enough of it.
-    sizes: ['wide', 'bar', 'banner', 'panel'],
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    sizes: ['wide', 'bar', 'banner', 'panel', 'row'],
+    limits: { minW: 2, minH: 1, maxW: 12, maxH: 2 },
     render: DailyQuestionWidget,
   },
   shortcuts: {
@@ -680,8 +700,8 @@ export const WIDGETS = {
     defaultSize: { w: 2, h: 1 },
     // The add control only appears while editing, so a one-column widget is
     // three usable tiles rather than one tile and a button.
-    sizes: ['small', 'wide', 'bar', 'banner', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+    sizes: ['small', 'wide', 'bar', 'banner', 'large', 'row'],
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 3 },
     render: ShortcutsWidget,
     Config: ShortcutsConfig,
   },
@@ -691,7 +711,7 @@ export const WIDGETS = {
     description: 'Both daily targets as two compact figures. Reads well at any size.',
     defaultSize: { w: 1, h: 1 },
     sizes: ['small', 'wide', 'tall', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 2 },
     render: DsaTodayWidget,
   },
   undated: {
@@ -699,7 +719,7 @@ export const WIDGETS = {
     name: 'No due date',
     defaultSize: { w: 1, h: 1 },
     sizes: ['small', 'wide', 'large'],
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+    limits: { minW: 1, minH: 1, maxW: 12, maxH: 3 },
     description: 'Open tasks that are not on the calendar.',
     render: UndatedWidget,
   },

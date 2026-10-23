@@ -374,11 +374,13 @@ test('only the presets a widget can actually render are offered', () => {
   assert.ok(allowedPresets({ minW: 2 }).every((p) => p.w >= 2));
   assert.ok(!allowedPresets({ minW: 2 }).some((p) => p.key === 'small'));
 
-  // A single-row widget loses everything taller.
+  // A single-row widget loses everything taller — but keeps the full-row span,
+  // which is one row by definition.
   assert.deepEqual(
     allowedPresets({ maxH: 1 }).map((p) => p.key),
-    ['small', 'wide', 'bar', 'banner'],
+    ['small', 'wide', 'bar', 'banner', 'row'],
   );
+  assert.ok(allowedPresets({ maxH: 1 }).every((p) => p.h === 1));
 
   // A widget capped at two columns loses the wider shapes.
   assert.ok(allowedPresets({ maxW: 2 }).every((p) => p.w <= 2));
@@ -490,4 +492,24 @@ test('every size in the vocabulary fits the stored grid', () => {
   }
   // Keys are unique, or presetByKey would be ambiguous.
   assert.equal(new Set(SIZE_PRESETS.map((p) => p.key)).size, SIZE_PRESETS.length);
+});
+
+test('a widget can span the whole grid, not just four columns', () => {
+  const row = presetByKey('row');
+  assert.equal(row.w, BASE_COLUMNS, 'the full-row preset spans every column');
+  assert.equal(row.h, 1);
+
+  // And arbitrary widths in between are reachable, which presets alone cannot cover.
+  for (const width of [5, 7, 8, 11, 12]) {
+    const resized = resizeItem([at('a', 0, 0)], 'a', width, 1, BASE_COLUMNS, { minW: 1, maxW: BASE_COLUMNS });
+    assert.equal(resized.find((i) => i.id === 'a').w, width, `${width} columns wide`);
+    assert.ok(isValidLayout(resized, BASE_COLUMNS));
+  }
+});
+
+test('a resize is bounded by the grid it is performed in', () => {
+  // Resizing in a ten-column view cannot produce something only twelve fit.
+  const resized = resizeItem([at('a', 0, 0)], 'a', 12, 1, 10, { minW: 1, maxW: BASE_COLUMNS });
+  assert.equal(resized.find((i) => i.id === 'a').w, 10, 'clamped to the visible grid');
+  assert.ok(isValidLayout(resized, 10));
 });

@@ -73,6 +73,7 @@ export const SIZE_PRESETS = [
   { key: 'panel', label: 'P', title: 'Panel', w: 3, h: 2 },
   { key: 'block', label: 'BL', title: 'Block', w: 4, h: 2 },
   { key: 'column', label: 'C', title: 'Column', w: 2, h: 3 },
+  { key: 'row', label: 'R', title: 'Full row', w: BASE_COLUMNS, h: 1 },
 ];
 
 export function presetByKey(key) {
