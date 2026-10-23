@@ -102,11 +102,18 @@ surface as notices, and a browser that blocks storage entirely puts the app into
 labelled memory-only mode rather than pretending to save.
 
 **The dashboard grid is positioned, not ordered.** A layout is a list of
-`{ x, y, w, h }` widgets on a 24-column grid, because an ordered list cannot express
+`{ x, y, w, h }` widgets on a coordinate grid, because an ordered list cannot express
 "bottom right" — which is what people actually want from a dashboard. A cell is a
-fixed 48px square at every viewport, so narrowing the window changes how many columns
-fit, never how large a widget is. `pinned` marks a deliberate placement that
-compaction may not lift. See `packages/core/src/layout.js`.
+square of about 48px: `columnsForWidth` takes the *nearest* whole number of columns
+that fits, and `cellForWidth` divides the width evenly between them, so the grid ends
+exactly at the right edge with no dead space. Slack under half a column is shared out;
+slack over it becomes another column. That keeps the square within a couple of pixels
+of 48 on any laptop or desktop, so narrowing the window changes how many columns fit
+rather than how large a widget looks. The canonical grid is 48 columns wide — enough
+that those squares reach the edge of a large desktop — and a layout wider than the
+window is projected for display with its editing paused rather than overwritten.
+`pinned` marks a deliberate placement that compaction may not lift. See
+`packages/core/src/layout.js`.
 
 **DSA progress has three independent axes.** Progress, revision and confidence are
 stored separately, and the five labels shown in the UI are derived from them. Review
@@ -120,8 +127,14 @@ and 8×4 in another.
 
 ## Privacy
 
-The app makes no network requests, with one opt-in exception: the GitHub activity
-widget reads public activity from `api.github.com` when you enter a username. It is
-inert until you do, and says so in its own edit panel. Nothing else in the running
-app contacts the internet; `npm run dsa-pack` does, but it is a build tool you run
-deliberately.
+The app makes no network requests, with two opt-in exceptions, both widgets:
+
+- **GitHub** reads public activity or repositories from `api.github.com` once you
+  enter a username.
+- **Weather** reads a forecast from `open-meteo.com` once you set a location. No key
+  and no account; only that place's coordinates are sent, and the browser's
+  geolocation prompt is never used.
+
+Both are inert until you configure them, both say so in their own edit panel, and
+removing the widget ends the requests. Nothing else in the running app contacts the
+internet. `npm run dsa-pack` does, but it is a build tool you run deliberately.

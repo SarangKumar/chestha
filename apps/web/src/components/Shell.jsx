@@ -55,7 +55,9 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
         onNavigate={onNavigate}
       />
 
-      <div className={cx('relative z-10', 'sm:pl-16', sidebarOpen && 'lg:pr-72')}>
+      {/* No right-hand padding: the today panel is an overlay, so the page keeps
+          its full width whether or not it is open. */}
+      <div className={cx('relative z-10', 'sm:pl-16')}>
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>

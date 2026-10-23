@@ -145,6 +145,12 @@
 @layer base {
   html {
     background-color: var(--app-canvas);
+    /* The scrollbar's space is always reserved, whether or not one is showing.
+       Without this, the page gaining a scrollbar as content loads narrows the
+       viewport by the scrollbar's width — and the dashboard grid derives its
+       column count from that width, so a late scrollbar could reflow the whole
+       arrangement after the first paint. */
+    scrollbar-gutter: stable;
   }
 
   body {

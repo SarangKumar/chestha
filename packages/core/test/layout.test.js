@@ -441,19 +441,37 @@ test('resizing to a preset respects the widget limits regardless', () => {
   assert.ok(isValidLayout(resized, BASE_COLUMNS));
 });
 
-test('a grid square is the same size at every viewport', () => {
+test('the grid fills the page exactly, and its squares stay square', () => {
   // Wide enough that a fixed 48px cell still reaches the right edge of a large
   // desktop, so the placement grid covers the screen rather than stopping short.
   assert.equal(BASE_COLUMNS, 48);
   assert.equal(V3_COLUMNS, 24, 'the width old coordinates were written against');
 
-  // The reported bug: squares shrank as the window narrowed. The cell is now
-  // fixed, so only the column count responds to width.
-  for (const width of [358, 656, 912, 1328, 1888, 2448]) {
-    assert.equal(cellForWidth(width, columnsForWidth(width)), CELL_PX, `same square at ${width}px`);
+  const GAP = 8;
+
+  for (const width of [288, 358, 488, 656, 912, 1168, 1254, 1328, 1488, 1808, 2448]) {
+    const columns = columnsForWidth(width);
+    const cell = cellForWidth(width, columns);
+
+    // The grid ends at the right edge. Flooring the column count used to leave
+    // up to a whole cell of dead space there; the cell absorbs it instead.
+    const used = columns * cell + (columns - 1) * GAP;
+    assert.ok(Math.abs(used - width) < 0.001, `the grid fills ${width}px exactly, using ${used}`);
+
+    // And the square is still a square of roughly the intended size — the cell
+    // flexes to fill, it does not float free. Beyond about half a column of
+    // slack, another column is added instead of growing the squares.
+    assert.ok(cell > CELL_PX * 0.8 && cell < CELL_PX * 1.2, `${cell}px stays near ${CELL_PX} at ${width}px`);
   }
 
-  // More room means more columns, never larger squares.
+  // On anything laptop-sized or larger there are enough columns to share the
+  // remainder between, so the square barely moves at all.
+  for (const width of [912, 1168, 1254, 1328, 1488, 1808, 2448]) {
+    const cell = cellForWidth(width, columnsForWidth(width));
+    assert.ok(Math.abs(cell - CELL_PX) <= 2, `${cell}px is within 2px of ${CELL_PX} at ${width}px`);
+  }
+
+  // More room means more columns, not unbounded squares.
   assert.ok(columnsForWidth(1888) > columnsForWidth(912));
   assert.ok(columnsForWidth(912) > columnsForWidth(358));
   assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more than the stored space');

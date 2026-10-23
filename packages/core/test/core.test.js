@@ -61,6 +61,29 @@ test('the month grid is always six rows of seven days', () => {
   }
 });
 
+test('the store reports ready even when storage cannot be opened at all', async () => {
+  // The dashboard holds its widgets back until `ready`, so a path that never
+  // sets it would leave a permanently blank grid — a worse failure than any
+  // storage problem it might be reporting. There is no IndexedDB in node, so
+  // this already exercises the fallback; the guarantee is that `ready` arrives
+  // regardless.
+  const store = createStore();
+  assert.equal(store.getStatus().ready, false, 'not ready before init');
+
+  await store.init();
+
+  const status = store.getStatus();
+  assert.equal(status.ready, true, 'the app must always open');
+  assert.ok(status.mode, 'and always names the mode it opened in');
+  // Degrading is reported rather than hidden.
+  assert.equal(status.mode, 'memory', 'node has no IndexedDB, so it fell back');
+  assert.ok(status.storageReason, 'with a reason a person can read');
+
+  // Falling back still yields usable defaults, not a half-built state.
+  assert.ok(Array.isArray(store.getState().tasks));
+  assert.ok(store.getState().dashboard.widgets.length > 0);
+});
+
 test('an unmodified export reproduces state exactly', async () => {
   const store = createStore();
   await store.init();

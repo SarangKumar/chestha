@@ -55,18 +55,35 @@ export const V3_COLUMNS = 24;
 export const CELL_PX = 48;
 
 /**
- * How many fixed-size columns fit the page. The cell never changes size, so this
- * is what varies: a wider window gets more columns, not bigger squares.
+ * How many columns fill the page.
+ *
+ * Rounded, not floored. Flooring left whatever did not make up a whole column as
+ * dead space on the right — up to a full cell of it. Rounding takes the nearest
+ * count and lets `cellForWidth` absorb the difference, so the grid always ends at
+ * the right edge: a little under half a column spare is shared out among the
+ * columns, and a little over becomes one more column.
  */
 export function columnsForWidth(width, cell = CELL_PX, gap = 8) {
   if (!width || width <= 0) return 4;
-  const fits = Math.floor((width + gap) / (cell + gap));
+  const fits = Math.round((width + gap) / (cell + gap));
   return Math.min(BASE_COLUMNS, Math.max(4, fits));
 }
 
-/** Always the same square, whatever the viewport. */
-export function cellForWidth() {
-  return CELL_PX;
+/**
+ * The square's exact size: the width left after the gutters, divided evenly.
+ *
+ * This is what makes the grid fill the page rather than stop short of it. The
+ * square is not a constant, but it is held close to one — `columnsForWidth`
+ * picks the nearest column count, so the cell is never more than about half a
+ * column away from `CELL_PX`, and adding a column pulls it back down again
+ * rather than letting squares grow without limit. That is the difference from
+ * the old behaviour this replaced, where the cell was derived from the width
+ * with no column target at all and squares visibly shrank as the window
+ * narrowed.
+ */
+export function cellForWidth(width, columns, gap = 8) {
+  if (!width || width <= 0 || !columns || columns <= 0) return CELL_PX;
+  return (width - gap * (columns - 1)) / columns;
 }
 
 export const MIN_W = 1;

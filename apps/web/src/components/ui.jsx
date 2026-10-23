@@ -188,15 +188,32 @@ export function Meter({ value, max, label, tone = 'default', className }) {
   );
 }
 
+/**
+ * Padding and type scale with the container, because the same component fills a
+ * full-page list and a 96px widget tile. At tile size the generous padding alone
+ * ate the box, so the text was clipped before it could be read; the small end is
+ * sized to fit rather than to look comfortable, which is the right trade when
+ * the alternative is a cut-off sentence.
+ */
 export function EmptyState({ title, description, action, className }) {
   return (
     <div className={cx(
-      'flex flex-col items-center justify-center rounded-card border border-dashed border-line px-6 py-10 text-center',
+      'flex flex-col items-center justify-center rounded-card border border-dashed border-line text-center',
+      // The comfortable layout is the base, so it holds on a full page, which is
+      // not a container and where a min-width query would never match. The
+      // max-width queries only bite inside a widget's own box.
+      'px-6 py-10 @max-[24rem]:px-4 @max-[24rem]:py-5 @max-[12rem]:px-2 @max-[12rem]:py-3',
       className,
     )}>
-      <p className="text-sm font-medium text-ink">{title}</p>
-      {description && <p className="mt-1.5 max-w-xs text-meta leading-relaxed text-ink-muted">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      <p className="text-sm font-medium text-ink @max-[24rem]:text-xs @max-[12rem]:text-[11px] @max-[12rem]:leading-tight">
+        {title}
+      </p>
+      {description && (
+        <p className="mt-1.5 max-w-xs text-meta leading-relaxed text-ink-muted @max-[24rem]:mt-1 @max-[24rem]:text-[10px] @max-[24rem]:leading-snug @max-[9rem]:hidden">
+          {description}
+        </p>
+      )}
+      {action && <div className="mt-4 @max-[24rem]:mt-2">{action}</div>}
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { useLayoutEffect, useState } from 'react';
-import { cellForWidth, columnsForWidth } from '@vistaar/core';
+import { CELL_PX, cellForWidth, columnsForWidth } from '@vistaar/core';
 
 /**
  * Measures the grid and reports both the column count and the square cell size.
  *
- * The grid spans the page edge to edge, so the cell is derived from the width
- * rather than fixed — which is what makes the rightmost column the right edge of
- * the screen.
+ * The grid spans the page edge to edge. The column count is the nearest whole
+ * number of ~48px squares that fits, and the cell is then the width divided
+ * evenly between them — so the last column ends at the right edge rather than
+ * short of it, while the square stays within a pixel or two of its intended
+ * size.
  *
  * `useLayoutEffect`, not `useEffect`: the initial state is only a guess, and an
  * effect runs *after* the browser paints. That painted one frame at the guessed
@@ -15,7 +17,10 @@ import { cellForWidth, columnsForWidth } from '@vistaar/core';
  * guess is never shown.
  */
 export function useGridMetrics(ref) {
-  const [metrics, setMetrics] = useState({ columns: 12, cell: 132 });
+  // Never painted — the layout effect below measures first — but a guess at the
+  // real cell size is still better than one that would be wildly wrong if it ever
+  // were shown.
+  const [metrics, setMetrics] = useState({ columns: 12, cell: CELL_PX });
 
   useLayoutEffect(() => {
     const element = ref?.current;

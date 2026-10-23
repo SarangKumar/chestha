@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
@@ -45,7 +45,7 @@ export function resolvePresentation(widget, definition) {
 }
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
-  const { state, actions, notify } = useWorkspace();
+  const { state, status, actions, notify } = useWorkspace();
   // One element drives the column count, the cell size and the drag maths.
   const gridRef = useRef(null);
   const { columns, cell } = useGridMetrics(gridRef);
@@ -54,7 +54,18 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const [resetting, setResetting] = useState(false);
   const [configuring, setConfiguring] = useState(null);
 
-  const sidebarOpen = state.settings.sidebarOpen;
+  /**
+   * Both panels are overlays on the right-hand edge, so two open at once would
+   * stack one on the other. Opening either closes the other.
+   */
+  const openConfig = (id) => {
+    setConfiguring(id);
+    if (state.settings.sidebarOpen) actions.setSetting('sidebarOpen', false);
+  };
+  useEffect(() => {
+    if (state.settings.sidebarOpen) setConfiguring(null);
+  }, [state.settings.sidebarOpen]);
+
   const glass = state.settings.glass ?? 0.55;
 
   // How many grid rows the visible part of the page is tall. Measured from the
@@ -100,12 +111,27 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
     [known, columns],
   );
 
+  /**
+   * Nothing is placed until storage has been read.
+   *
+   * The store starts from `defaultState()`, so without this the first paint
+   * showed the *shipped* arrangement — and the saved one replaced it a few
+   * milliseconds later, which looked like every widget sliding into position
+   * from the wrong place. Rendering an empty grid for that moment is honest and
+   * does not move anything: a widget appearing is not a widget jumping.
+   *
+   * The grid itself stays mounted throughout, so its width is measured before
+   * the first paint and the column count never changes underneath the widgets.
+   */
   const visible = useMemo(
-    () => (fitsCurrent ? known : projectToColumns(known, columns)),
-    [known, columns, fitsCurrent],
+    () => {
+      if (!status.ready) return [];
+      return fitsCurrent ? known : projectToColumns(known, columns);
+    },
+    [known, columns, fitsCurrent, status.ready],
   );
 
-  const canEdit = editing && fitsCurrent;
+  const canEdit = editing && fitsCurrent && status.ready;
 
   const commit = (next) => actions.setDashboard(() => next);
 
@@ -266,14 +292,17 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           onPointerCancel={canEdit ? end : undefined}
           className="relative grid touch-pan-y"
           style={{
-            // Fixed tracks, so a square stays the same size at every viewport.
-            gridTemplateColumns: `repeat(${columns}, ${cell}px)`,
+            // `1fr` rather than the measured pixel value: the column count is
+            // already chosen so the cell divides the width evenly, and fr tracks
+            // reach the same geometry without a sub-pixel rounding error that
+            // could overflow the row and raise a horizontal scrollbar. Rows stay
+            // in pixels, which is what keeps each cell square.
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
             // Set once here and inherited by every widget, so the glass slider
             // costs one property write rather than one per widget.
             '--glass': glass,
             gridAutoRows: `${cell}px`,
             gap: `${GAP}px`,
-            justifyContent: 'start',
           }}
         >
           {/*
@@ -369,7 +398,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                       <>
                         <IconButton
                           label={`Edit ${definition.name}`}
-                          onClick={() => setConfiguring(widget.id)}
+                          onClick={() => openConfig(widget.id)}
                           className="size-6"
                         >
                           <Icon name="edit" className="size-3.5" />

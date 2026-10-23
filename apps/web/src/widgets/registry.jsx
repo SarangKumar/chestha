@@ -637,35 +637,72 @@ function ShortcutsConfig({ widget, onChange }) {
  * Both DSA daily targets as two compact figures. Designed for 1x1: it reads at
  * the smallest size and simply gains breathing room at larger ones.
  */
-function DsaTodayWidget({ onNavigate }) {
+/**
+ * Both daily targets, at whatever size the tile is.
+ *
+ * The figures are the content and the meters are the decoration, so the meters
+ * are what gets dropped as the tile shrinks — at 1×1 there is room for two
+ * fractions and nothing else. Rendering the full layout at every size was the
+ * bug: the second row and its label were simply clipped, which made resizing
+ * look broken when it was working exactly as asked.
+ */
+function DsaTodayWidget({ onNavigate, span }) {
   const { state, today } = useWorkspace();
   const goals = goalState(state['dsa.progress'].events, state['dsa.settings'], today);
+
+  const w = span?.w ?? 1;
+  const h = span?.h ?? 1;
+  const tiny = w <= 1 && h <= 1;
+  // Meters need a row of their own under each figure; below two rows there is
+  // no such room, and a 2px bar in a clipped box is worse than none.
+  const meters = h >= 2;
+  // Side by side once there is width for it, which also frees vertical room.
+  const sideBySide = w >= 4 && h <= 2;
+
+  const rows = [
+    { key: 'new', label: 'new', done: goals.newSolved, target: goals.newTarget, met: goals.newMet, aria: 'New questions today' },
+    { key: 'revised', label: 'revised', done: goals.revisionsDone, target: goals.revisionTarget, met: goals.revisionMet, aria: 'Revisions today' },
+  ];
 
   return (
     <button
       type="button"
       onClick={() => onNavigate('dsa', 'home')}
-      className="flex h-full w-full flex-col justify-center gap-2 rounded-control text-left transition-colors duration-150 hover:bg-hover"
-      title="Open the DSA overview"
+      className={cx(
+        'flex h-full w-full rounded-control text-left transition-colors duration-150 hover:bg-hover',
+        sideBySide ? 'flex-row items-center gap-4' : 'flex-col justify-center',
+        !sideBySide && (tiny ? 'gap-0.5' : 'gap-2'),
+      )}
+      title={`DSA today — ${goals.newSolved}/${goals.newTarget} new, ${goals.revisionsDone}/${goals.revisionTarget} revised`}
     >
-      <div>
-        <p className="flex items-baseline gap-1.5">
-          <span className={cx('tabular text-stat font-semibold', goals.newMet ? 'text-ok' : 'text-ink')}>
-            {goals.newSolved}/{goals.newTarget}
-          </span>
-          <span className="truncate text-meta text-ink-muted">new</span>
-        </p>
-        <Meter value={goals.newSolved} max={Math.max(1, goals.newTarget)} label="New questions today" className="mt-1" tone={goals.newMet ? 'ok' : 'default'} />
-      </div>
-      <div>
-        <p className="flex items-baseline gap-1.5">
-          <span className={cx('tabular text-stat font-semibold', goals.revisionMet ? 'text-ok' : 'text-ink')}>
-            {goals.revisionsDone}/{goals.revisionTarget}
-          </span>
-          <span className="truncate text-meta text-ink-muted">revised</span>
-        </p>
-        <Meter value={goals.revisionsDone} max={Math.max(1, goals.revisionTarget)} label="Revisions today" className="mt-1" tone={goals.revisionMet ? 'ok' : 'default'} />
-      </div>
+      {rows.map((row) => (
+        <div key={row.key} className={cx('min-w-0', sideBySide && 'flex-1')}>
+          <p className={cx('flex items-baseline gap-1.5', tiny && 'gap-1')}>
+            <span className={cx(
+              'tabular font-semibold',
+              tiny ? 'text-sm leading-tight' : 'text-stat',
+              row.met ? 'text-ok' : 'text-ink',
+            )}>
+              {row.done}/{row.target}
+            </span>
+            {/* The label is the first thing to go: the figure still reads, and
+                a truncated word does not. */}
+            {!tiny && (
+              <span className="hidden truncate text-meta text-ink-muted @[8rem]:inline">{row.label}</span>
+            )}
+          </p>
+          {meters && (
+            <Meter
+              value={row.done}
+              max={Math.max(1, row.target)}
+              label={row.aria}
+              className="mt-1"
+              tone={row.met ? 'ok' : 'default'}
+            />
+          )}
+        </div>
+      ))}
+      {tiny && <span className="sr-only">new and revised, today’s DSA targets</span>}
     </button>
   );
 }

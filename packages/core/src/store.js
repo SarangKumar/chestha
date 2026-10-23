@@ -31,29 +31,46 @@ export function createStore() {
     status = { ...status, ...patch };
   }
 
+  /**
+   * Reads every eager area, then reports ready.
+   *
+   * `ready` is announced in a `finally`, so it is reached however badly this
+   * goes. The app must always open, and the dashboard holds its widgets back
+   * until this flag is set — so an init that rejected without setting it would
+   * leave a permanently blank grid, which is a worse failure than any storage
+   * problem it could be reporting.
+   */
   async function init() {
-    storage = await openStorage();
     const issues = [];
-    // Lazy areas are skipped so an unopened DSA library never slows the first paint.
-    for (const area of AREAS.filter((a) => !LAZY_AREAS.includes(a))) {
-      let raw;
-      try {
-        raw = await storage.get(area);
-      } catch (error) {
-        issues.push(`Could not read ${area}: ${describeStorageError(error)}`);
-        raw = undefined;
+    try {
+      // openStorage falls back to memory rather than rejecting, but a thrown
+      // error here must still not strand the app.
+      storage = await openStorage();
+
+      // Lazy areas are skipped so an unopened DSA library never slows the first paint.
+      for (const area of AREAS.filter((a) => !LAZY_AREAS.includes(a))) {
+        let raw;
+        try {
+          raw = await storage.get(area);
+        } catch (error) {
+          issues.push(`Could not read ${area}: ${describeStorageError(error)}`);
+          raw = undefined;
+        }
+        const { value, issues: areaIssues } = coerceArea(area, raw);
+        state = { ...state, [area]: value };
+        issues.push(...areaIssues);
       }
-      const { value, issues: areaIssues } = coerceArea(area, raw);
-      state = { ...state, [area]: value };
-      issues.push(...areaIssues);
+    } catch (error) {
+      issues.push(`Could not open storage: ${describeStorageError(error)}`);
+    } finally {
+      setStatus({
+        ready: true,
+        mode: storage?.mode ?? 'memory',
+        storageReason: storage?.reason ?? 'Storage could not be opened.',
+        issues,
+      });
+      emit();
     }
-    setStatus({
-      ready: true,
-      mode: storage.mode,
-      storageReason: storage.reason,
-      issues,
-    });
-    emit();
   }
 
   const loading = new Map();
