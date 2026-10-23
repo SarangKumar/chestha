@@ -27,18 +27,19 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
   const background = state.settings.background ?? { kind: 'none', image: '', dim: 0.45 };
 
   return (
-    <div className="relative min-h-dvh bg-canvas">
+    <div className="relative min-h-dvh">
       {/* Painted behind everything, inert, and dimmed so interface contrast —
           which was verified against the app's own surfaces — still holds. */}
       {background.kind !== 'none' && (
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0">
           {background.kind === 'image' && background.image ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url("/backgrounds/${background.image}")` }}
+              // encodeURI, because a filename may contain spaces.
+              style={{ backgroundImage: `url("/backgrounds/${encodeURI(background.image)}")` }}
             />
           ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(60rem_40rem_at_20%_-10%,var(--app-surface-raised),transparent_70%),radial-gradient(50rem_35rem_at_100%_110%,var(--app-surface-raised),transparent_65%)]" />
+            <div className={cx('absolute inset-0', `bg-pattern-${background.kind}`)} />
           )}
           <div className="absolute inset-0 bg-canvas" style={{ opacity: background.dim }} />
         </div>
@@ -53,7 +54,7 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
         onNavigate={onNavigate}
       />
 
-      <div className={cx('sm:pl-16', sidebarOpen && 'lg:pr-72')}>
+      <div className={cx('relative z-10', 'sm:pl-16', sidebarOpen && 'lg:pr-72')}>
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>

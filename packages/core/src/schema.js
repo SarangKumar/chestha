@@ -67,8 +67,27 @@ export const DEFAULT_SETTINGS = {
   background: { kind: 'none', image: '', dim: 0.45 },
 };
 
-/** How the app paints behind the interface. */
-export const BACKGROUND_KINDS = ['none', 'glow', 'image'];
+/**
+ * How the app paints behind the interface.
+ *
+ * Everything except `image` is generated from the theme's own tokens, so it needs
+ * no file, costs nothing to load, works offline and follows light/dark
+ * automatically.
+ */
+export const BACKGROUND_PATTERNS = ['glow', 'mesh', 'grid', 'dots', 'rays', 'vignette'];
+
+export const BACKGROUND_KINDS = ['none', ...BACKGROUND_PATTERNS, 'image'];
+
+export const BACKGROUND_LABELS = {
+  none: 'None',
+  glow: 'Soft glow',
+  mesh: 'Mesh',
+  grid: 'Fine grid',
+  dots: 'Dot matrix',
+  rays: 'Rays',
+  vignette: 'Vignette',
+  image: 'Your own image',
+};
 
 export const DEFAULT_SOUND = {
   presets: [],

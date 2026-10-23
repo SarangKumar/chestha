@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * Renders only the rows near the viewport.
@@ -24,7 +24,9 @@ export function useVirtualRows({ count, rowHeight, overscan = 8 }) {
     ));
   }, [count, rowHeight, overscan]);
 
-  useEffect(() => {
+  // Measured before paint, for the same reason as the grid: the initial guess of
+  // 40 rows would otherwise be rendered for one frame and then corrected.
+  useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return undefined;
     recompute();

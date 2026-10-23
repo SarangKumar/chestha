@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  buildExport, estimateUsage, exportFilename, formatLongDate, parseImport, tagKey,
+  BACKGROUND_LABELS, BACKGROUND_PATTERNS, buildExport, estimateUsage, exportFilename,
+  formatLongDate, parseImport, tagKey,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput } from '../components/ui.jsx';
@@ -10,6 +11,19 @@ import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
 export function Settings() {
   const { state, status, actions, store, notify } = useWorkspace();
   const { settings } = state;
+  const [backgroundImages, setBackgroundImages] = useState([]);
+
+  // A browser cannot list a folder, so the picker reads a generated index.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/backgrounds/manifest.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.images)) setBackgroundImages(data.images);
+      })
+      .catch(() => { /* the folder is optional */ });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -29,7 +43,10 @@ export function Settings() {
           )}
         </Field>
 
-        <Field label="Background" hint="Images come from apps/web/public/backgrounds — see the README there.">
+        <Field
+          label="Background"
+          hint="Patterns are generated from your theme — no files, no requests. Images come from apps/web/public/backgrounds; run `npm run backgrounds` after adding one."
+        >
           {(id) => (
             <div className="space-y-2">
               <Select
@@ -37,19 +54,28 @@ export function Settings() {
                 value={settings.background?.kind ?? 'none'}
                 onChange={(e) => actions.setSetting('background', { ...settings.background, kind: e.target.value })}
               >
-                <option value="none">None</option>
-                <option value="glow">Soft glow (generated, no file)</option>
-                <option value="image">Your own image</option>
+                <option value="none">{BACKGROUND_LABELS.none}</option>
+                <optgroup label="Generated">
+                  {BACKGROUND_PATTERNS.map((kind) => (
+                    <option key={kind} value={kind}>{BACKGROUND_LABELS[kind]}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Your files">
+                  <option value="image" disabled={backgroundImages.length === 0}>
+                    {backgroundImages.length === 0 ? 'No images found' : BACKGROUND_LABELS.image}
+                  </option>
+                </optgroup>
               </Select>
 
               {settings.background?.kind === 'image' && (
-                <input
+                <Select
                   value={settings.background?.image ?? ''}
                   onChange={(e) => actions.setSetting('background', { ...settings.background, image: e.target.value })}
-                  placeholder="my-wallpaper.jpg"
-                  aria-label="Background image filename"
-                  className="w-full rounded-control border border-line bg-inset px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
-                />
+                  aria-label="Background image"
+                >
+                  <option value="">Choose an image…</option>
+                  {backgroundImages.map((file) => <option key={file} value={file}>{file}</option>)}
+                </Select>
               )}
 
               {settings.background?.kind !== 'none' && (

@@ -194,6 +194,45 @@
     background-size: 0.7rem;
   }
 
+  /* Backgrounds generated from the theme's own tokens — no files, no requests,
+     and they follow light and dark automatically. */
+  .bg-pattern-glow {
+    background-image:
+      radial-gradient(60rem 40rem at 18% -10%, var(--app-surface-raised), transparent 70%),
+      radial-gradient(50rem 35rem at 100% 110%, var(--app-surface-raised), transparent 65%);
+  }
+
+  .bg-pattern-mesh {
+    background-image:
+      radial-gradient(40rem 30rem at 10% 10%, var(--app-surface-raised), transparent 60%),
+      radial-gradient(35rem 28rem at 85% 20%, var(--app-surface-hover), transparent 60%),
+      radial-gradient(45rem 32rem at 50% 105%, var(--app-surface-raised), transparent 65%);
+  }
+
+  .bg-pattern-grid {
+    background-image:
+      linear-gradient(to right, var(--app-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--app-border) 1px, transparent 1px);
+    background-size: 3rem 3rem;
+  }
+
+  .bg-pattern-dots {
+    background-image: radial-gradient(var(--app-border-strong) 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem;
+  }
+
+  .bg-pattern-rays {
+    background-image:
+      conic-gradient(from 210deg at 50% -20%,
+        var(--app-surface-raised) 0deg, transparent 60deg,
+        var(--app-surface-raised) 120deg, transparent 180deg,
+        var(--app-surface-raised) 240deg, transparent 300deg);
+  }
+
+  .bg-pattern-vignette {
+    background-image: radial-gradient(70rem 50rem at 50% 40%, var(--app-surface-raised), var(--app-canvas) 85%);
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--app-border-strong) transparent;

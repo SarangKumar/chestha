@@ -349,7 +349,10 @@ export function Dialog({
             <p id={descId} className="mt-1.5 text-meta leading-relaxed text-ink-muted">{description}</p>
           )}
         </div>
-        <div className={cx('px-5 pb-5', maxHeight && 'min-h-0 flex-1 overflow-y-auto scrollbar-thin')}>
+        {/* pt-1 gives the focus ring room: setting overflow-y also makes
+            overflow-x computed, so a ring drawn 2px outside the first child
+            would otherwise be clipped on every side. */}
+        <div className={cx('px-5 pb-5', maxHeight ? 'min-h-0 flex-1 overflow-y-auto pt-1 scrollbar-thin' : '')}>
           {children}
         </div>
         {footer && (

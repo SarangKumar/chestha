@@ -9,10 +9,11 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @vistaar/web",
-    "build": "npm run build --workspace @vistaar/web",
+    "build": "node tools/build-backgrounds.mjs && npm run build --workspace @vistaar/web",
     "preview": "npm run preview --workspace @vistaar/web",
     "test": "node --test packages/core/test apps/web/test",
     "build:extension": "npm run build && node tools/build-extension.mjs",
-    "extension": "npm run build:extension"
+    "extension": "npm run build:extension",
+    "backgrounds": "node tools/build-backgrounds.mjs"
   }
 }
