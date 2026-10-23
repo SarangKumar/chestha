@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   BUNDLED_PACKS, DIFFICULTIES, EMPTY_FILTERS, GROUPINGS, QUESTION_SORTS, REVISION_FILTERS,
   SOURCES, STATUS_LABELS, applyPack, buildRows, difficultyProgress, filterRows, groupRows,
-  hasActiveFilters, parsePack, questionUrl, sortRows, topicKey,
+  hasActiveFilters, parsePack, questionUrl, sheetShortLabel, sortRows, topicKey,
 } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
@@ -48,9 +48,15 @@ export function DsaLibrary() {
     [rows, filters, sort, personal.memberships],
   );
 
-  const groups = useMemo(
-    () => groupRows(visible, grouping, { lists: library.curatedLists }),
-    [visible, grouping, library.curatedLists],
+  const groups = useMemo(() => groupRows(visible, grouping, {
+    lists: library.curatedLists,
+    onlyList: filters.curatedList === 'all' ? null : filters.curatedList,
+    onlyTopic: filters.topic === 'all' ? null : filters.topic,
+  }), [visible, grouping, library.curatedLists, filters.curatedList, filters.topic]);
+
+  const sheetNames = useMemo(
+    () => new Map(library.curatedLists.map((l) => [l.id, l.name])),
+    [library.curatedLists],
   );
 
   const byDifficulty = useMemo(() => difficultyProgress(rows), [rows]);
@@ -218,10 +224,30 @@ export function DsaLibrary() {
                         {question.difficulty}
                       </Badge>
                     )}
-                    {frequency.lists > 0 && (
-                      <Badge tone="neutral" title={`In ${frequency.lists} sheets across ${frequency.families} independent families`}>
-                        {frequency.lists}/{frequency.families}
-                      </Badge>
+                    {frequency.listIds.length > 0 && (
+                      <span
+                        className="flex shrink-0 flex-wrap items-center gap-1"
+                        title={`In ${frequency.lists} sheet${frequency.lists === 1 ? '' : 's'} across ${frequency.families} independent famil${frequency.families === 1 ? 'y' : 'ies'}: ${frequency.listIds.map((id) => sheetNames.get(id) ?? id).join(', ')}`}
+                      >
+                        {frequency.listIds.slice(0, 3).map((id) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => set({ curatedList: id })}
+                            className={cx(
+                              'rounded-chip border px-1.5 py-0.5 text-[10px] font-medium transition-colors duration-150',
+                              filters.curatedList === id
+                                ? 'border-line-strong bg-accent-soft text-ink'
+                                : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
+                            )}
+                          >
+                            {sheetShortLabel(id, sheetNames.get(id))}
+                          </button>
+                        ))}
+                        {frequency.listIds.length > 3 && (
+                          <span className="text-[10px] text-ink-faint">+{frequency.listIds.length - 3}</span>
+                        )}
+                      </span>
                     )}
                     <Badge tone={qs.status === 'needs-revision' ? 'danger' : (qs.status === 'solved' || qs.status === 'mastered') ? 'ok' : 'neutral'}>
                       {STATUS_LABELS[qs.status]}

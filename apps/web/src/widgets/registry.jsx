@@ -13,6 +13,14 @@ function rowBudget(span) {
   return Math.max(2, (span?.h ?? 1) * 4 - 1);
 }
 
+/**
+ * Task lists need width for a title. Below roughly 11rem the widget shows only
+ * its headline figure; from there up the list appears. This is a container
+ * query, so it responds to the widget's own box rather than the viewport — a
+ * one-column widget on a wide screen still gets its list.
+ */
+const LIST_SCROLL = 'hidden min-h-0 flex-1 overflow-y-auto scrollbar-thin @[11rem]:block';
+
 function TodayWidget({ onOpenTask, onCapture, span }) {
   const { state, today, actions } = useWorkspace();
   const tasks = sortTasks(selectToday(state.tasks, today), 'due');
@@ -28,9 +36,11 @@ function TodayWidget({ onOpenTask, onCapture, span }) {
           label={tasks.length === 1 ? 'task left today' : 'tasks left today'}
           meter={total > 0 ? { value: done, max: total, label: `${done} of ${total} done today` } : undefined}
         />
-        {total > 0 && <p className="mt-1.5 tabular text-meta text-ink-faint">{done} of {total} done</p>}
+        {total > 0 && (
+          <p className="mt-1.5 hidden tabular text-meta text-ink-faint @[9rem]:block">{done} of {total} done</p>
+        )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+      <div className={LIST_SCROLL}>
         <TaskList
           tasks={tasks.slice(0, rowBudget(span))}
           today={today}
@@ -61,7 +71,7 @@ function UpcomingWidget({ widget, onOpenTask, span }) {
         value={tasks.length}
         label={`due in the next ${horizon} day${horizon === 1 ? '' : 's'}`}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+      <div className={LIST_SCROLL}>
         <TaskList
           tasks={tasks.slice(0, rowBudget(span))}
           today={today}
@@ -75,7 +85,7 @@ function UpcomingWidget({ widget, onOpenTask, span }) {
   );
 }
 
-function OverdueWidget({ onOpenTask, onNavigate }) {
+function OverdueWidget({ onOpenTask, onNavigate, span }) {
   const { state, today, actions } = useWorkspace();
   const tasks = sortTasks(selectOverdue(state.tasks, today), 'due');
 
@@ -91,11 +101,11 @@ function OverdueWidget({ onOpenTask, onNavigate }) {
   return (
     <div className="flex h-full flex-col">
       <Stat className="mb-3" value={tasks.length} label="overdue" tone="danger" />
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-        <TaskList tasks={tasks.slice(0, 6)} today={today} compact onToggle={actions.setCompleted} onOpen={onOpenTask} />
+      <div className={LIST_SCROLL}>
+        <TaskList tasks={tasks.slice(0, rowBudget(span))} today={today} compact onToggle={actions.setCompleted} onOpen={onOpenTask} />
       </div>
-      {tasks.length > 6 && (
-        <Button size="sm" tone="quiet" className="mt-1" onClick={() => onNavigate('tasks', 'overdue')}>
+      {tasks.length > rowBudget(span) && (
+        <Button size="sm" tone="quiet" className="mt-1 hidden @[11rem]:inline-flex" onClick={() => onNavigate('tasks', 'overdue')}>
           See all {tasks.length}
         </Button>
       )}
@@ -127,31 +137,32 @@ function ClockWidget({ widget }) {
   );
 }
 
-function NotesWidget() {
+function NotesWidget({ span }) {
   const { state, actions } = useWorkspace();
+  const roomy = (span?.w ?? 1) > 1 || (span?.h ?? 1) > 1;
   return (
     <div className="flex h-full flex-col">
       <textarea
         value={state.notes.text}
         onChange={(event) => actions.setNotes(event.target.value)}
-        placeholder="Anything you need for an hour — a link, a number, a half-thought."
+        placeholder={roomy ? 'Anything you need for an hour — a link, a number, a half-thought.' : 'Notes…'}
         aria-label="Scratchpad"
         className="min-h-24 flex-1 resize-none rounded-control border border-line bg-inset p-3 text-sm leading-relaxed text-ink transition-colors duration-150 placeholder:text-ink-faint hover:border-line-strong focus:border-line-strong"
       />
-      <p className="mt-2 text-[10px] text-ink-faint">Saved as you type.</p>
+      <p className="mt-2 hidden text-[10px] text-ink-faint @[12rem]:block">Saved as you type.</p>
     </div>
   );
 }
 
-function UndatedWidget({ onOpenTask, onNavigate }) {
+function UndatedWidget({ onOpenTask, onNavigate, span }) {
   const { state, today, actions } = useWorkspace();
   const tasks = selectNoDate(state.tasks);
   return (
     <div className="flex h-full flex-col">
       <Stat className="mb-3" value={tasks.length} label="without a date" />
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+      <div className={LIST_SCROLL}>
         <TaskList
-          tasks={tasks.slice(0, 6)}
+          tasks={tasks.slice(0, rowBudget(span))}
           today={today}
           compact
           showDate={false}
@@ -160,8 +171,8 @@ function UndatedWidget({ onOpenTask, onNavigate }) {
           emptyState={<EmptyState title="Every task has a date" />}
         />
       </div>
-      {tasks.length > 6 && (
-        <Button size="sm" tone="quiet" className="mt-1" onClick={() => onNavigate('tasks', 'nodate')}>
+      {tasks.length > rowBudget(span) && (
+        <Button size="sm" tone="quiet" className="mt-1 hidden @[11rem]:inline-flex" onClick={() => onNavigate('tasks', 'nodate')}>
           See all {tasks.length}
         </Button>
       )}
@@ -203,7 +214,7 @@ function SecondsConfig({ widget, onChange }) {
  * Opens a web search in a new tab. The app makes no request itself — submitting
  * navigates away, so nothing is sent from here and no API key is involved.
  */
-function SearchWidget({ widget }) {
+function SearchWidget({ widget, span }) {
   const [term, setTerm] = useState('');
   const engines = {
     google: { name: 'Google', url: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
@@ -230,7 +241,7 @@ function SearchWidget({ widget }) {
           id={`search-${widget.id}`}
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          placeholder={`Search ${engine.name}…`}
+          placeholder={(span?.w ?? 1) > 1 ? `Search ${engine.name}…` : 'Search…'}
           enterKeyHint="search"
           className="w-full rounded-control border border-line bg-inset py-2 pl-8 pr-3 text-sm text-ink placeholder:text-ink-faint hover:border-line-strong focus:border-line-strong"
         />
@@ -304,7 +315,7 @@ function DailyQuestionWidget({ onNavigate }) {
         href={questionUrl(question)}
         target="_blank"
         rel="noreferrer noopener"
-        className="text-sm font-medium text-ink underline-offset-2 hover:underline @[16rem]:text-base"
+        className="line-clamp-2 text-sm font-medium text-ink underline-offset-2 hover:underline @[16rem]:line-clamp-none @[16rem]:text-base"
       >
         {question.title}
       </a>
@@ -315,7 +326,7 @@ function DailyQuestionWidget({ onNavigate }) {
             {question.difficulty}
           </Badge>
         )}
-        {question.paidOnly && <Badge tone="neutral"><Icon name="lock" className="size-3" /> Premium</Badge>}
+        {question.paidOnly && <Badge tone="warn"><Icon name="lock" className="size-3" /> Premium</Badge>}
         {pick.alreadySolved && <Badge tone="ok">Solved</Badge>}
       </div>
       <p className="hidden text-[10px] leading-relaxed text-ink-faint @[14rem]:block">
@@ -511,9 +522,11 @@ export const WIDGETS = {
   search: {
     presentation: 'card',
     name: 'Web search',
-    description: 'A search box that opens results in a new tab.',
+    description: 'A search box that opens results in the current tab.',
     defaultSize: { w: 2, h: 1 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    // An input narrower than two columns cannot show a usable query, so the
+    // one-column sizes are not offered.
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 2 },
     render: SearchWidget,
     Config: SearchConfig,
   },
@@ -522,7 +535,8 @@ export const WIDGETS = {
     name: 'Question of the day',
     description: 'One question from your library, chosen fresh each day.',
     defaultSize: { w: 2, h: 1 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    // The content is a question title; one column cannot show enough of it.
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 2 },
     render: DailyQuestionWidget,
   },
   shortcuts: {
@@ -530,7 +544,9 @@ export const WIDGETS = {
     name: 'Shortcuts',
     description: 'Your own links, as a grid of tiles.',
     defaultSize: { w: 2, h: 1 },
-    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+    // One column fits a single tile beside the add control — too little to be
+    // worth offering.
+    limits: { minW: 2, minH: 1, maxW: 4, maxH: 3 },
     render: ShortcutsWidget,
     Config: ShortcutsConfig,
   },

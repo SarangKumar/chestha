@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import {
-  BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, layoutHeight, moveItem, newId,
-  projectToColumns, removeItem, resizeItem, tidy,
+  BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
+  presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useColumns } from '../app/useColumns.js';
 import { useGridDrag } from '../app/useGridDrag.js';
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
-import { Button, CardTitle, Dialog, EmptyState, IconButton, SectionHeader, cx } from '../components/ui.jsx';
+import { Button, CardTitle, Dialog, EmptyState, IconButton, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
 const ROW_HEIGHT = 176; // px, one grid row
@@ -15,21 +15,7 @@ const GAP = 16;         // px, matches gap-4
 
 const PRESENTATIONS = ['card', 'transparent', 'inset'];
 
-/**
- * Named sizes, kept as buttons because the drag handle alone is not
- * discoverable. Both routes write the same w/h, so they cannot disagree.
- */
-const SIZE_PRESETS = [
-  { key: 'small', label: 'S', title: 'Small', w: 1, h: 1 },
-  { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
-  { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
-  { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
-  { key: 'full', label: 'F', title: 'Full width', w: 4, h: 2 },
-];
 
-function presetFor(widget) {
-  return SIZE_PRESETS.find((p) => p.w === widget.w && p.h === widget.h)?.key ?? null;
-}
 
 const PRESENTATION_CLASS = {
   card: 'bg-surface border-line shadow-card',
@@ -82,6 +68,10 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
   const commit = (next) => actions.setDashboard(() => next);
 
+  const setConfig = (id, patch) => actions.setDashboard((list) => list.map((w) => (
+    w.id === id ? { ...w, config: { ...w.config, ...patch } } : w
+  )));
+
   const { drag, surfaceRef, begin, move, end } = useGridDrag({
     columns,
     rowHeight: ROW_HEIGHT,
@@ -129,12 +119,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
   return (
     <div>
-      <SectionHeader
-        title="Dashboard"
-        description={canEdit
-          ? 'Drag a widget anywhere on the grid, or focus one and use Alt with the arrow keys. Add Shift to resize.'
-          : 'Your landing page. Edit the layout to add, move, resize or restyle widgets.'}
-      >
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <h1 className="sr-only">Dashboard</h1>
+        {canEdit && (
+          <p className="mr-auto text-meta text-ink-faint">
+            Drag a widget anywhere, or focus one and use Alt with the arrow keys. Add Shift to resize.
+          </p>
+        )}
         {editing ? (
           <>
             <Button size="sm" tone="quiet" onClick={() => setResetting(true)}>Reset layout</Button>
@@ -155,7 +146,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         ) : (
           <Button size="sm" onClick={() => setEditing(true)}>Edit layout</Button>
         )}
-      </SectionHeader>
+      </div>
 
       {editing && !atFullWidth && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
@@ -273,20 +264,16 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-control border border-line bg-inset px-2 py-1.5">
                       <div role="group" aria-label={`${definition.name} size`} className="flex items-center gap-1">
                         <span className="text-[10px] text-ink-muted">Size</span>
-                        {SIZE_PRESETS.filter((preset) => {
-                          const limits = definition.limits ?? {};
-                          return preset.w <= (limits.maxW ?? 4) && preset.h <= (limits.maxH ?? 8)
-                            && preset.w >= (limits.minW ?? 1) && preset.h >= (limits.minH ?? 1);
-                        }).map((preset) => (
+                        {allowedPresets(definition.limits).map((preset) => (
                           <button
                             key={preset.key}
                             type="button"
                             title={`${preset.title} (${preset.w}x${preset.h})`}
-                            aria-pressed={presetFor(widget) === preset.key}
+                            aria-pressed={presetKeyFor(widget) === preset.key}
                             onClick={() => commit(resizeItem(stored, widget.id, preset.w, preset.h, BASE_COLUMNS, definition.limits))}
                             className={cx(
                               'size-5 rounded-chip border text-[10px] font-medium transition-colors duration-150',
-                              presetFor(widget) === preset.key
+                              presetKeyFor(widget) === preset.key
                                 ? 'border-line-strong bg-accent-soft text-ink'
                                 : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
                             )}
@@ -299,9 +286,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                         Style
                         <select
                           value={presentation}
-                          onChange={(event) => actions.setDashboard((list) => list.map((w) => (
-                            w.id === widget.id ? { ...w, config: { ...w.config, presentation: event.target.value } } : w
-                          )))}
+                          onChange={(event) => setConfig(widget.id, { presentation: event.target.value })}
                           aria-label={`${definition.name} presentation`}
                           className="h-6 rounded-chip border border-line bg-surface px-1 text-[10px] text-ink"
                         >
@@ -310,9 +295,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                           ))}
                         </select>
                       </label>
-                      {Config && <Config widget={widget} onChange={(patch) => actions.setDashboard((list) => list.map((w) => (
-                        w.id === widget.id ? { ...w, config: { ...w.config, ...patch } } : w
-                      )))} />}
+                      {Config && <Config widget={widget} onChange={(patch) => setConfig(widget.id, patch)} />}
                     </div>
                   )}
 
@@ -323,6 +306,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                       widget={widget}
                       span={{ w: widget.w, h: widget.h }}
                       compact={widget.h <= 1}
+                      onChange={(patch) => setConfig(widget.id, patch)}
                       onOpenTask={onOpenTask}
                       onCapture={onCapture}
                       onNavigate={onNavigate}

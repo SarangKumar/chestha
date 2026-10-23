@@ -143,8 +143,40 @@ export function sortRows(rows, sort = 'frequency') {
   return [...rows].sort(comparators[sort] ?? comparators.frequency);
 }
 
-/** @returns {Array<{ key: string, label: string, rows: Array }>} */
-export function groupRows(rows, grouping, { lists = [] } = {}) {
+/**
+ * Short sheet labels, so a row can show every sheet it belongs to without the
+ * line overflowing.
+ */
+const SHEET_SHORT = {
+  'blind-75': 'Blind 75',
+  'grind-75': 'Grind 75',
+  'neetcode-75': 'NC 75',
+  'neetcode-150': 'NC 150',
+  'neetcode-250': 'NC 250',
+  'leetcode-75': 'LC 75',
+  'leetcode-top-interview-150': 'Top 150',
+  'striver-a2z': 'A2Z',
+  'striver-sde': 'SDE',
+};
+
+export function sheetShortLabel(listId, name = '') {
+  if (SHEET_SHORT[listId]) return SHEET_SHORT[listId];
+  const digits = String(name).match(/\d+/)?.[0] ?? '';
+  const initials = String(name).replace(/\d+/g, '').split(/\s+/).filter(Boolean)
+    .map((word) => word[0].toUpperCase()).join('');
+  return `${initials}${digits ? ` ${digits}` : ''}`.trim() || listId;
+}
+
+/**
+ * @param options.onlyList   restrict list grouping to one sheet
+ * @param options.onlyTopic  restrict topic grouping to one topic
+ *
+ * Those restrictions matter: a question belongs to several sheets and several
+ * topics, so grouping alone would emit a group for every sheet a *filtered* set
+ * happens to touch — making a sheet filter look as though it had done nothing.
+ * @returns {Array<{ key: string, label: string, rows: Array }>}
+ */
+export function groupRows(rows, grouping, { lists = [], onlyList = null, onlyTopic = null } = {}) {
   if (!grouping || grouping === 'none') return [{ key: 'all', label: '', rows }];
 
   const buckets = new Map();
@@ -161,12 +193,19 @@ export function groupRows(rows, grouping, { lists = [] } = {}) {
       push(state.status, state.status, row);
     } else if (grouping === 'topic') {
       // A question with several topics appears under each, which is what makes
-      // "how am I doing on graphs" answerable.
-      if (question.topics.length === 0) push('untagged', 'No topics recorded', row);
-      else for (const topic of question.topics) push(topicKey(topic), topic, row);
+      // "how am I doing on graphs" answerable — unless a topic filter is active,
+      // in which case only that topic is meaningful.
+      const topics = onlyTopic
+        ? question.topics.filter((t) => topicKey(t) === onlyTopic)
+        : question.topics;
+      if (topics.length === 0) push('untagged', 'No topics recorded', row);
+      else for (const topic of topics) push(topicKey(topic), topic, row);
     } else if (grouping === 'list') {
-      if (frequency.listIds.length === 0) push('none', 'Not in a curated list', row);
-      else for (const id of frequency.listIds) {
+      const ids = onlyList
+        ? frequency.listIds.filter((id) => id === onlyList)
+        : frequency.listIds;
+      if (ids.length === 0) push('none', 'Not in a curated list', row);
+      else for (const id of ids) {
         push(id, lists.find((l) => l.id === id)?.name ?? id, row);
       }
     }

@@ -21,6 +21,32 @@ export const BREAKPOINT_COLUMNS = { base: 1, sm: 2, lg: 4 };
 export const MIN_W = 1;
 export const MIN_H = 1;
 
+/**
+ * The named sizes offered in the dashboard's edit mode. A widget declares
+ * `limits`, and only the presets that fit inside them are shown — a size a
+ * widget genuinely cannot render well is not offered at all, rather than offered
+ * and then looking broken.
+ */
+export const SIZE_PRESETS = [
+  { key: 'small', label: 'S', title: 'Small', w: 1, h: 1 },
+  { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
+  { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
+  { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
+  { key: 'full', label: 'F', title: 'Full width', w: 4, h: 2 },
+];
+
+export function allowedPresets(limits = {}) {
+  const minW = limits.minW ?? MIN_W;
+  const minH = limits.minH ?? MIN_H;
+  const maxW = limits.maxW ?? BASE_COLUMNS;
+  const maxH = limits.maxH ?? 8;
+  return SIZE_PRESETS.filter((p) => p.w >= minW && p.w <= maxW && p.h >= minH && p.h <= maxH);
+}
+
+export function presetKeyFor(widget) {
+  return SIZE_PRESETS.find((p) => p.w === widget.w && p.h === widget.h)?.key ?? null;
+}
+
 export function createPlacement(input = {}) {
   return {
     id: String(input.id ?? '') || newId('w'),

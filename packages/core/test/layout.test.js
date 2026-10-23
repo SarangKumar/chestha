@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BASE_COLUMNS, addItem, coerceArea, collisionsFor, compact, createPlacement, createStore,
-  DEFAULT_DASHBOARD, findFreeSpot, isValidLayout, layoutHeight, migrateOrderedLayout, moveItem,
-  needsMigration, normalizeLayout, overlaps, projectToColumns, removeItem, resizeItem, tidy,
+  DEFAULT_DASHBOARD, allowedPresets, findFreeSpot, isValidLayout, layoutHeight,
+  migrateOrderedLayout, moveItem, needsMigration, normalizeLayout, overlaps, presetKeyFor,
+  projectToColumns, removeItem, resizeItem, tidy,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -344,4 +345,56 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
 
 test('the default layout is unanchored, so it stays tight', () => {
   assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => !w.pinned));
+});
+
+// ─── Size presets offered per widget ─────────────────────────────────────────
+
+test('only the presets a widget can actually render are offered', () => {
+  // No limits: everything is on the table.
+  assert.deepEqual(allowedPresets().map((p) => p.key), ['small', 'wide', 'tall', 'large', 'full']);
+
+  // A text-led widget that needs two columns loses the one-column sizes.
+  assert.deepEqual(
+    allowedPresets({ minW: 2, minH: 1, maxW: 4, maxH: 2 }).map((p) => p.key),
+    ['wide', 'large', 'full'],
+  );
+
+  // A short widget loses the tall ones.
+  assert.deepEqual(
+    allowedPresets({ maxH: 1 }).map((p) => p.key),
+    ['small', 'wide'],
+  );
+
+  // A widget capped below full width loses the full-width preset.
+  assert.ok(!allowedPresets({ maxW: 2 }).some((p) => p.key === 'full'));
+});
+
+test('every offered preset fits inside the limits that produced it', () => {
+  const cases = [
+    {}, { minW: 2 }, { maxW: 2 }, { maxH: 1 }, { minH: 2 },
+    { minW: 2, minH: 1, maxW: 4, maxH: 2 }, { minW: 1, minH: 1, maxW: 4, maxH: 3 },
+  ];
+  for (const limits of cases) {
+    for (const preset of allowedPresets(limits)) {
+      assert.ok(preset.w >= (limits.minW ?? 1), `${preset.key} respects minW`);
+      assert.ok(preset.h >= (limits.minH ?? 1), `${preset.key} respects minH`);
+      assert.ok(preset.w <= (limits.maxW ?? BASE_COLUMNS), `${preset.key} respects maxW`);
+      assert.ok(preset.h <= (limits.maxH ?? 8), `${preset.key} respects maxH`);
+    }
+  }
+});
+
+test('a preset is recognised from a widget that already matches it', () => {
+  assert.equal(presetKeyFor({ w: 1, h: 1 }), 'small');
+  assert.equal(presetKeyFor({ w: 2, h: 2 }), 'large');
+  assert.equal(presetKeyFor({ w: 4, h: 2 }), 'full');
+  assert.equal(presetKeyFor({ w: 3, h: 1 }), null, 'a hand-dragged size matches no preset');
+});
+
+test('resizing to a preset respects the widget limits regardless', () => {
+  // Even if a caller asks for a size outside the limits, the engine clamps.
+  const items = [at('a', 0, 0)];
+  const resized = resizeItem(items, 'a', 1, 1, BASE_COLUMNS, { minW: 2, minH: 1 });
+  assert.equal(resized.find((i) => i.id === 'a').w, 2, 'clamped up to the minimum width');
+  assert.ok(isValidLayout(resized, BASE_COLUMNS));
 });

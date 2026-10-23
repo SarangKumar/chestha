@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY_FILTERS, GROUPINGS, QUESTION_SORTS, buildRows, createEvent, createMembership,
   createQuestion, createSchedule, difficultyProgress, filterRows, groupRows,
-  hasActiveFilters, listProgress, sortRows,
+  hasActiveFilters, listProgress, sheetShortLabel, sortRows,
 } from '../src/index.js';
 
 const TODAY = '2026-10-23';
@@ -186,4 +186,60 @@ test('premium status survives into the question record', () => {
   const premium = rows().find((r) => r.question.slug === 'median-arrays');
   assert.equal(premium.question.paidOnly, true, 'so the row can show a premium marker');
   assert.equal(rows().find((r) => r.question.slug === 'two-sum').question.paidOnly, false);
+});
+
+// ─── Grouping must not contradict an active filter ───────────────────────────
+
+test('grouping by sheet respects an active sheet filter', () => {
+  const all = rows();
+  const filtered = filterRows(all, { curatedList: 'blind-75' });
+
+  // Without the restriction, these questions also belong to neetcode-150 and
+  // grind-75, so grouping emitted a group for each — which reads as though the
+  // sheet filter had done nothing.
+  const unrestricted = groupRows(filtered, 'list', { lists: [] });
+  assert.ok(unrestricted.length > 1, 'the old behaviour spanned several sheets');
+
+  const restricted = groupRows(filtered, 'list', {
+    lists: [{ id: 'blind-75', name: 'Blind 75' }],
+    onlyList: 'blind-75',
+  });
+  assert.equal(restricted.length, 1, 'only the filtered sheet is grouped');
+  assert.equal(restricted[0].label, 'Blind 75');
+  assert.equal(restricted[0].rows.length, filtered.length, 'and it holds every filtered row');
+});
+
+test('grouping by topic respects an active topic filter', () => {
+  const filtered = filterRows(rows(), { topic: 'graph' });
+  const unrestricted = groupRows(filtered, 'topic', {});
+  assert.ok(unrestricted.length > 1, 'those questions carry other topics too');
+
+  const restricted = groupRows(filtered, 'topic', { onlyTopic: 'graph' });
+  assert.equal(restricted.length, 1);
+  assert.equal(restricted[0].key, 'graph');
+  assert.equal(restricted[0].rows.length, 2);
+});
+
+test('with no filter, grouping still shows every sheet and topic a question is in', () => {
+  const all = rows();
+  const bySheet = groupRows(all, 'list', { lists: [] });
+  assert.ok(bySheet.length > 1, 'multi-sheet membership is still visible');
+  const byTopic = groupRows(all, 'topic', {});
+  assert.ok(byTopic.some((g) => g.key === 'graph') && byTopic.some((g) => g.key === 'array'));
+});
+
+test('sheet labels are short enough to sit in a row', () => {
+  assert.equal(sheetShortLabel('blind-75', 'Blind 75'), 'Blind 75');
+  assert.equal(sheetShortLabel('neetcode-150', 'NeetCode 150'), 'NC 150');
+  assert.equal(sheetShortLabel('leetcode-top-interview-150', 'LeetCode Top Interview 150'), 'Top 150');
+  // An unknown sheet still gets something compact rather than its full name.
+  assert.equal(sheetShortLabel('company-x-40', 'Company X 40'), 'CX 40');
+  assert.ok(sheetShortLabel('mystery', ''), 'never returns empty');
+});
+
+test('a question reports every sheet it belongs to, not just a count', () => {
+  const twoSum = rows().find((r) => r.question.slug === 'two-sum');
+  assert.deepEqual(twoSum.frequency.listIds.sort(), ['blind-75', 'grind-75', 'neetcode-150']);
+  assert.equal(twoSum.frequency.lists, 3);
+  assert.equal(twoSum.frequency.families, 2, 'so the row can show both numbers honestly');
 });
