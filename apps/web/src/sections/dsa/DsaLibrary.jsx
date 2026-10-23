@@ -6,11 +6,17 @@ import {
 } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
-  Badge, Button, CardTitle, EmptyState, Meter, Panel, Select, Stat, TextInput, cx,
+  Badge, Button, CardTitle, EmptyState, Panel, Select, Stat, TextInput, cx,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
+import { QuestionActions } from './QuestionActions.jsx';
+import { useVirtualRows } from '../../app/useVirtualRows.js';
 
-const PAGE_SIZE = 150;
+/** Uniform row height, so the virtual window is pure arithmetic. */
+const ROW_PX = 44;
+
+/** A grouped view is many short lists; each is capped rather than windowed. */
+const GROUP_CAP = 200;
 
 export function DsaLibrary() {
   const { state, today, actions, notify } = useWorkspace();
@@ -21,11 +27,10 @@ export function DsaLibrary() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [sort, setSort] = useState('frequency');
   const [grouping, setGrouping] = useState('none');
-  const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(null);
 
-  const set = (patch) => { setFilters((f) => ({ ...f, ...patch })); setShowAll(false); };
-  const clearFilters = () => { setFilters(EMPTY_FILTERS); setShowAll(false); };
+  const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
+  const clearFilters = () => setFilters(EMPTY_FILTERS);
 
   const rows = useMemo(() => buildRows({
     questions: library.questions,
@@ -106,6 +111,24 @@ export function DsaLibrary() {
         ))}
       </div>
 
+      {library.curatedLists.length === 0 && (
+        <Panel className="flex flex-wrap items-center justify-between gap-3 border-warn/35 bg-warn-soft p-4">
+          <p className="min-w-0 text-sm text-ink">
+            No sheets are imported, so questions carry no sheet badges and the sheet filter has nothing to offer.
+            The <strong className="font-semibold">Curated interview lists</strong> pack adds Blind 75, NeetCode 150/250,
+            LeetCode 75 and Top Interview 150.
+          </p>
+          <Button
+            size="sm"
+            tone="primary"
+            disabled={busy !== null}
+            onClick={() => importPack(BUNDLED_PACKS.find((p) => p.id === 'curated-core'))}
+          >
+            {busy === 'curated-core' ? 'Importing…' : 'Import sheets'}
+          </Button>
+        </Panel>
+      )}
+
       <Panel className="p-2">
         <div className="flex flex-col gap-2">
           <div className="relative">
@@ -122,12 +145,30 @@ export function DsaLibrary() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            <Select value={filters.curatedList} onChange={(e) => set({ curatedList: e.target.value })} aria-label="Filter by sheet" className="min-w-0">
-              <option value="all">All sheets</option>
-              {library.curatedLists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            <Select
+              value={filters.curatedList}
+              onChange={(e) => set({ curatedList: e.target.value })}
+              aria-label="Filter by sheet"
+              className="min-w-0"
+              disabled={library.curatedLists.length === 0}
+            >
+              <option value="all">
+                {library.curatedLists.length === 0 ? 'No sheets imported' : `All sheets (${library.curatedLists.length})`}
+              </option>
+              {library.curatedLists.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} ({library.curatedMemberships.filter((m) => m.listId === l.id && !m.removedFromSource).length})
+                </option>
+              ))}
             </Select>
-            <Select value={filters.personalList} onChange={(e) => set({ personalList: e.target.value })} aria-label="Filter by my list" className="min-w-0">
-              <option value="all">All my lists</option>
+            <Select
+              value={filters.personalList}
+              onChange={(e) => set({ personalList: e.target.value })}
+              aria-label="Filter by my list"
+              className="min-w-0"
+              disabled={personal.lists.length === 0}
+            >
+              <option value="all">{personal.lists.length === 0 ? 'No lists yet' : 'All my lists'}</option>
               {personal.lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
             <Select value={filters.difficulty} onChange={(e) => set({ difficulty: e.target.value })} aria-label="Filter by difficulty" className="min-w-0">
@@ -184,9 +225,18 @@ export function DsaLibrary() {
         <Panel className="p-3">
           <EmptyState title="Nothing matches these filters" action={<Button size="sm" onClick={clearFilters}>Clear filters</Button>} />
         </Panel>
+      ) : grouping === 'none' ? (
+        /* One long list, so it is windowed. Grouped views are many short lists
+           and are capped per group instead. */
+        <VirtualQuestionList
+          rows={visible}
+          sheetNames={sheetNames}
+          activeSheet={filters.curatedList}
+          onPickSheet={(id) => set({ curatedList: id })}
+        />
       ) : (
         groups.map((group) => {
-          const shown = showAll ? group.rows : group.rows.slice(0, PAGE_SIZE);
+          const shown = group.rows.slice(0, GROUP_CAP);
           return (
             <Panel key={group.key} className="overflow-hidden">
               {group.label && (
@@ -197,72 +247,22 @@ export function DsaLibrary() {
               )}
               <ul className="divide-y divide-line">
                 {shown.map(({ question, state: qs, frequency, user }) => (
-                  <li key={`${group.key}-${question.slug}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 transition-colors duration-150 hover:bg-hover">
-                    {question.leetcodeId && (
-                      <span className="tabular w-10 shrink-0 text-right text-meta text-ink-faint" title={`LeetCode question ${question.leetcodeId}`}>
-                        {question.leetcodeId}
-                      </span>
-                    )}
-                    <a
-                      href={questionUrl(question)}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="min-w-0 flex-1 truncate text-sm text-ink underline-offset-2 hover:underline"
-                      title={`Open ${question.title} on LeetCode`}
-                    >
-                      {question.title}
-                    </a>
-
-                    {question.paidOnly && (
-                      <Badge tone="warn" title="LeetCode Premium is needed to open this question">
-                        <Icon name="lock" className="size-3" /> Premium
-                      </Badge>
-                    )}
-                    {user.bookmarked && <Badge tone="neutral" title="Bookmarked">★</Badge>}
-                    {question.difficulty && (
-                      <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'neutral'}>
-                        {question.difficulty}
-                      </Badge>
-                    )}
-                    {frequency.listIds.length > 0 && (
-                      <span
-                        className="flex shrink-0 flex-wrap items-center gap-1"
-                        title={`In ${frequency.lists} sheet${frequency.lists === 1 ? '' : 's'} across ${frequency.families} independent famil${frequency.families === 1 ? 'y' : 'ies'}: ${frequency.listIds.map((id) => sheetNames.get(id) ?? id).join(', ')}`}
-                      >
-                        {frequency.listIds.slice(0, 3).map((id) => (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => set({ curatedList: id })}
-                            className={cx(
-                              'rounded-chip border px-1.5 py-0.5 text-[10px] font-medium transition-colors duration-150',
-                              filters.curatedList === id
-                                ? 'border-line-strong bg-accent-soft text-ink'
-                                : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
-                            )}
-                          >
-                            {sheetShortLabel(id, sheetNames.get(id))}
-                          </button>
-                        ))}
-                        {frequency.listIds.length > 3 && (
-                          <span className="text-[10px] text-ink-faint">+{frequency.listIds.length - 3}</span>
-                        )}
-                      </span>
-                    )}
-                    <Badge tone={qs.status === 'needs-revision' ? 'danger' : (qs.status === 'solved' || qs.status === 'mastered') ? 'ok' : 'neutral'}>
-                      {STATUS_LABELS[qs.status]}
-                    </Badge>
-                  </li>
+                  <QuestionRow
+                    key={`${group.key}-${question.slug}`}
+                    question={question}
+                    qs={qs}
+                    frequency={frequency}
+                    user={user}
+                    sheetNames={sheetNames}
+                    activeSheet={filters.curatedList}
+                    onPickSheet={(id) => set({ curatedList: id })}
+                  />
                 ))}
               </ul>
               {group.rows.length > shown.length && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll(true)}
-                  className="w-full border-t border-line px-4 py-2.5 text-meta text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
-                >
-                  Show the remaining {group.rows.length - shown.length}
-                </button>
+                <p className="border-t border-line px-4 py-2.5 text-meta text-ink-faint">
+                  {group.rows.length - shown.length} more here — turn grouping off to scroll the whole list.
+                </p>
               )}
             </Panel>
           );
@@ -271,6 +271,111 @@ export function DsaLibrary() {
 
       <PackPicker onImport={importPack} busy={busy} compact />
     </div>
+  );
+}
+
+/**
+ * One question row at a fixed height. The height has to be uniform for the
+ * virtual window to be computable, so the row does not wrap: the title truncates
+ * and the badges keep their width.
+ */
+function QuestionRow({ question, qs, frequency, user, sheetNames, activeSheet, onPickSheet }) {
+  return (
+    <li style={{ height: ROW_PX }} className="flex items-center gap-x-3 overflow-hidden px-3.5 transition-colors duration-150 hover:bg-hover">
+      {question.leetcodeId && (
+        <span className="tabular w-10 shrink-0 text-right text-meta text-ink-faint" title={`LeetCode question ${question.leetcodeId}`}>
+          {question.leetcodeId}
+        </span>
+      )}
+      <a
+        href={questionUrl(question)}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="min-w-0 flex-1 truncate text-sm text-ink underline-offset-2 hover:underline"
+        title={`Open ${question.title} on LeetCode`}
+      >
+        {question.title}
+      </a>
+
+      {question.paidOnly && (
+        <Badge tone="warn" title="LeetCode Premium is needed to open this question">
+          <Icon name="lock" className="size-3" /> Premium
+        </Badge>
+      )}
+      {question.difficulty && (
+        <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'neutral'}>
+          {question.difficulty}
+        </Badge>
+      )}
+      {/* Every sheet is named — no "+n" — and each badge carries
+          its own full name on hover. */}
+      {frequency.listIds.length > 0 && (
+        <span className="flex shrink-0 items-center gap-1">
+          {frequency.listIds.map((id) => {
+            const fullName = sheetNames.get(id) ?? id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onPickSheet(id)}
+                title={fullName}
+                aria-label={`Filter to ${fullName}`}
+                className={cx(
+                  'rounded-chip border px-1.5 py-0.5 text-[10px] font-medium transition-colors duration-150',
+                  activeSheet === id
+                    ? 'border-line-strong bg-accent-soft text-ink'
+                    : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
+                )}
+              >
+                {sheetShortLabel(id, fullName)}
+              </button>
+            );
+          })}
+        </span>
+      )}
+      <Badge tone={qs.status === 'needs-revision' ? 'danger' : (qs.status === 'solved' || qs.status === 'mastered') ? 'ok' : 'neutral'}>
+        {STATUS_LABELS[qs.status]}
+      </Badge>
+      <QuestionActions slug={question.slug} title={question.title} state={qs} user={user} />
+    </li>
+  );
+}
+
+/**
+ * Renders only the rows near the viewport. The full index is 3,511 questions and
+ * each row carries several badges and two buttons; mounting them all is thousands
+ * of nodes and makes filtering feel sluggish.
+ */
+function VirtualQuestionList({ rows, sheetNames, activeSheet, onPickSheet }) {
+  const { scrollRef, start, end, padTop, padBottom } = useVirtualRows({
+    count: rows.length,
+    rowHeight: ROW_PX,
+  });
+
+  return (
+    <Panel className="overflow-hidden">
+      <div ref={scrollRef} className="h-[80vh] overflow-y-auto scrollbar-thin">
+        <div style={{ paddingTop: padTop, paddingBottom: padBottom }}>
+          <ul className="divide-y divide-line">
+            {rows.slice(start, end).map(({ question, state: qs, frequency, user }) => (
+              <QuestionRow
+                key={question.slug}
+                question={question}
+                qs={qs}
+                frequency={frequency}
+                user={user}
+                sheetNames={sheetNames}
+                activeSheet={activeSheet}
+                onPickSheet={onPickSheet}
+              />
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="border-t border-line px-4 py-2 text-meta text-ink-faint">
+        Showing rows {rows.length ? start + 1 : 0}–{end} of {rows.length}.
+      </p>
+    </Panel>
   );
 }
 

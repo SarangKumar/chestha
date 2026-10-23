@@ -13,10 +13,29 @@ import { newId } from './ids.js';
  * floats up until something blocks it, preserving its column.
  */
 
-export const BASE_COLUMNS = 4;
+/**
+ * The stored coordinate space. Widened from 4 so that a fixed-size square cell
+ * can tile a wide screen: with four columns a 176px cell could only ever cover
+ * 752px, leaving the right of the page unreachable.
+ *
+ * No migration is needed. Every existing layout has x < 4, which is still valid
+ * here, so old arrangements simply keep the left of the grid and the columns to
+ * their right become available.
+ */
+export const BASE_COLUMNS = 12;
 
-/** Column count per breakpoint. The stored layout is always at BASE_COLUMNS. */
-export const BREAKPOINT_COLUMNS = { base: 1, sm: 2, lg: 4 };
+/** Cell edge in px. Columns are laid out at this exact width to stay square. */
+export const CELL_PX = 176;
+
+/**
+ * How many fixed-width columns fit the available page. Replaces fixed
+ * breakpoints: the cell size is constant, so the column count is what varies.
+ */
+export function columnsForWidth(width, cell = CELL_PX, gap = 16) {
+  if (!width || width <= 0) return 1;
+  const fits = Math.floor((width + gap) / (cell + gap));
+  return Math.min(BASE_COLUMNS, Math.max(1, fits));
+}
 
 export const MIN_W = 1;
 export const MIN_H = 1;
@@ -32,7 +51,7 @@ export const SIZE_PRESETS = [
   { key: 'wide', label: 'W', title: 'Wide', w: 2, h: 1 },
   { key: 'tall', label: 'T', title: 'Tall', w: 1, h: 2 },
   { key: 'large', label: 'L', title: 'Large', w: 2, h: 2 },
-  { key: 'full', label: 'F', title: 'Full width', w: 4, h: 2 },
+  { key: 'full', label: 'F', title: 'Extra wide', w: 4, h: 2 },
 ];
 
 export function allowedPresets(limits = {}) {

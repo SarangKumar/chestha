@@ -2,7 +2,8 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
-  createStore, createTask, newId, normalizeTag, normalizeTags, requestPersistence, tagKey,
+  createEvent, createStore, createTask, newId, normalizeTag, normalizeTags,
+  requestPersistence, scheduleAfterEvent, tagKey,
 } from '@vistaar/core';
 import { useToday } from './useToday.js';
 
@@ -215,6 +216,47 @@ function buildActions(store, notify) {
 
     setDsaLists(updater) {
       store.update('dsa.lists', (lists) => (typeof updater === 'function' ? updater(lists) : lists));
+    },
+
+    /**
+     * Records one solving event and advances that question's revision schedule.
+     * Repeat solves are additional events, never a replacement — a question
+     * solved five times is one unique question and five events.
+     */
+    recordDsaEvent(slug, input = {}) {
+      const event = createEvent({ ...input, slug });
+      store.update('dsa.progress', (progress) => ({
+        ...progress,
+        events: [...progress.events, event],
+        schedules: {
+          ...progress.schedules,
+          [slug]: scheduleAfterEvent(progress.schedules[slug], event),
+        },
+      }));
+      return event;
+    },
+
+    /** Used by undo: removes one event and recomputes nothing else. */
+    removeDsaEvent(id, slug, previousSchedule) {
+      store.update('dsa.progress', (progress) => {
+        const schedules = { ...progress.schedules };
+        if (previousSchedule) schedules[slug] = previousSchedule;
+        else delete schedules[slug];
+        return { ...progress, events: progress.events.filter((e) => e.id !== id), schedules };
+      });
+    },
+
+    toggleDsaBookmark(slug) {
+      let next = false;
+      store.update('dsa.progress', (progress) => {
+        const current = progress.questionState[slug] ?? { bookmarked: false, priority: 0, notes: '' };
+        next = !current.bookmarked;
+        return {
+          ...progress,
+          questionState: { ...progress.questionState, [slug]: { ...current, bookmarked: next } },
+        };
+      });
+      return next;
     },
   };
 }

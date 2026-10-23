@@ -110,9 +110,21 @@ export function TextArea({ className, ...props }) {
   return <textarea className={cx(CONTROL, 'resize-y py-2 leading-relaxed', className)} {...props} />;
 }
 
-export function Select({ className, children, ...props }) {
+/**
+ * `size="sm"` is the compact variant used inside widget config panels. It is a
+ * variant rather than per-site overrides so every select keeps the same border,
+ * surface, radius and hover behaviour.
+ */
+export function Select({ size = 'md', className, children, ...props }) {
+  const sizes = {
+    md: 'h-9 pr-8 select-chevron',
+    sm: 'h-7 px-2 pr-6 text-xs select-chevron select-chevron-sm',
+  };
   return (
-    <select className={cx(CONTROL, 'h-9 cursor-pointer appearance-none py-0 pr-8', className)} {...props}>
+    <select
+      className={cx(CONTROL, 'cursor-pointer appearance-none py-0', sizes[size], className)}
+      {...props}
+    >
       {children}
     </select>
   );
@@ -185,6 +197,70 @@ export function EmptyState({ title, description, action, className }) {
       <p className="text-sm font-medium text-ink">{title}</p>
       {description && <p className="mt-1.5 max-w-xs text-meta leading-relaxed text-ink-muted">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * A panel that slides in from the right. Used for editing a widget, where the
+ * controls need more room than the widget itself has — a 176px tile cannot hold
+ * a configuration form.
+ */
+export function Drawer({ open, onClose, title, description, children, footer }) {
+  const panelRef = useRef(null);
+  const returnTo = useRef(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return undefined;
+    returnTo.current = document.activeElement;
+    const panel = panelRef.current;
+    (panel?.querySelector(FOCUSABLE) ?? panel)?.focus();
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') { event.stopPropagation(); onClose(); return; }
+      if (event.key !== 'Tab' || !panel) return;
+      const items = [...panel.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const node = returnTo.current;
+      if (node instanceof HTMLElement && document.contains(node)) node.focus();
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-scrim" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-line bg-overlay shadow-overlay"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-card font-semibold text-ink">{title}</h2>
+            {description && <p className="mt-1 text-meta leading-relaxed text-ink-muted">{description}</p>}
+          </div>
+          <IconButton label="Close" onClick={onClose}>
+            <span aria-hidden="true" className="text-base leading-none">×</span>
+          </IconButton>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">{children}</div>
+        {footer && <div className="flex flex-wrap gap-2 border-t border-line px-5 py-3.5">{footer}</div>}
+      </div>
     </div>
   );
 }

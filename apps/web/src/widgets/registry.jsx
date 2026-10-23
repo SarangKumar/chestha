@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  formatLongDate, questionUrl, selectCompletedOn, selectNoDate, selectOverdue, selectToday,
-  selectUpcoming, sortTasks,
+  formatLongDate, goalState, questionUrl, selectCompletedOn, selectNoDate, selectOverdue,
+  selectToday, selectUpcoming, sortTasks,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
-import { Badge, Button, EmptyState, Select, Stat } from '../components/ui.jsx';
+import { Badge, Button, EmptyState, Meter, Select, Stat, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
 /** How many list rows comfortably fit a widget of this height. */
@@ -123,16 +123,31 @@ function ClockWidget({ widget }) {
     return () => clearInterval(interval);
   }, [seconds]);
 
-  const time = now.toLocaleTimeString(undefined, {
+  // AM/PM is split out so it can be rendered small. Kept together it is wide
+  // enough to overflow a 1x1 tile at the larger font sizes.
+  const parts = new Intl.DateTimeFormat(undefined, {
     hour: '2-digit',
     minute: '2-digit',
     ...(seconds ? { second: '2-digit' } : {}),
-  });
+  }).formatToParts(now);
+
+  const clock = parts
+    .filter((part) => part.type !== 'dayPeriod' && part.type !== 'literal' ? true : part.type === 'literal' && part.value.trim() === ':')
+    .map((part) => part.value)
+    .join('');
+  const meridiem = parts.find((part) => part.type === 'dayPeriod')?.value ?? '';
 
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <p className="tabular text-stat font-semibold text-ink @[14rem]:text-display @[22rem]:text-5xl">{time}</p>
-      <p className="mt-1.5 hidden text-meta text-ink-muted @[11rem]:block">{formatLongDate(today)}</p>
+    <div className="flex h-full flex-col items-center justify-center overflow-hidden text-center">
+      <p className="flex items-baseline justify-center gap-1 whitespace-nowrap">
+        <span className="tabular text-xl font-semibold tracking-tight text-ink @[9rem]:text-stat @[15rem]:text-display @[24rem]:text-5xl">
+          {clock}
+        </span>
+        {meridiem && (
+          <span className="text-[10px] font-medium uppercase text-ink-muted @[15rem]:text-xs">{meridiem}</span>
+        )}
+      </p>
+      <p className="mt-1.5 hidden truncate text-meta text-ink-muted @[11rem]:block">{formatLongDate(today)}</p>
     </div>
   );
 }
@@ -187,7 +202,8 @@ function HorizonConfig({ widget, onChange }) {
       <Select
         value={String(Number(widget.config.horizonDays) || 7)}
         onChange={(event) => onChange({ horizonDays: Number(event.target.value) })}
-        className="h-7 w-auto py-0 text-[11px]"
+        size="sm"
+        className="w-auto"
       >
         {[3, 7, 14, 30].map((days) => <option key={days} value={days}>{days} days</option>)}
       </Select>
@@ -261,7 +277,8 @@ function SearchConfig({ widget, onChange }) {
       <Select
         value={widget.config.engine ?? 'google'}
         onChange={(event) => onChange({ engine: event.target.value })}
-        className="h-7 w-auto py-0 text-[11px]"
+        size="sm"
+        className="w-auto"
       >
         <option value="google">Google</option>
         <option value="duckduckgo">DuckDuckGo</option>
@@ -339,6 +356,18 @@ function DailyQuestionWidget({ onNavigate }) {
 const MAX_SHORTCUTS = 12;
 
 /**
+ * Tile direction. Flex wrap handles all four with a single class, and because
+ * the scroll container has a bounded height the column directions wrap into
+ * columns rather than overflowing.
+ */
+const SHORTCUT_FLOWS = {
+  ltr: { label: 'Left to right', className: 'flex-row flex-wrap' },
+  rtl: { label: 'Right to left', className: 'flex-row-reverse flex-wrap' },
+  ttb: { label: 'Top to bottom', className: 'flex-col flex-wrap content-start' },
+  btt: { label: 'Bottom to top', className: 'flex-col-reverse flex-wrap content-start' },
+};
+
+/**
  * User-defined links.
  *
  * Favicons are OFF by default and must be switched on per widget: fetching one
@@ -346,9 +375,10 @@ const MAX_SHORTCUTS = 12;
  * dashboard. The default is a letter tile derived from the domain, which needs
  * no network at all.
  */
-function ShortcutsWidget({ widget, onChange }) {
+function ShortcutsWidget({ widget, onChange, editing }) {
   const links = Array.isArray(widget.config.links) ? widget.config.links : [];
   const showFavicons = widget.config.favicons === true;
+  const flow = SHORTCUT_FLOWS[widget.config.flow] ?? SHORTCUT_FLOWS.ltr;
   const [adding, setAdding] = useState(false);
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
@@ -385,14 +415,16 @@ function ShortcutsWidget({ widget, onChange }) {
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         {links.length === 0 ? (
-          <p className="py-2 text-meta text-ink-faint">No links yet.</p>
+          <p className="py-2 text-meta text-ink-faint">
+            {editing ? 'No links yet — add one below.' : 'No links yet. Use Edit layout to add some.'}
+          </p>
         ) : (
-          <ul className="grid grid-cols-3 gap-1.5 @[14rem]:grid-cols-4 @[22rem]:grid-cols-6">
+          <ul className={cx('flex h-full gap-1.5', flow.className)}>
             {links.map((link) => {
               let host = link.url;
               try { host = new URL(link.url).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
               return (
-                <li key={link.id} className="group relative">
+                <li key={link.id} className="group relative w-14 shrink-0">
                   <a
                     href={link.url}
                     target="_blank"
@@ -400,26 +432,35 @@ function ShortcutsWidget({ widget, onChange }) {
                     title={`${link.label} — ${host}`}
                     className="flex flex-col items-center gap-1 rounded-control p-1.5 transition-colors duration-150 hover:bg-hover"
                   >
-                    <span className="flex size-8 items-center justify-center overflow-hidden rounded-chip border border-line bg-inset text-xs font-semibold uppercase text-ink-muted">
+                    {/* shrink-0 keeps the tile square: it is a flex item in a
+                        column, so without it the height compresses when vertical
+                        space is tight and the tile turns into a rectangle. */}
+                    <span className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-chip border border-line bg-inset text-xs font-semibold uppercase text-ink-muted">
                       {showFavicons ? (
                         <img
                           src={`${new URL(link.url).origin}/favicon.ico`}
                           alt=""
-                          className="size-5"
+                          width="20"
+                          height="20"
+                          // object-contain so a non-square favicon fits rather
+                          // than being stretched to fill the box.
+                          className="size-5 object-contain"
                           onError={(event) => { event.currentTarget.style.display = 'none'; }}
                         />
                       ) : host.slice(0, 1)}
                     </span>
                     <span className="w-full truncate text-center text-[10px] text-ink-muted">{link.label}</span>
                   </a>
-                  <button
-                    type="button"
-                    onClick={() => onChange({ links: links.filter((l) => l.id !== link.id) })}
-                    aria-label={`Remove ${link.label}`}
-                    className="absolute -right-0.5 -top-0.5 hidden size-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] text-ink-muted group-hover:flex hover:text-danger"
-                  >
-                    ×
-                  </button>
+                  {editing && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ links: links.filter((l) => l.id !== link.id) })}
+                      aria-label={`Remove ${link.label}`}
+                      className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] text-ink-muted hover:text-danger"
+                    >
+                      ×
+                    </button>
+                  )}
                 </li>
               );
             })}
@@ -427,7 +468,7 @@ function ShortcutsWidget({ widget, onChange }) {
         )}
       </div>
 
-      {adding ? (
+      {!editing ? null : adding ? (
         <form onSubmit={add} className="mt-2 space-y-1.5">
           <input
             value={url}
@@ -460,7 +501,21 @@ function ShortcutsWidget({ widget, onChange }) {
 
 function ShortcutsConfig({ widget, onChange }) {
   return (
-    <label className="flex items-center gap-2 text-meta text-ink-muted">
+    <>
+      <label className="flex items-center gap-2 text-meta text-ink-muted">
+        Align
+        <Select
+          value={widget.config.flow ?? 'ltr'}
+          onChange={(event) => onChange({ flow: event.target.value })}
+          size="sm"
+        className="w-auto"
+        >
+          {Object.entries(SHORTCUT_FLOWS).map(([key, { label }]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </Select>
+      </label>
+      <label className="flex items-center gap-2 text-meta text-ink-muted">
       <input
         type="checkbox"
         checked={widget.config.favicons === true}
@@ -470,7 +525,45 @@ function ShortcutsConfig({ widget, onChange }) {
       <span title="Each site is contacted for its icon, which tells it when you open your dashboard.">
         Load site icons
       </span>
-    </label>
+      </label>
+    </>
+  );
+}
+
+/**
+ * Both DSA daily targets as two compact figures. Designed for 1x1: it reads at
+ * the smallest size and simply gains breathing room at larger ones.
+ */
+function DsaTodayWidget({ onNavigate }) {
+  const { state, today } = useWorkspace();
+  const goals = goalState(state['dsa.progress'].events, state['dsa.settings'], today);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate('dsa', 'home')}
+      className="flex h-full w-full flex-col justify-center gap-2 rounded-control text-left transition-colors duration-150 hover:bg-hover"
+      title="Open the DSA overview"
+    >
+      <div>
+        <p className="flex items-baseline gap-1.5">
+          <span className={cx('tabular text-stat font-semibold', goals.newMet ? 'text-ok' : 'text-ink')}>
+            {goals.newSolved}/{goals.newTarget}
+          </span>
+          <span className="truncate text-meta text-ink-muted">new</span>
+        </p>
+        <Meter value={goals.newSolved} max={Math.max(1, goals.newTarget)} label="New questions today" className="mt-1" tone={goals.newMet ? 'ok' : 'default'} />
+      </div>
+      <div>
+        <p className="flex items-baseline gap-1.5">
+          <span className={cx('tabular text-stat font-semibold', goals.revisionMet ? 'text-ok' : 'text-ink')}>
+            {goals.revisionsDone}/{goals.revisionTarget}
+          </span>
+          <span className="truncate text-meta text-ink-muted">revised</span>
+        </p>
+        <Meter value={goals.revisionsDone} max={Math.max(1, goals.revisionTarget)} label="Revisions today" className="mt-1" tone={goals.revisionMet ? 'ok' : 'default'} />
+      </div>
+    </button>
   );
 }
 
@@ -544,11 +637,19 @@ export const WIDGETS = {
     name: 'Shortcuts',
     description: 'Your own links, as a grid of tiles.',
     defaultSize: { w: 2, h: 1 },
-    // One column fits a single tile beside the add control — too little to be
-    // worth offering.
-    limits: { minW: 2, minH: 1, maxW: 4, maxH: 3 },
+    // The add control only appears while editing, so a one-column widget is
+    // three usable tiles rather than one tile and a button.
+    limits: { minW: 1, minH: 1, maxW: 4, maxH: 3 },
     render: ShortcutsWidget,
     Config: ShortcutsConfig,
+  },
+  dsaToday: {
+    presentation: 'card',
+    name: 'DSA today',
+    description: 'Both daily targets as two compact figures. Reads well at any size.',
+    defaultSize: { w: 1, h: 1 },
+    limits: { minW: 1, minH: 1, maxW: 4, maxH: 2 },
+    render: DsaTodayWidget,
   },
   undated: {
     presentation: 'card',

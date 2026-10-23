@@ -1,14 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   INTAKE_LABELS, STATUS_LABELS, createList, createMembership, createQuestion,
-  hasMembership, membershipsOfList, planIntake, questionState, questionUrl,
-  removeList, removeMembership,
+  hasMembership, listFrequency, membershipsOfList, planIntake, questionState, questionUrl,
+  removeList, removeMembership, sheetShortLabel,
 } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
-  Badge, Button, CardTitle, Dialog, EmptyState, Field, IconButton, Panel, TextArea, TextInput, cx,
+  Badge, Button, CardTitle, Dialog, EmptyState, Field, IconButton, Panel, Select, TextArea,
+  TextInput, cx,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
+import { QuestionActions } from './QuestionActions.jsx';
 
 export function DsaLists() {
   const { state, today, actions, notify } = useWorkspace();
@@ -32,8 +34,15 @@ export function DsaLists() {
         slug: m.slug,
         question: byId.get(m.slug) ?? null,
         st: questionState(m.slug, progress.events, progress.schedules, today),
+        frequency: listFrequency(library.curatedMemberships, m.slug),
+        user: progress.questionState[m.slug] ?? { bookmarked: false, priority: 0, notes: '' },
       }));
-  }, [selected, memberships, library.questions, progress, today]);
+  }, [selected, memberships, library, progress, today]);
+
+  const sheetNames = useMemo(
+    () => new Map(library.curatedLists.map((l) => [l.id, l.name])),
+    [library.curatedLists],
+  );
 
   const createNamed = (name, description) => {
     const list = createList({ name, description });
@@ -189,8 +198,13 @@ export function DsaLists() {
               </div>
             ) : (
               <ul className="divide-y divide-line">
-                {rows.map(({ slug, question, st }) => (
+                {rows.map(({ slug, question, st, frequency, user }) => (
                   <li key={slug} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5">
+                    {question?.leetcodeId && (
+                      <span className="tabular w-10 shrink-0 text-right text-meta text-ink-faint" title={`LeetCode question ${question.leetcodeId}`}>
+                        {question.leetcodeId}
+                      </span>
+                    )}
                     <a
                       href={questionUrl(question ?? { slug })}
                       target="_blank"
@@ -199,11 +213,25 @@ export function DsaLists() {
                     >
                       {question?.title ?? slug}
                     </a>
+                    {question?.paidOnly && (
+                      <Badge tone="warn" title="LeetCode Premium is needed to open this question">
+                        <Icon name="lock" className="size-3" /> Premium
+                      </Badge>
+                    )}
+                    {frequency.listIds.map((id) => {
+                      const fullName = sheetNames.get(id) ?? id;
+                      return (
+                        <Badge key={id} tone="neutral" title={fullName}>
+                          {sheetShortLabel(id, fullName)}
+                        </Badge>
+                      );
+                    })}
                     {question?.difficulty && <Badge tone="neutral">{question.difficulty}</Badge>}
                     {question?.titleIsGuess && <Badge tone="warn">Unverified</Badge>}
                     <Badge tone={st.status === 'needs-revision' ? 'danger' : st.status === 'solved' || st.status === 'mastered' ? 'ok' : 'neutral'}>
                       {STATUS_LABELS[st.status]}
                     </Badge>
+                    <QuestionActions slug={slug} title={question?.title ?? slug} state={st} user={user} />
                     <IconButton label={`Remove ${question?.title ?? slug} from this list`} onClick={() => removeQuestion(slug)} className="hover:text-danger">
                       <span aria-hidden="true">×</span>
                     </IconButton>
@@ -388,17 +416,17 @@ function IntakeDialog({ open, listName, questions, memberships, listId, onClose,
                         aria-label={`Title for ${row.slug}`}
                         className="text-xs"
                       />
-                      <select
+                      <Select
                         value={manual[row.slug]?.difficulty ?? ''}
                         onChange={(e) => setManual((m) => ({ ...m, [row.slug]: { ...m[row.slug], difficulty: e.target.value } }))}
                         aria-label={`Difficulty for ${row.slug}`}
-                        className="h-9 rounded-control border border-line bg-inset px-2 text-xs text-ink"
+                        className="text-xs"
                       >
                         <option value="">Difficulty?</option>
                         <option>Easy</option>
                         <option>Medium</option>
                         <option>Hard</option>
-                      </select>
+                      </Select>
                       <TextInput
                         value={manual[row.slug]?.topics ?? ''}
                         onChange={(e) => setManual((m) => ({ ...m, [row.slug]: { ...m[row.slug], topics: e.target.value } }))}

@@ -8,9 +8,12 @@ import { useCallback, useRef, useState } from 'react';
  * Pointer events are used rather than HTML5 drag-and-drop because they give real
  * coordinates during the gesture, which is what snapping and a live preview need.
  */
-export function useGridDrag({ columns, rowHeight, gap, onCommit }) {
+export function useGridDrag({ columns, rowHeight, gap, onCommit, surfaceRef: externalRef }) {
   const [drag, setDrag] = useState(null);
-  const surfaceRef = useRef(null);
+  // The grid element is shared with the column measurement, so it may be owned
+  // by the caller.
+  const ownRef = useRef(null);
+  const surfaceRef = externalRef ?? ownRef;
   const stateRef = useRef(null);
 
   const cellWidth = useCallback(() => {

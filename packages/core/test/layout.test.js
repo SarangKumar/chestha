@@ -4,7 +4,7 @@ import {
   BASE_COLUMNS, addItem, coerceArea, collisionsFor, compact, createPlacement, createStore,
   DEFAULT_DASHBOARD, allowedPresets, findFreeSpot, isValidLayout, layoutHeight,
   migrateOrderedLayout, moveItem, needsMigration, normalizeLayout, overlaps, presetKeyFor,
-  projectToColumns, removeItem, resizeItem, tidy,
+  projectToColumns, removeItem, resizeItem, tidy, columnsForWidth,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -72,11 +72,15 @@ test('a move snaps to integer cells and stays inside the grid', () => {
   assert.equal(a.x, 2, 'rounded to the nearest column');
   assert.equal(a.y, 0);
 
-  const clamped = moveItem(items, 'a', 99, 0, BASE_COLUMNS);
+  const clamped = moveItem(items, 'a', 99, 0, 4);
   assert.equal(clamped.find((i) => i.id === 'a').x, 3, 'clamped to the last column that fits');
 
-  const wide = moveItem([at('a', 0, 0, 2, 1)], 'a', 99, 0, BASE_COLUMNS);
+  const wide = moveItem([at('a', 0, 0, 2, 1)], 'a', 99, 0, 4);
   assert.equal(wide.find((i) => i.id === 'a').x, 2, 'a 2-wide widget stops where it still fits');
+
+  // And with the full stored width, the right-hand columns are reachable.
+  const far = moveItem(items, 'a', 99, 0, BASE_COLUMNS);
+  assert.equal(far.find((i) => i.id === 'a').x, BASE_COLUMNS - 1, 'reaches the last column of the grid');
 });
 
 test('dropping onto an occupied cell pushes only what is in the way', () => {
@@ -123,11 +127,11 @@ test('resizing snaps to grid increments and respects limits', () => {
 });
 
 test('growing at the right edge pulls the widget back into bounds', () => {
-  const resized = resizeItem([at('a', 3, 0)], 'a', 2, 1, BASE_COLUMNS);
+  const resized = resizeItem([at('a', 3, 0)], 'a', 2, 1, 4);
   const a = resized.find((i) => i.id === 'a');
   assert.equal(a.w, 2);
   assert.equal(a.x, 2, 'shifted left so it still fits');
-  assert.ok(isValidLayout(resized, BASE_COLUMNS));
+  assert.ok(isValidLayout(resized, 4));
 });
 
 test('shrinking a widget lets neighbours compact upward', () => {
@@ -142,12 +146,12 @@ test('shrinking a widget lets neighbours compact upward', () => {
 
 test('a new widget takes the first free cell that fits', () => {
   const items = [at('a', 0, 0, 2, 1), at('b', 2, 0)];
-  assert.deepEqual(findFreeSpot(items, 1, 1, BASE_COLUMNS), { x: 3, y: 0 }, 'the gap in row 0');
-  assert.deepEqual(findFreeSpot(items, 2, 1, BASE_COLUMNS), { x: 0, y: 1 }, 'too wide for the gap, so next row');
+  assert.deepEqual(findFreeSpot(items, 1, 1, 4), { x: 3, y: 0 }, 'the gap in row 0');
+  assert.deepEqual(findFreeSpot(items, 2, 1, 4), { x: 0, y: 1 }, 'too wide for the gap, so next row');
 
-  const added = addItem(items, { id: 'c', type: 't', w: 1, h: 1 }, BASE_COLUMNS);
+  const added = addItem(items, { id: 'c', type: 't', w: 1, h: 1 }, 4);
   assert.equal(added.find((i) => i.id === 'c').x, 3);
-  assert.ok(isValidLayout(added, BASE_COLUMNS));
+  assert.ok(isValidLayout(added, 4));
 });
 
 test('removing a widget compacts the rest', () => {
@@ -397,4 +401,19 @@ test('resizing to a preset respects the widget limits regardless', () => {
   const resized = resizeItem(items, 'a', 1, 1, BASE_COLUMNS, { minW: 2, minH: 1 });
   assert.equal(resized.find((i) => i.id === 'a').w, 2, 'clamped up to the minimum width');
   assert.ok(isValidLayout(resized, BASE_COLUMNS));
+});
+
+test('the stored grid is wide enough to reach a wide screen', () => {
+  // A fixed 176px cell can only cover 752px in four columns, which left the right
+  // of a large monitor unreachable.
+  assert.equal(BASE_COLUMNS, 12);
+  assert.equal(columnsForWidth(1888), 9, 'a ~2000px window fits nine cells');
+  assert.equal(columnsForWidth(912), 4);
+  assert.equal(columnsForWidth(358), 1);
+  assert.equal(columnsForWidth(9999), BASE_COLUMNS, 'never more columns than the stored space');
+  assert.equal(columnsForWidth(0), 1, 'degenerate width still yields a usable grid');
+
+  // A layout saved in the old four-column space is still valid in the new one.
+  const legacy = [at('a', 0, 0, 2, 2), at('b', 2, 0), at('c', 3, 0)];
+  assert.ok(isValidLayout(normalizeLayout(legacy, BASE_COLUMNS), BASE_COLUMNS));
 });

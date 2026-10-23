@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   BASE_COLUMNS, DEFAULT_DASHBOARD, addItem, allowedPresets, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
@@ -7,11 +7,20 @@ import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useColumns } from '../app/useColumns.js';
 import { useGridDrag } from '../app/useGridDrag.js';
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
-import { Button, CardTitle, Dialog, EmptyState, IconButton, cx } from '../components/ui.jsx';
+import {
+  Button, CardTitle, Dialog, Drawer, EmptyState, Field, IconButton, Select, cx,
+} from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
-const ROW_HEIGHT = 176; // px, one grid row
-const GAP = 16;         // px, matches gap-4
+const GAP = 16; // px, matches gap-4
+
+/**
+ * A 1x1 widget is a small square: CELL wide and CELL tall, fixed at every screen
+ * size. Columns are laid out at that exact pixel width rather than `1fr`, because
+ * a fractional column stretches with the window and a stretched column cannot be
+ * square — on a 2000px screen four fractional columns gave 490x216 tiles.
+ */
+const CELL = 176;
 
 const PRESENTATIONS = ['card', 'transparent', 'inset'];
 
@@ -38,10 +47,13 @@ export function resolvePresentation(widget, definition) {
 
 export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const { state, actions, notify } = useWorkspace();
-  const columns = useColumns();
+  // One element drives both the column count and the drag maths.
+  const gridRef = useRef(null);
+  const columns = useColumns(gridRef);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [configuring, setConfiguring] = useState(null);
 
   const stored = state.dashboard.widgets;
 
@@ -73,8 +85,9 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   )));
 
   const { drag, surfaceRef, begin, move, end } = useGridDrag({
+    surfaceRef: gridRef,
     columns,
-    rowHeight: ROW_HEIGHT,
+    rowHeight: CELL,
     gap: GAP,
     onCommit: (id, mode, preview) => {
       const definition = WIDGETS[stored.find((w) => w.id === id)?.type];
@@ -182,9 +195,14 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           onPointerCancel={canEdit ? end : undefined}
           className="relative grid touch-pan-y"
           style={{
-            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-            gridAutoRows: `${ROW_HEIGHT}px`,
+            // Fixed tracks keep every cell square. A single column is the
+            // exception: it fills the width and keeps the square height.
+            gridTemplateColumns: columns === 1
+              ? 'minmax(0, 1fr)'
+              : `repeat(${columns}, ${CELL}px)`,
+            gridAutoRows: `${CELL}px`,
             gap: `${GAP}px`,
+            justifyContent: 'start',
           }}
         >
           {/* The snap preview: where the dragged widget will land. */}
@@ -204,7 +222,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
             const Render = definition.render;
             const Config = definition.Config;
             const presentation = resolvePresentation(widget, definition);
-            const showTitle = canEdit || presentation !== 'transparent';
+            // The title is a per-widget choice; a transparent widget defaults to
+            // hiding it. While editing it is always shown, because that row also
+            // carries the drag handle and remove control.
+            const titleWanted = typeof widget.config.showTitle === 'boolean'
+              ? widget.config.showTitle
+              : presentation !== 'transparent';
+            const showTitle = canEdit || titleWanted;
             const isDragging = drag?.id === widget.id;
 
             return (
@@ -254,50 +278,20 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     )}
                     <CardTitle className="min-w-0 flex-1 truncate">{definition.name}</CardTitle>
                     {canEdit && (
-                      <IconButton label={`Remove ${definition.name}`} onClick={() => remove(widget.id)} className="size-6 hover:text-danger">
-                        <span aria-hidden="true" className="text-sm leading-none">×</span>
-                      </IconButton>
+                      <>
+                        <IconButton
+                          label={`Edit ${definition.name}`}
+                          onClick={() => setConfiguring(widget.id)}
+                          className="size-6"
+                        >
+                          <Icon name="edit" className="size-3.5" />
+                        </IconButton>
+                        <IconButton label={`Remove ${definition.name}`} onClick={() => remove(widget.id)} className="size-6 hover:text-danger">
+                          <span aria-hidden="true" className="text-sm leading-none">×</span>
+                        </IconButton>
+                      </>
                     )}
                   </div>
-
-                  {canEdit && definition.presentations !== false && (
-                    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-control border border-line bg-inset px-2 py-1.5">
-                      <div role="group" aria-label={`${definition.name} size`} className="flex items-center gap-1">
-                        <span className="text-[10px] text-ink-muted">Size</span>
-                        {allowedPresets(definition.limits).map((preset) => (
-                          <button
-                            key={preset.key}
-                            type="button"
-                            title={`${preset.title} (${preset.w}x${preset.h})`}
-                            aria-pressed={presetKeyFor(widget) === preset.key}
-                            onClick={() => commit(resizeItem(stored, widget.id, preset.w, preset.h, BASE_COLUMNS, definition.limits))}
-                            className={cx(
-                              'size-5 rounded-chip border text-[10px] font-medium transition-colors duration-150',
-                              presetKeyFor(widget) === preset.key
-                                ? 'border-line-strong bg-accent-soft text-ink'
-                                : 'border-line text-ink-muted hover:bg-surface hover:text-ink',
-                            )}
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="flex items-center gap-1.5 text-[10px] text-ink-muted">
-                        Style
-                        <select
-                          value={presentation}
-                          onChange={(event) => setConfig(widget.id, { presentation: event.target.value })}
-                          aria-label={`${definition.name} presentation`}
-                          className="h-6 rounded-chip border border-line bg-surface px-1 text-[10px] text-ink"
-                        >
-                          {(definition.presentations ?? PRESENTATIONS).map((value) => (
-                            <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>
-                          ))}
-                        </select>
-                      </label>
-                      {Config && <Config widget={widget} onChange={(patch) => setConfig(widget.id, patch)} />}
-                    </div>
-                  )}
 
                   {/* A container query scope, so a widget adapts to its own
                       width and height rather than to the viewport. */}
@@ -307,6 +301,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                       span={{ w: widget.w, h: widget.h }}
                       compact={widget.h <= 1}
                       onChange={(patch) => setConfig(widget.id, patch)}
+                      editing={canEdit}
                       onOpenTask={onOpenTask}
                       onCapture={onCapture}
                       onNavigate={onNavigate}
@@ -332,6 +327,14 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
       )}
 
       {canEdit && <p className="mt-3 px-1 text-meta text-ink-faint">{rows} row{rows === 1 ? '' : 's'} in use.</p>}
+
+      <WidgetDrawer
+        widget={stored.find((w) => w.id === configuring) ?? null}
+        onClose={() => setConfiguring(null)}
+        onResize={(w, h, limits) => commit(resizeItem(stored, configuring, w, h, BASE_COLUMNS, limits))}
+        onConfig={(patch) => setConfig(configuring, patch)}
+        onRemove={() => { remove(configuring); setConfiguring(null); }}
+      />
 
       <AddWidgetDialog open={adding} onClose={() => setAdding(false)} placed={visible.map((w) => w.type)} onAdd={add} />
 
@@ -361,6 +364,94 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         <p className="text-sm text-ink-muted">Your current layout can be brought back with Undo straight afterwards.</p>
       </Dialog>
     </div>
+  );
+}
+
+/** Every per-widget control, with room to breathe. */
+function WidgetDrawer({ widget, onClose, onResize, onConfig, onRemove }) {
+  if (!widget) return null;
+  const definition = WIDGETS[widget.type];
+  if (!definition) return null;
+
+  const presentation = resolvePresentation(widget, definition);
+  const titleWanted = typeof widget.config.showTitle === 'boolean'
+    ? widget.config.showTitle
+    : presentation !== 'transparent';
+  const Config = definition.Config;
+
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title={definition.name}
+      description={definition.description}
+      footer={<Button tone="danger" onClick={onRemove}>Remove widget</Button>}
+    >
+      <div className="space-y-5">
+        <section>
+          <CardTitle className="mb-2">Size</CardTitle>
+          <div role="group" aria-label="Widget size" className="flex flex-wrap gap-1.5">
+            {allowedPresets(definition.limits).map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                aria-pressed={presetKeyFor(widget) === preset.key}
+                onClick={() => onResize(preset.w, preset.h, definition.limits)}
+                className={cx(
+                  'rounded-control border px-2.5 py-1.5 text-xs font-medium transition-colors duration-150',
+                  presetKeyFor(widget) === preset.key
+                    ? 'border-line-strong bg-accent-soft text-ink'
+                    : 'border-line text-ink-muted hover:bg-hover hover:text-ink',
+                )}
+              >
+                {preset.title}
+                <span className="ml-1.5 tabular text-[10px] text-ink-faint">{preset.w}×{preset.h}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-meta text-ink-faint">
+            Currently {widget.w}×{widget.h}. Dragging the corner handle also resizes.
+          </p>
+        </section>
+
+        <section className="space-y-3 border-t border-line pt-4">
+          <CardTitle>Appearance</CardTitle>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={titleWanted}
+              onChange={(event) => onConfig({ showTitle: event.target.checked })}
+              className="size-4 accent-[var(--app-accent)]"
+            />
+            <span className="text-sm text-ink">Show the title</span>
+          </label>
+          {definition.presentations !== false && (
+            <Field label="Style">
+              {(id) => (
+                <Select
+                  id={id}
+                  value={presentation}
+                  onChange={(event) => onConfig({ presentation: event.target.value })}
+                >
+                  {(definition.presentations ?? PRESENTATIONS).map((value) => (
+                    <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          )}
+        </section>
+
+        {Config && (
+          <section className="space-y-3 border-t border-line pt-4">
+            <CardTitle>Options</CardTitle>
+            <div className="flex flex-col gap-3">
+              <Config widget={widget} onChange={onConfig} />
+            </div>
+          </section>
+        )}
+      </div>
+    </Drawer>
   );
 }
 

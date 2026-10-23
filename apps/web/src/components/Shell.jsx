@@ -16,8 +16,8 @@ const TITLES = {
   settings: 'Settings',
 };
 
-// The dashboard is a workspace and wants the whole shell; reading-oriented
-// sections stay within a comfortable measure.
+// The dashboard is a workspace and uses the whole shell. Widget size is fixed by
+// the grid's own cell cap, not by narrowing the page.
 const FULL_WIDTH_SECTIONS = new Set(['dashboard']);
 
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {

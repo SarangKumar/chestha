@@ -29,6 +29,9 @@ export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 /** How a widget presents itself on the dashboard. */
 export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
 
+/** Direction the Shortcuts widget lays its tiles out in. */
+export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
+
 export const DEFAULT_DASHBOARD = {
   version: 2,
   widgets: [
@@ -203,6 +206,9 @@ function coerceWidgetConfig(raw) {
   const config = { ...raw };
   if ('presentation' in config && !WIDGET_PRESENTATIONS.includes(config.presentation)) {
     delete config.presentation;
+  }
+  if ('flow' in config && !WIDGET_FLOWS.includes(config.flow)) {
+    delete config.flow;
   }
   // Shortcut links are user input, so they are bounded and scheme-checked here
   // rather than trusted from storage.

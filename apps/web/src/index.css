@@ -179,6 +179,21 @@
 }
 
 @layer utilities {
+  /* `appearance-none` strips the native dropdown arrow, so selects have to draw
+     their own or they read as plain text boxes. A mid grey sits correctly on
+     both the light and dark surfaces, so one asset serves both themes. */
+  .select-chevron {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23909090' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6.5 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 0.75rem;
+  }
+
+  .select-chevron-sm {
+    background-position: right 0.4rem center;
+    background-size: 0.7rem;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--app-border-strong) transparent;

@@ -597,7 +597,7 @@ test('pack memberships pointing at absent questions are dropped', () => {
 
 // ─── URL intake and personal lists ───────────────────────────────────────────
 
-import { INTAKE_LABELS, planIntake, reorderMembership } from '../src/index.js';
+import { INTAKE_LABELS, buildRows, filterRows, planIntake, reorderMembership } from '../src/index.js';
 
 test('pasted input is planned line by line before anything is written', () => {
   const questions = [createQuestion({ url: 'https://leetcode.com/problems/two-sum/', difficulty: 'Easy', topics: ['Array'] })];
@@ -660,4 +660,115 @@ test('personal list memberships survive when the library is reloaded', async () 
   }));
   // Personal memberships are not filtered against the library, which may be lazy.
   assert.equal(store.getState()['dsa.lists'].memberships.length, 1);
+});
+
+// ─── Manual tracking: bookmark, solve, repeat solves ─────────────────────────
+
+import { scheduleAfterEvent as advance } from '../src/index.js';
+
+/** Mirrors what the UI's "mark solved" action does, so the semantics are pinned. */
+function recordSolve(progress, slug, extra = {}) {
+  const event = createEvent({ kind: 'solve', slug, ...extra });
+  return {
+    ...progress,
+    events: [...progress.events, event],
+    schedules: { ...progress.schedules, [slug]: advance(progress.schedules[slug], event) },
+    lastEventId: event.id,
+  };
+}
+
+test('marking solved records one event and schedules a revision', async () => {
+  const store = createStore();
+  await store.init();
+  store.update('dsa.progress', (p) => recordSolve(p, 'two-sum', { at: at(TODAY) }));
+
+  const progress = store.getState()['dsa.progress'];
+  assert.equal(progress.events.length, 1);
+  assert.equal(progress.events[0].kind, 'solve');
+  assert.equal(questionState('two-sum', progress.events, progress.schedules, TODAY).progress, 'solved');
+  assert.ok(progress.schedules['two-sum'].nextDue, 'a revision date was set');
+});
+
+test('solving the same question repeatedly accumulates events, not replacements', async () => {
+  const store = createStore();
+  await store.init();
+  for (const day of ['2026-10-01', '2026-10-10', TODAY]) {
+    store.update('dsa.progress', (p) => recordSolve(p, 'two-sum', { at: at(day) }));
+  }
+  const progress = store.getState()['dsa.progress'];
+
+  assert.equal(totalSolveEvents(progress.events), 3, 'three solving events');
+  assert.equal(uniqueSolvedSlugs(progress.events).size, 1, 'but one unique question');
+  // Which is exactly the count the row badge shows.
+  assert.equal(progress.events.filter((e) => e.kind === 'solve' && e.slug === 'two-sum').length, 3);
+});
+
+test('undoing a solve removes only that event and restores the prior schedule', async () => {
+  const store = createStore();
+  await store.init();
+  store.update('dsa.progress', (p) => recordSolve(p, 'two-sum', { at: at('2026-10-01') }));
+  const afterFirst = structuredClone(store.getState()['dsa.progress']);
+
+  store.update('dsa.progress', (p) => recordSolve(p, 'two-sum', { at: at(TODAY) }));
+  const secondId = store.getState()['dsa.progress'].events.at(-1).id;
+
+  // The undo path: drop that event, put the schedule back as it was.
+  store.update('dsa.progress', (p) => ({
+    ...p,
+    events: p.events.filter((e) => e.id !== secondId),
+    schedules: { ...p.schedules, 'two-sum': afterFirst.schedules['two-sum'] },
+  }));
+
+  const progress = store.getState()['dsa.progress'];
+  assert.equal(totalSolveEvents(progress.events), 1, 'back to one solve');
+  assert.deepEqual(progress.schedules['two-sum'], afterFirst.schedules['two-sum']);
+  assert.equal(questionState('two-sum', progress.events, progress.schedules, TODAY).progress, 'solved');
+});
+
+test('a bookmark is per question, persists, and does not touch solving history', async () => {
+  const store = createStore();
+  await store.init();
+  store.update('dsa.progress', (p) => recordSolve(p, 'two-sum', { at: at(TODAY) }));
+
+  const toggle = (slug) => store.update('dsa.progress', (p) => {
+    const current = p.questionState[slug] ?? { bookmarked: false, priority: 0, notes: '' };
+    return { ...p, questionState: { ...p.questionState, [slug]: { ...current, bookmarked: !current.bookmarked } } };
+  });
+
+  toggle('two-sum');
+  await store.flush();
+  assert.equal(store.getState()['dsa.progress'].questionState['two-sum'].bookmarked, true);
+  assert.equal(totalSolveEvents(store.getState()['dsa.progress'].events), 1, 'history untouched');
+
+  toggle('two-sum');
+  assert.equal(store.getState()['dsa.progress'].questionState['two-sum'].bookmarked, false, 'toggles back');
+  assert.equal(store.getState()['dsa.progress'].questionState['valid-anagram'], undefined, 'other questions unaffected');
+});
+
+test('bookmarking a question makes the bookmarked filter find it', async () => {
+  const store = createStore();
+  await store.init();
+  await store.ensureArea('dsa.library');
+  store.update('dsa.library', (lib) => ({
+    ...lib,
+    questions: [
+      createQuestion({ url: 'https://leetcode.com/problems/two-sum/', difficulty: 'Easy', topics: ['Array'] }),
+      createQuestion({ url: 'https://leetcode.com/problems/valid-anagram/', difficulty: 'Easy', topics: ['Hash Table'] }),
+    ],
+  }));
+  store.update('dsa.progress', (p) => ({
+    ...p, questionState: { 'two-sum': { bookmarked: true, priority: 0, notes: '' } },
+  }));
+
+  const state = store.getState();
+  const rows = buildRows({
+    questions: state['dsa.library'].questions,
+    events: state['dsa.progress'].events,
+    schedules: state['dsa.progress'].schedules,
+    questionState: state['dsa.progress'].questionState,
+    curatedMemberships: [],
+  }, TODAY);
+
+  // The filter that previously had no way of being satisfied from the UI.
+  assert.deepEqual(filterRows(rows, { bookmarked: true }).map((r) => r.question.slug), ['two-sum']);
 });

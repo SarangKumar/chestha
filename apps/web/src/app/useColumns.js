@@ -1,27 +1,26 @@
 import { useEffect, useState } from 'react';
-import { BREAKPOINT_COLUMNS } from '@vistaar/core';
+import { CELL_PX, columnsForWidth } from '@vistaar/core';
 
-/** Matches the Tailwind breakpoints the dashboard grid uses. */
-export function useColumns() {
-  const read = () => {
-    if (typeof window === 'undefined') return BREAKPOINT_COLUMNS.lg;
-    if (window.matchMedia('(min-width: 1024px)').matches) return BREAKPOINT_COLUMNS.lg;
-    if (window.matchMedia('(min-width: 640px)').matches) return BREAKPOINT_COLUMNS.sm;
-    return BREAKPOINT_COLUMNS.base;
-  };
-
-  const [columns, setColumns] = useState(read);
+/**
+ * Column count derived from how many fixed-width cells fit the grid, rather than
+ * from fixed breakpoints — the cell size is constant, so the count is what has
+ * to vary for the grid to reach the right of the screen.
+ */
+export function useColumns(ref) {
+  const [columns, setColumns] = useState(4);
 
   useEffect(() => {
-    const queries = ['(min-width: 1024px)', '(min-width: 640px)'].map((q) => window.matchMedia(q));
-    const update = () => setColumns(read());
-    for (const q of queries) q.addEventListener('change', update);
-    window.addEventListener('resize', update);
-    return () => {
-      for (const q of queries) q.removeEventListener('change', update);
-      window.removeEventListener('resize', update);
+    const element = ref?.current;
+    if (!element) return undefined;
+    const measure = () => {
+      const width = element.getBoundingClientRect().width;
+      if (width) setColumns(columnsForWidth(width, CELL_PX));
     };
-  }, []);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
 
   return columns;
 }
