@@ -826,21 +826,27 @@ picker; neither is added to the default layout.
 ### 5.2 The Grove page — `#/grove`
 
 Nav rail entry between Calendar and DSA (hideable; added to `HIDEABLE_SECTIONS`).
-Tabs, following the `DsaSection` precedent: **Session · Collection · Stats · Settings**.
+Tabs, following the `DsaSection` precedent: **Session · Garden · Collection · Stats**. Grove
+preferences are not a fourth tab — they live in the app's Settings with every other
+preference (see §5.3), and the Grove links across to them.
 
 - **Session** — the full-bleed scene: plant centred, large countdown, duration chips,
   task link, start/pause/end, ambient-sound toggle wired to the existing engine, and a
   one-line reward summary on completion. This is the screen in your reference image and
   it should be the calmest in the app: no chrome beyond what is listed.
+- **Garden** — the scene itself: every plant you have grown, standing where it was
+  planted, under the environment in use and among the decorations you own. Selecting
+  one names its species, stage, session length and date. Positions are **derived from
+  each plant's id**, not stored — so the garden cannot reshuffle between renders, needs
+  no write per session, and no migration the first time the layout changes.
 - **Collection** — plants / decorations / environments, locked items shown with their
   requirement ("Level 4 · 3 seeds"), never hidden. Locked is a goal; hidden is a
   mystery, and mysteries are for games with a marketing budget.
 - **Stats** — 7/30/90/all. Sessions, total focus time, XP by source, top sites by time,
   recent ledger entries in plain language ("+15 XP · 45 minutes on leetcode.com").
   This is the auditable history view the brief asks for.
-- **Settings** — game preferences only: default duration, chime, ambient mix, selected
-  species, environment, reduced motion note, "reset Grove progress" (which touches
-  nothing outside the five `grove.*` areas and says so).
+- Species and environment are chosen in **Collection**, where they are seen, rather
+  than in a settings list that names them without showing them.
 
 ### 5.3 App settings additions
 
@@ -854,6 +860,12 @@ A new `<Group title="Productive time">` in the existing Settings section:
 - Idle timeout.
 - A short plain-language privacy paragraph — domain only, no URLs, no content, nothing
   leaves the device — with "Delete all website-time data" next to it.
+
+A second `<Group title="Grove">` sits **below the data group**: default session length,
+ambient mix, chime, whether a session covers website time, and "Reset Grove progress".
+It is placed there deliberately — resetting the Grove belongs beside the other
+irreversible actions, where a person is already reading carefully, rather than inside
+the game where it reads as a game control.
 
 Task XP and focus XP tuning stay **out of settings**. Exposing every multiplier invites
 fiddling with a scoring system whose only user is the person fiddling. The two things a
@@ -955,6 +967,9 @@ browser — which is precisely why the rules live there and not in the worker.
 | Browser restart mid-session | Manual: start a session, quit Chrome, reopen, confirm the timer and reward match |
 | Every visual and responsive claim | **You, at `npm run dev`.** There is no browser automation in this repo and none is proposed |
 
+All of the above is written up as a numbered checklist with expected results in
+[grove-manual-checks.md](grove-manual-checks.md), with a run record at the bottom.
+
 The manual list becomes a written checklist in the repo, run before the feature is
 called done. I will not claim any of it passed unless it was actually run.
 
@@ -972,14 +987,29 @@ called done. I will not claim any of it passed unless it was actually run.
 3. **Accuracy budget — stated honestly.** Website time is accurate to **±60 seconds per
    transition** and never over-counts: the clamp guarantees recorded time ≤ real active
    time. The product says "approximate" and never "to the second".
-4. **Bounded growth.** After a simulated year of heavy use (8 sites, 10 sessions/week,
-   20 tasks/day), the five `grove.*` areas total **under 300 KB**. Asserted by a test
-   that generates the data and measures `JSON.stringify` length.
+4. **Bounded growth.** After a simulated year of heavy use (4 sites, 2 sessions and 20
+   tasks a day), the five `grove.*` areas total **under 600 KB**, and that is a ceiling
+   rather than a snapshot: every area has a hard cap, so a second year cannot move it.
+   Asserted by a test that generates the data and measures `JSON.stringify` length.
+
+   **Revised after measuring.** This said 300 KB, which was a guess made before any of
+   it was built. The real figure is ~545 KB — ledger 296, focus 138, time 68, garden
+   55, settings 1 — and meeting the original number would have meant discarding about
+   four months of session history to save a quarter of a megabyte in a store whose
+   quota runs to hundreds. The bound is what matters and the bound holds; the
+   number has been corrected rather than the retention cut to flatter it.
+
+   The caps: `MAX_LIVE_EVENTS` 1 200 and `ROLLUP_AFTER_DAYS` 180 in `ledger.js`, and
+   `LIMITS` in `grove/schema.js` (90 days, 500 sessions, 400 plants, 5 000 segment ids).
 5. **No leakage.** No recorded field contains a path, query, title or non-rule domain.
-   Asserted by test over the segment and time-record shapes, plus a grep in review.
-6. **Zero network.** No `fetch`/`XMLHttpRequest` anywhere in `grove/` or the tracker.
-   Asserted by a source grep in the test suite (the repo already treats "makes no
-   external request" as a property worth protecting).
+   Asserted by a test over the exact key sets of the time record and a reward's `ref`,
+   and by a source test that the tracker never touches `tab.title`, `favIconUrl`,
+   `chrome.history` or `chrome.cookies`.
+6. **Zero network.** No `fetch`, `XMLHttpRequest`, `sendBeacon`, `WebSocket` or
+   `EventSource` anywhere under `grove/` or in the extension source, and no host
+   permissions, content scripts, `scripting`, `webNavigation` or `history` in the
+   manifest. Asserted by `apps/web/test/grove-sources.test.js`, so a future change that
+   quietly breaks either promise fails the suite instead of shipping.
 7. **Degradation.** With tracking off, with permissions absent, and on
    `localhost:5173`, the Grove opens, sessions run and XP accrues from tasks and
    sessions. Asserted by test + manual.
@@ -1093,8 +1123,9 @@ Stats and Settings tabs arrived with Phase 5 straight after.
 - Art: the free species only — Sprout, four stages, inline SVG, plus the Night
   environment.
 - Ambient sound wired to the existing engine singleton, user-gesture gated as today.
-  **Not built** — the session screen does not yet start a sound mix. The engine and the
-  `soundMixId` setting are both in place; only the hookup is missing.
+  Built after Phase 5: a session may start a saved mix but never takes over one that is
+  already playing, and only stops sound it started itself. `engine.chime()` marks the
+  end of a session through the same master gain and compressor as everything else.
 - Tests: pause excludes paused time exactly; end early gives time XP and no bonus;
   completion gives bonus and seeds; recovery after a restart yields numbers identical to
   a watched session; a 12-hour-old session is `abandoned` with capped credit; running
@@ -1125,7 +1156,7 @@ The only phase that touches the extension, and the one most likely to be subtly 
   wins; midnight split; `MAX_TICK` clamp; negative interval contributes zero; re-drained
   segment ids contribute zero; a 61-minute drain emits exactly four ascending events
   totalling 50 XP; global cap; re-running a drain emits nothing.
-- **Needs you — the manual checklist**, which I will write into the repo: service
+- **Needs you — the manual checklist**, now written: [grove-manual-checks.md](grove-manual-checks.md). Service
   worker stopped from `chrome://serviceworker-internals` and revived; two minutes idle;
   a locked screen; two windows; `chrome://settings` and the Web Store; a browser
   restart. None of this is reachable from `node:test`.
@@ -1143,6 +1174,49 @@ four tabs, the catalogue is live and seeds are spendable.
 - Tests: nothing is ever destroyed (randomised operation sequence never reduces
   `unlocked`, removes a plant or decreases a level); bounded growth — a simulated year
   of heavy use keeps the five areas under 300 KB.
+
+### Phase 6 — Integrity ✅ built 2026-10-23, uncommitted
+
+The acceptance criteria that were written but never asserted, plus what measuring them
+turned up.
+
+- **A bug, found and fixed.** Session recovery ran when the *Grove page* mounted, so a
+  session left running by a closed tab was only settled if you happened to open the
+  Grove. Until then it stayed `active`, which also kept the tracker's `duringFocus`
+  flag set — website time was being suspended for a session that had finished hours
+  earlier. Recovery now runs once per load in `useGroveMaintenance`, at the app, because
+  what it repairs affects the whole app.
+- **`rollupLedger` and `reconcileLifetime` were dead code.** Both existed, both were
+  tested, neither was ever called — so the ledger would have grown without bound in
+  practice. `actions.maintainLedger()` now runs both on load.
+- **A ceiling on live events.** The 180-day window was never a bound on its own: heavy
+  use is ~26 events a day, so the window alone allowed ~4 700 events and 916 KB.
+  `MAX_LIVE_EVENTS` (1 200) now binds first, and notes — the fattest field, and purely
+  cosmetic — are dropped from all but the most recent 200.
+- **`grove.time.taskXp` removed.** It was stored and never written: a duplicate of a
+  figure the ledger already answers. `websiteXp` stays, and the comment says why it
+  earns its place (the daily cap is applied while folding segments, without the ledger
+  in hand).
+- **The storage budget was wrong and has been corrected** — see criterion 4.
+
+### Phase 7 — The garden ✅ built 2026-10-23, uncommitted
+
+The gap that the name made obvious: plants, environments and decorations were all
+being stored and none of them were ever drawn. `garden.plants` had coordinates nothing
+read, `environmentId` chose a scene that did not exist, and an owned decoration's
+button said "Owned" and did nothing.
+
+- **A Garden tab** showing the scene, with four rows of depth, the 48 most recent
+  plants drawn and the rest counted.
+- **Placement lives in `grove/garden.js`** (`plantPlacement`) and is derived from the
+  plant's id, with a test that it is stable and in bounds. The `x`/`y` fields on a
+  plant record are now vestigial — kept for the moment because removing them is a
+  schema change for no gain, but nothing reads them.
+- **Environments are a wash, not a backdrop** — two very low-opacity overlays over the
+  ordinary inset surface, so a night garden does not become a black rectangle in the
+  middle of the light theme, and the plants stay the strongest colour on screen.
+- **Decorations are placed** behind the planting rows, which is what makes owning one
+  mean something.
 
 ### Running through all of it
 

@@ -9,6 +9,7 @@ import {
   taskReward, todayISO,
   clearWebsiteTime, defaultGroveFocus, defaultGroveGarden, defaultLedger,
   describeDomain, unlockItem,
+  ROLLUP_AFTER_DAYS, addDays, reconcileLifetime, rollupLedger,
 } from '@vistaar/core';
 import { clearTrackerState } from '../grove/trackerBridge.js';
 import { useToday } from './useToday.js';
@@ -381,6 +382,19 @@ function buildActions(store, notify) {
       const recovered = recoverSession(active, Date.now());
       if (recovered === active) return null;
       return actions.endFocusSession(recovered);
+    },
+
+    /**
+     * Keeps the ledger bounded and its cached totals honest.
+     *
+     * Both halves are no-ops in the ordinary case and return the same object, so a
+     * load that needs nothing writes nothing.
+     */
+    maintainLedger() {
+      store.update('grove.ledger', (ledger) => {
+        const cutoff = addDays(todayISO(), -ROLLUP_AFTER_DAYS);
+        return reconcileLifetime(rollupLedger(ledger, cutoff));
+      });
     },
 
     setGroveSetting(key, value) {

@@ -55,7 +55,7 @@ export function splitAtMidnight(startMs, endMs) {
 }
 
 function emptyDay() {
-  return { rules: {}, websiteXp: 0, taskXp: 0 };
+  return { rules: {}, websiteXp: 0 };
 }
 
 function emptyRecord() {

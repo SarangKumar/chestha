@@ -15,6 +15,9 @@ import {
 } from '@vistaar/core';
 import * as engine from '../audio/engine.js';
 import { Plant } from '../grove/plants.jsx';
+import {
+  pauseSessionSound, resumeSessionSound, startSessionSound, stopSessionSound,
+} from '../grove/sessionSound.js';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
@@ -161,7 +164,7 @@ function ClockWidget({ widget, span }) {
   const tall = (span?.h ?? 1) > 1;
   const timeSize = !wide
     ? 'text-2xl'
-    : tall ? 'text-6xl @[22rem]:text-7xl' : 'text-4xl @[16rem]:text-5xl';
+    : tall ? 'text-4xl @[22rem]:text-6xl' : 'text-3xl @[16rem]:text-4xl';
 
   return (
     <div className="flex h-full flex-col items-center justify-center overflow-hidden text-center">
@@ -1491,7 +1494,14 @@ function GroveWidget({ onNavigate }) {
       <div className="flex flex-wrap items-center justify-center gap-1">
         {session ? (
           <>
-            <Button size="sm" tone="quiet" onClick={sessionPaused(session) ? actions.resumeFocusSession : actions.pauseFocusSession}>
+            <Button
+              size="sm"
+              tone="quiet"
+              onClick={() => {
+                if (sessionPaused(session)) { actions.resumeFocusSession(); resumeSessionSound(); }
+                else { actions.pauseFocusSession(); pauseSessionSound(); }
+              }}
+            >
               <Icon name={sessionPaused(session) ? 'play' : 'pause'} className="size-4" />
             </Button>
             <Button
@@ -1499,14 +1509,24 @@ function GroveWidget({ onNavigate }) {
               tone="quiet"
               onClick={() => {
                 const result = actions.endFocusSession();
-                if (result) notify(`Ended · +${result.earned.xp} XP`);
+                if (!result) return;
+                stopSessionSound({ chime: settings.chimeOnComplete });
+                notify(`Ended · +${result.earned.xp} XP`);
               }}
             >
               <Icon name="stop" className="size-4" />
             </Button>
           </>
         ) : (
-          <Button size="sm" onClick={() => { setNow(Date.now()); actions.startFocusSession(); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNow(Date.now());
+              actions.startFocusSession();
+              const preset = state.sound.presets.find((p) => p.id === settings.soundMixId);
+              if (preset) startSessionSound(preset, state.sound.masterVolume);
+            }}
+          >
             <Icon name="play" className="size-4" /> Start
           </Button>
         )}

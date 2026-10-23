@@ -358,3 +358,35 @@ export async function dispose() {
 }
 
 export { findSound as soundInCatalogue };
+
+/**
+ * A short, quiet two-note chime for the end of a focus session.
+ *
+ * It goes through the same context, master gain and compressor as everything
+ * else, so it cannot be louder than the mix it plays over and cannot clip it. It
+ * is scheduled and forgotten — there is no voice to track, nothing to stop, and
+ * nothing it can leave running.
+ *
+ * Like all audio here it needs the context to be running already. Ending a
+ * session is a user gesture, so it normally is; when it is not (a timer reaching
+ * zero in a tab that never played anything), this is silently a no-op rather
+ * than an error. A missing chime is not worth a message.
+ */
+export async function chime() {
+  if (!state.supported || !ctx || ctx.state !== 'running') return;
+  const now = ctx.currentTime;
+  for (const [index, frequency] of [587.33, 880].entries()) {   // D5 then A5
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = frequency;
+    const at = now + index * 0.18;
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(0.16, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(at);
+    osc.stop(at + 1.2);
+  }
+}

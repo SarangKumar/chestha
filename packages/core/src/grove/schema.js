@@ -235,8 +235,10 @@ function coerceTime(raw) {
     }
     days[day] = {
       rules,
+      // websiteXp is a deliberate cache: the daily cap has to be applied while
+      // folding segments, which happens without the ledger in hand. Task XP needs no
+      // such thing and is derived from the ledger, so it is not stored here.
       websiteXp: int(value.websiteXp, 0, 0, 1000000),
-      taskXp: int(value.taskXp, 0, 0, 1000000),
     };
   }
 

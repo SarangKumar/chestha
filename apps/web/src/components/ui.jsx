@@ -96,6 +96,24 @@ export function Field({ label, hint, children, id: providedId }) {
   );
 }
 
+/** A checkbox with a label and an optional hint. Reports the value, not the event. */
+export function Toggle({ label, hint, checked, onChange }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-[var(--app-accent)]"
+      />
+      <span>
+        <span className="block text-sm text-ink">{label}</span>
+        {hint && <span className="block text-xs text-ink-muted">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
 const CONTROL = cx(
   'w-full rounded-control border border-line bg-inset px-3 text-sm text-ink',
   'placeholder:text-ink-faint transition-colors duration-150',

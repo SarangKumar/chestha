@@ -85,6 +85,34 @@ export function unlockItem(ledger, garden, itemId) {
   };
 }
 
+/** Rows in the garden scene, back to front. */
+export const GARDEN_ROWS = 4;
+
+/**
+ * Where a plant stands, derived from its own id rather than stored.
+ *
+ * A plant has to occupy the same spot every time the scene is drawn, or the garden
+ * would reshuffle on every render and read as noise instead of as a record. Deriving
+ * the position from the id — the same trick `pickForDay` uses — gets that for free,
+ * with no coordinates to write on every session and no migration the first time the
+ * layout changes.
+ *
+ * @returns {{ row: number, left: number, depth: number }} `left` is a percentage,
+ *   `depth` runs 0 (furthest) to 1 (nearest).
+ */
+export function plantPlacement(id, index, rows = GARDEN_ROWS) {
+  let seed = 7;
+  for (const ch of String(id)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const row = index % rows;
+  const slot = Math.floor(index / rows);
+  return {
+    row,
+    // Spread along the row, nudged by the id so the columns do not form a grid.
+    left: ((slot * 23 + (seed % 17)) % 92) + 3,
+    depth: rows > 1 ? row / (rows - 1) : 1,
+  };
+}
+
 /**
  * Milestones, derived rather than stored — and deliberately not streaks. A counter
  * that resets to zero and says so is a punishment wearing a reward's clothes, and it

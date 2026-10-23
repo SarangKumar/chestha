@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayISO } from '@vistaar/core';
 import { useShortcutDispatch } from './app/useShortcutDispatch.js';
 import { useGroveDrain } from './grove/useGroveDrain.js';
+import { useGroveMaintenance } from './grove/useGroveMaintenance.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
 import { useHashRoute } from './app/useHashRoute.js';
 import { Shell } from './components/Shell.jsx';
@@ -44,7 +45,10 @@ function Workspace() {
     if (section === 'tasks' && param && TASK_VIEWS.includes(param)) setTaskView(param);
     if (section === 'calendar' && param) setCalendarDay(param);
     if (section === 'dsa' && param) setDsaTab(param);
-    if (section === 'grove' && param) setGroveTab(param);
+    // The Grove's preferences moved into Settings; an old link follows them there
+    // rather than quietly landing on a different tab.
+    if (section === 'grove' && param === 'settings') navigate('settings');
+    else if (section === 'grove' && param) setGroveTab(param);
   }, [section, param]);
 
   const openCapture = useCallback(() => setOverlay('capture'), []);
@@ -97,6 +101,7 @@ function Workspace() {
   ], [state.settings, actions, go, openCapture]);
 
   useGroveDrain();
+  useGroveMaintenance();
 
   useShortcutDispatch({
     enabled: status.ready,
@@ -155,6 +160,7 @@ function Workspace() {
           <GroveSection
             tab={groveTab}
             onChangeTab={(next) => { setGroveTab(next); navigate('grove', next); }}
+            onNavigate={go}
           />
         )}
         {section === 'sounds' && <Sounds />}

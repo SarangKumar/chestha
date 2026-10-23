@@ -4,10 +4,11 @@ import {
   exportFilename, formatLongDate, parseImport, tagKey,
 } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
-import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, cx } from '../components/ui.jsx';
+import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, Toggle, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
 import { WebsiteRules } from '../components/WebsiteRules.jsx';
+import { GroveSettings } from '../components/GroveSettings.jsx';
 
 const SECTION_LABELS = {
   dashboard: 'Dashboard',
@@ -227,6 +228,12 @@ export function Settings() {
 
       <StorageGroup status={status} />
       <DataGroup state={state} actions={actions} store={store} notify={notify} />
+
+      {/* Below the data group: resetting the Grove belongs with the other
+          irreversible actions, not tucked inside the game. */}
+      <Group title="Grove">
+        <GroveSettings />
+      </Group>
     </div>
   );
 }
@@ -237,23 +244,6 @@ function Group({ title, children }) {
       <h2 className="mb-5 text-card font-semibold text-ink">{title}</h2>
       <div className="space-y-5">{children}</div>
     </Panel>
-  );
-}
-
-function Toggle({ label, hint, checked, onChange }) {
-  return (
-    <label className="flex cursor-pointer items-start gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-4 shrink-0 accent-[var(--app-accent)]"
-      />
-      <span>
-        <span className="block text-sm text-ink">{label}</span>
-        {hint && <span className="block text-xs text-ink-muted">{hint}</span>}
-      </span>
-    </label>
   );
 }
 

@@ -68,7 +68,7 @@ export function Collection() {
                       disabled={chosen || item.kind === 'decoration'}
                       onClick={() => actions.setGardenChoice(item)}
                     >
-                      {chosen ? 'In use' : item.kind === 'decoration' ? 'Owned' : 'Use this'}
+                      {chosen ? 'In use' : item.kind === 'decoration' ? 'In the garden' : 'Use this'}
                     </Button>
                   ) : (
                     <Button

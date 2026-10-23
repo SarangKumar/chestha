@@ -9,6 +9,7 @@ import {
   taskReward, xpOnDay, xpForNextLevel,
   MAX_TICK_MS, applySegments, catalogueItem, creditableMs, hostOf,
   isUnlocked, matchRule, splitAtMidnight, unlockItem, unlockState,
+  MAX_LIVE_EVENTS, ROLLUP_AFTER_DAYS, addDays, GARDEN_ROWS, plantPlacement,
 } from '../src/index.js';
 
 const DAY = '2026-10-23';
@@ -522,4 +523,173 @@ test('an item above your level is visible with its requirement, not hidden', () 
   assert.equal(state.available, false);
   assert.equal(state.reason, 'Level 8', 'the requirement is the message');
   assert.equal(unlockItem(ledger, garden, 'plant_moonflower').ok, false);
+});
+
+// --- the acceptance criteria ------------------------------------------------
+
+test('the ledger stays bounded, and rolling up never changes the balance', () => {
+  let ledger = defaultLedger();
+  // A year of heavy use: 20 tasks, 2 sessions and 4 threshold crossings a day.
+  for (let day = 0; day < 365; day += 1) {
+    const localDay = addDays('2025-10-23', day);
+    const rewards = [];
+    for (let i = 0; i < 20; i += 1) rewards.push({ key: `task:d${day}_${i}`, source: 'task', xp: 12, localDay });
+    for (let i = 0; i < 2; i += 1) rewards.push({ key: `focus:d${day}_${i}:time`, source: 'focus', xp: 50, seeds: 2, localDay });
+    for (const minutes of [15, 30, 45, 60]) rewards.push({ key: `site:r1:${localDay}:${minutes}`, source: 'website', xp: 5, localDay });
+    ledger = appendRewards(ledger, rewards).ledger;
+  }
+
+  const before = computeLifetime(ledger);
+  const rolled = reconcileLifetime(rollupLedger(ledger, addDays('2026-10-23', -ROLLUP_AFTER_DAYS)));
+
+  assert.deepEqual(computeLifetime(rolled), before, 'a year of history, same balance');
+  assert.ok(rolled.events.length <= MAX_LIVE_EVENTS, 'the count ceiling binds before the day window does');
+  assert.ok(rolled.rollups.length >= 365 - ROLLUP_AFTER_DAYS);
+
+  // The whole point of the budget: a year of heavy use fits in a few hundred KB.
+  const size = JSON.stringify(rolled).length;
+  assert.ok(size < 300_000, `the rolled-up ledger is ${Math.round(size / 1024)} KB`);
+  assert.ok(JSON.stringify(ledger).length > 2 * size, 'rolling up reclaims most of it');
+});
+
+test('nothing a user has earned can ever go backwards', () => {
+  const settings = settingsWith([rule('leetcode.com')]);
+  let ledger = defaultLedger();
+  let garden = coerceGroveArea('grove.garden').value;
+  let time = coerceGroveArea('grove.time').value;
+  let highWater = { xp: 0, level: 1, unlocked: 2, plants: 0 };
+
+  // A long, deliberately hostile sequence: awards, retries, reversals, re-drains,
+  // rollups and purchases, interleaved.
+  for (let step = 0; step < 300; step += 1) {
+    const localDay = addDays('2026-01-01', step % 40);
+    switch (step % 6) {
+      case 0:
+        ledger = appendReward(ledger, { key: `task:t${step}`, source: 'task', xp: 12, localDay }).ledger;
+        break;
+      case 1:
+        ledger = appendReward(ledger, { key: `focus:s${step}:time`, source: 'focus', xp: 50, seeds: 3, localDay }).ledger;
+        break;
+      case 2: {
+        const result = applySegments(settings, time, [seg({ seconds: 20 * 60, localDay, closedAt: `${localDay}T09:00:00.000Z` })]);
+        time = result.time;
+        ledger = appendRewards(ledger, result.rewards).ledger;
+        break;
+      }
+      case 3: {
+        // A reversal may lower XP, which is the one legitimate decrease — so the
+        // high-water mark is only asserted over unlocks, plants and seeds spent.
+        const last = ledger.events[ledger.events.length - 1];
+        if (last) ledger = reverseReward(ledger, last.id).ledger;
+        break;
+      }
+      case 4: {
+        const purchase = unlockItem(ledger, garden, 'plant_fern');
+        if (purchase.ok) { ledger = purchase.ledger; garden = purchase.garden; }
+        break;
+      }
+      default:
+        ledger = reconcileLifetime(rollupLedger(ledger, addDays('2026-01-01', 20)));
+        garden = { ...garden, plants: [...garden.plants, { id: `pl_${step}`, speciesId: 'plant_sprout', sessionId: null, stage: 'seed', plantedAt: '2026-01-01T09:00:00.000Z', x: 0, y: 0 }] };
+    }
+
+    assert.ok(garden.unlocked.length >= highWater.unlocked, 'an unlock is never taken away');
+    assert.ok(garden.plants.length >= highWater.plants, 'a plant is never uprooted');
+    assert.ok(ledger.lifetime.xp >= 0, 'the balance is never negative');
+    assert.deepEqual(computeLifetime(ledger), { ...ledger.lifetime }, 'the cache never drifts unrepaired');
+    highWater = { ...highWater, unlocked: garden.unlocked.length, plants: garden.plants.length };
+  }
+
+  assert.ok(garden.unlocked.includes('plant_fern'), 'the sequence really did buy something');
+});
+
+test('nothing recorded about a website is more than a domain, a day and a count', () => {
+  const settings = settingsWith([rule('leetcode.com')]);
+  const result = applySegments(settings, coerceGroveArea('grove.time').value, [
+    seg({ seconds: 20 * 60, host: 'leetcode.com' }),
+  ]);
+
+  assert.deepEqual(Object.keys(result.time), ['days', 'seenSegments']);
+  assert.deepEqual(Object.keys(result.time.days[DAY]).sort(), ['rules', 'websiteXp']);
+  assert.deepEqual(
+    Object.keys(result.time.days[DAY].rules['rule_leetcode.com']).sort(),
+    ['awarded', 'focusCoveredSeconds', 'seconds'],
+    'no room for a path, a title or anything else',
+  );
+  // And the reward that came out of it names a rule, never a page.
+  assert.deepEqual(Object.keys(result.rewards[0].ref).sort(), ['minutes', 'ruleId']);
+});
+
+test('a year of heavy use fits the whole storage budget, not just the ledger', () => {
+  const settings = settingsWith(['a.com', 'b.com', 'c.com', 'd.com'].map((d) => rule(d)));
+
+  let ledger = defaultLedger();
+  let time = coerceGroveArea('grove.time').value;
+  const sessions = [];
+  const plants = [];
+
+  for (let day = 0; day < 365; day += 1) {
+    const localDay = addDays('2025-10-23', day);
+    const rewards = [];
+    for (let i = 0; i < 20; i += 1) {
+      rewards.push({ key: `task:d${day}_${i}`, source: 'task', xp: 12, localDay, note: `Completed “A task with a fairly long title ${i}”` });
+    }
+    for (let i = 0; i < 2; i += 1) {
+      const id = `fs_${day}_${i}`;
+      rewards.push({ key: `focus:${id}:time`, source: 'focus', xp: 50, seeds: 2, localDay, note: '25 min focus session' });
+      sessions.push({
+        id, startedAt: `${localDay}T09:0${i}:00.000Z`, plannedMinutes: 25, taskId: `task_${day}`,
+        pauses: [{ pausedAt: `${localDay}T09:1${i}:00.000Z`, resumedAt: `${localDay}T09:2${i}:00.000Z` }],
+        endedAt: `${localDay}T09:3${i}:00.000Z`, outcome: 'completed', plantInstanceId: `pl_${day}_${i}`,
+      });
+      plants.push({ id: `pl_${day}_${i}`, speciesId: 'plant_blossom', sessionId: id, stage: 'mature', plantedAt: `${localDay}T09:00:00.000Z`, x: i, y: day % 8 });
+    }
+    ledger = appendRewards(ledger, rewards).ledger;
+
+    const drained = applySegments(settings, time, ['a.com', 'b.com', 'c.com', 'd.com'].map((host, i) => (
+      seg({ host, localDay, seconds: 50 * 60, closedAt: `${localDay}T1${i}:00:00.000Z` })
+    )));
+    time = drained.time;
+    ledger = appendRewards(ledger, drained.rewards).ledger;
+  }
+
+  const areas = {
+    'grove.ledger': reconcileLifetime(rollupLedger(ledger, addDays('2026-10-23', -ROLLUP_AFTER_DAYS))),
+    'grove.time': coerceGroveArea('grove.time', time).value,
+    'grove.focus': coerceGroveArea('grove.focus', { active: null, sessions }).value,
+    'grove.garden': coerceGroveArea('grove.garden', { unlocked: ['plant_sprout'], plants }).value,
+    'grove.settings': settings,
+  };
+
+  const sizes = Object.fromEntries(Object.entries(areas).map(([k, v]) => [k, JSON.stringify(v).length]));
+  const total = Object.values(sizes).reduce((a, b) => a + b, 0);
+
+  // Every area is bounded by its own limit, so this is a ceiling rather than a
+  // snapshot: a second year of the same use cannot move it.
+  //
+  // Measured at ~545 KB — ledger 296, focus 138, time 68, garden 55, settings 1. The
+  // design document guessed 300 KB before any of it existed; the guess was wrong and
+  // the limit is stated here, where it is measured. Halving it would mean throwing
+  // away roughly four months of session history to save a quarter of a megabyte in a
+  // store whose quota is measured in hundreds.
+  assert.ok(total < 600_000, `${Math.round(total / 1024)} KB: ${JSON.stringify(sizes)}`);
+  assert.equal(areas['grove.focus'].sessions.length, 500, 'sessions are capped');
+  assert.equal(areas['grove.garden'].plants.length, 400, 'plants are capped');
+  assert.ok(Object.keys(areas['grove.time'].days).length <= 90, 'days are capped');
+});
+
+test('a plant stands in the same place every time the garden is drawn', () => {
+  const ids = Array.from({ length: 40 }, (_, i) => `pl_${i}_abc`);
+  const once = ids.map((id, i) => plantPlacement(id, i));
+  const twice = ids.map((id, i) => plantPlacement(id, i));
+
+  assert.deepEqual(once, twice, 'placement is derived, so it cannot shuffle between renders');
+  for (const spot of once) {
+    assert.ok(spot.left >= 3 && spot.left <= 95, `${spot.left}% is on screen`);
+    assert.ok(spot.row >= 0 && spot.row < GARDEN_ROWS);
+    assert.ok(spot.depth >= 0 && spot.depth <= 1);
+  }
+  assert.equal(new Set(once.map((s) => s.row)).size, GARDEN_ROWS, 'every row is used');
+  // Two plants with different ids in the same slot do not stand on top of each other.
+  assert.notEqual(plantPlacement('pl_a', 0).left, plantPlacement('pl_b', 0).left);
 });

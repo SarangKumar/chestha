@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   eligibleMinutes, isComplete, isPaused, remainingMs, selectToday, sessionProgress,
   sortTasks, stageForProgress,
@@ -7,6 +7,9 @@ import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, Panel, Select, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
 import { Plant, STAGE_LABELS } from '../../grove/plants.jsx';
+import {
+  pauseSessionSound, resumeSessionSound, startSessionSound, stopSessionSound,
+} from '../../grove/sessionSound.js';
 
 function clock(ms) {
   const total = Math.ceil(ms / 1000);
@@ -36,24 +39,20 @@ function Ring({ progress, children }) {
 export function Session() {
   const { state, actions, notify, today } = useWorkspace();
   const garden = state['grove.garden'];
-  const session = state['grove.focus'].active;
   const settings = state['grove.settings'];
+
+  /** Settles a finished session: stop what the session started, chime, then report. */
+  const settle = (result, message, tone = 'neutral') => {
+    if (!result) return;
+    stopSessionSound({ chime: settings.chimeOnComplete });
+    notify(message(result), { tone });
+  };
+  const session = state['grove.focus'].active;
 
   const [now, setNow] = useState(() => Date.now());
   const [minutes, setMinutes] = useState(settings.focus.defaultMinutes);
   const [taskId, setTaskId] = useState('');
-  const recovered = useRef(false);
 
-  // A session left running by a closed tab or a restart is settled before anything
-  // is drawn, so the screen never shows a timer that has already finished.
-  useEffect(() => {
-    if (recovered.current) return;
-    recovered.current = true;
-    const result = actions.recoverFocusSession();
-    if (result) {
-      notify(`Session ${result.session.outcome === 'abandoned' ? 'written off' : 'completed while you were away'} · +${result.earned.xp} XP`);
-    }
-  }, [actions, notify]);
 
   // The tick only re-renders. Elapsed time is always derived from the stored
   // timestamps, so a throttled or suspended tab cannot lose or invent a second.
@@ -67,8 +66,11 @@ export function Session() {
   // Reaching zero ends the session through the same path as the End button.
   useEffect(() => {
     if (!session || !isComplete(session, now)) return;
-    const result = actions.endFocusSession();
-    if (result) notify(`Session complete · +${result.earned.xp} XP · ${result.earned.seeds} seeds`, { tone: 'ok' });
+    settle(
+      actions.endFocusSession(),
+      (r) => `Session complete · +${r.earned.xp} XP · ${r.earned.seeds} seeds`,
+      'ok',
+    );
   }, [session, now, actions, notify]);
 
   const openTasks = useMemo(
@@ -98,20 +100,16 @@ export function Session() {
         <div className="mt-6 flex flex-col items-center gap-3">
           <div className="flex items-center gap-2">
             {isPaused(session) ? (
-              <Button onClick={actions.resumeFocusSession}><Icon name="play" className="size-4" /> Resume</Button>
+              <Button onClick={() => { actions.resumeFocusSession(); resumeSessionSound(); }}><Icon name="play" className="size-4" /> Resume</Button>
             ) : (
-              <Button tone="quiet" onClick={actions.pauseFocusSession}><Icon name="pause" className="size-4" /> Pause</Button>
+              <Button tone="quiet" onClick={() => { actions.pauseFocusSession(); pauseSessionSound(); }}><Icon name="pause" className="size-4" /> Pause</Button>
             )}
             <Button
               tone="quiet"
-              onClick={() => {
-                const result = actions.endFocusSession();
-                if (result) {
-                  notify(`Ended early · +${result.earned.xp} XP · your plant stays ${STAGE_LABELS[result.stage].toLowerCase()}`, {
-                    tone: 'neutral',
-                  });
-                }
-              }}
+              onClick={() => settle(
+                actions.endFocusSession(),
+                (r) => `Ended early · +${r.earned.xp} XP · your plant stays ${STAGE_LABELS[r.stage].toLowerCase()}`,
+              )}
             >
               <Icon name="stop" className="size-4" /> End
             </Button>
@@ -161,6 +159,9 @@ export function Session() {
             onClick={() => {
               setNow(Date.now());
               actions.startFocusSession({ plannedMinutes: minutes, taskId: taskId || null });
+              // In the gesture, which is the only moment the browser will start audio.
+              const preset = state.sound.presets.find((p) => p.id === settings.soundMixId);
+              if (preset) startSessionSound(preset, state.sound.masterVolume);
             }}
           >
             <Icon name="play" className="size-4" /> Start {minutes} minutes

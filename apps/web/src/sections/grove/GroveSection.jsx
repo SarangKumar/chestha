@@ -2,19 +2,19 @@ import { availableSeeds, levelFromXp, todayISO, xpOnDay } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Meter, cx } from '../../components/ui.jsx';
 import { Session } from './Session.jsx';
+import { Garden } from './Garden.jsx';
 import { Collection } from './Collection.jsx';
 import { Stats } from './Stats.jsx';
-import { GroveSettings } from './GroveSettings.jsx';
 
 /** Sub-navigation lives inside the section, as it does for DSA: the rail is full. */
 const TABS = [
   { id: 'session', label: 'Session', render: Session },
+  { id: 'garden', label: 'Garden', render: Garden },
   { id: 'collection', label: 'Collection', render: Collection },
   { id: 'stats', label: 'Stats', render: Stats },
-  { id: 'settings', label: 'Settings', render: GroveSettings },
 ];
 
-export function GroveSection({ tab, onChangeTab }) {
+export function GroveSection({ tab, onChangeTab, onNavigate }) {
   const { state } = useWorkspace();
   const ledger = state['grove.ledger'];
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
@@ -51,7 +51,8 @@ export function GroveSection({ tab, onChangeTab }) {
         />
       </div>
 
-      <div role="tablist" aria-label="Grove views" className="mb-4 flex flex-wrap gap-1 rounded-card border border-line bg-surface p-1 shadow-card">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div role="tablist" aria-label="Grove views" className="flex flex-wrap gap-1 rounded-card border border-line bg-surface p-1 shadow-card">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -67,6 +68,15 @@ export function GroveSection({ tab, onChangeTab }) {
             {item.label}
           </button>
         ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('settings')}
+          className="rounded-chip px-2 py-1 text-meta text-ink-faint transition-colors duration-150 hover:bg-hover hover:text-ink"
+        >
+          Preferences are in Settings
+        </button>
       </div>
 
       <Render />

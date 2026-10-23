@@ -18,6 +18,22 @@ export const REWARD_SOURCES = ['task', 'website', 'focus', 'adjustment'];
 /** Events older than this are compacted into one row per day. */
 export const ROLLUP_AFTER_DAYS = 180;
 
+/**
+ * A ceiling on live events, regardless of age.
+ *
+ * The day window alone is not a bound: heavy use is roughly 26 events a day, so 180
+ * days of it is ~4 700 events and the better part of a megabyte. Age decides what is
+ * *interesting*; this decides what is *affordable*, and the stricter of the two wins.
+ */
+export const MAX_LIVE_EVENTS = 1200;
+
+/**
+ * Notes are the fattest field and are purely cosmetic — only the most recent handful
+ * are ever displayed. Older events keep their source, amount and reference, which is
+ * everything needed to explain a balance.
+ */
+export const KEEP_NOTES = 200;
+
 export function defaultLedger() {
   return { events: [], rollups: [], lifetime: { xp: 0, seeds: 0, seedsSpent: 0 } };
 }
@@ -185,9 +201,10 @@ export function xpOnDay(ledger, localDay, source = null) {
  * Totals are preserved exactly, so the balance is unchanged by a rollup — the ledger
  * stays explorable for half a year and bounded forever.
  */
-export function rollupLedger(ledger, beforeLocalDay) {
-  const stale = ledger.events.filter((event) => event.localDay < beforeLocalDay);
-  if (stale.length === 0) return ledger;
+export function rollupLedger(ledger, beforeLocalDay, { maxEvents = MAX_LIVE_EVENTS, keepNotes = KEEP_NOTES } = {}) {
+  const overflow = Math.max(0, ledger.events.length - maxEvents);
+  const stale = ledger.events.filter((event, index) => index < overflow || event.localDay < beforeLocalDay);
+  if (stale.length === 0) return trimNotes(ledger, keepNotes);
 
   const byDay = new Map();
   for (const row of ledger.rollups) byDay.set(row.localDay, { ...row, bySource: { ...row.bySource } });
@@ -199,9 +216,20 @@ export function rollupLedger(ledger, beforeLocalDay) {
     byDay.set(event.localDay, row);
   }
 
+  const staleIds = new Set(stale.map((event) => event.id));
+  return trimNotes({
+    ...ledger,
+    events: ledger.events.filter((event) => !staleIds.has(event.id)),
+    rollups: [...byDay.values()].sort((a, b) => (a.localDay < b.localDay ? -1 : 1)),
+  }, keepNotes);
+}
+
+/** Drops the display text from all but the most recent events. */
+function trimNotes(ledger, keepNotes) {
+  const from = ledger.events.length - keepNotes;
+  if (from <= 0 || ledger.events.every((event, index) => index >= from || !event.note)) return ledger;
   return {
     ...ledger,
-    events: ledger.events.filter((event) => event.localDay >= beforeLocalDay),
-    rollups: [...byDay.values()].sort((a, b) => (a.localDay < b.localDay ? -1 : 1)),
+    events: ledger.events.map((event, index) => (index >= from || !event.note ? event : { ...event, note: '' })),
   };
 }
