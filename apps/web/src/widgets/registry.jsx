@@ -16,6 +16,7 @@ import {
 } from '@vistaar/core';
 import * as engine from '../audio/engine.js';
 import { Plant } from '../grove/plants.jsx';
+import { DirtPad, GardenPlot, gridCell, gridSizeForCount } from '../grove/GardenPlot.jsx';
 import {
   pauseSessionSound, resumeSessionSound, startSessionSound, stopSessionSound,
 } from '../grove/sessionSound.js';
@@ -1688,13 +1689,48 @@ function GroveWidget({ onNavigate, span }) {
   };
 
   if (!session && mid) {
+    const recent = garden.plants.slice(-9);
+    const showPlot = recent.length > 0;
+    const plotSize = showPlot ? Math.min(3, gridSizeForCount(recent.length)) : 3;
+    const capacity = plotSize * plotSize;
+    const plotCells = showPlot
+      ? recent.slice(-capacity).map((plant, index) => {
+          const { col, row } = gridCell(index, plotSize);
+          return {
+            key: plant.id,
+            col,
+            row,
+            node: (
+              <Plant
+                speciesId={plant.speciesId}
+                stage={plant.stage}
+                glow={false}
+                className="size-full text-ink"
+              />
+            ),
+          };
+        })
+      : [];
+
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 overflow-hidden px-2 py-1 text-center">
-        <Plant
-          speciesId={garden.selectedSpeciesId}
-          stage="sprout"
-          className={cx('text-ink', roomy ? 'size-20 @[14rem]:size-28' : 'size-14 @[10rem]:size-16')}
-        />
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 py-1 text-center">
+        {showPlot ? (
+          <GardenPlot
+            size={plotSize}
+            cells={plotCells}
+            framed={false}
+            className={cx('w-full', roomy ? 'h-[7.5rem]' : 'h-[6.25rem]')}
+            emptyLabel={`Focus Garden, ${recent.length} plants`}
+          />
+        ) : (
+          <DirtPad>
+            <Plant
+              speciesId={garden.selectedSpeciesId}
+              stage="sprout"
+              className={cx('text-ink', roomy ? 'size-16 @[14rem]:size-20' : 'size-12 @[10rem]:size-14')}
+            />
+          </DirtPad>
+        )}
         <p className={cx(
           'max-w-[14rem] text-balance leading-snug text-ink-muted',
           roomy ? 'text-sm' : 'text-[11px]',
@@ -1704,7 +1740,7 @@ function GroveWidget({ onNavigate, span }) {
         <Button size="sm" onClick={startSession}>
           <Icon name="play" className="size-4" /> Start session
         </Button>
-        <div className="mt-auto w-full px-0.5 pt-1">
+        <div className="mt-auto w-full px-0.5 pt-0.5">
           <p className="mb-1 text-left text-[10px] text-ink-faint">
             Level {level.level} · {level.into}/{level.needed} XP
           </p>
@@ -1726,11 +1762,13 @@ function GroveWidget({ onNavigate, span }) {
         'flex min-h-0 w-full items-center gap-2',
         stack ? 'flex-col justify-center' : 'flex-row justify-center',
       )}>
-        <Plant
-          speciesId={garden.selectedSpeciesId}
-          stage={session ? stageForProgress(progress) : 'sprout'}
-          className={cx('shrink-0 text-ink', stack ? 'size-12 @[8rem]:size-14' : 'size-14 @[9rem]:size-16')}
-        />
+        <DirtPad className="shrink-0">
+          <Plant
+            speciesId={garden.selectedSpeciesId}
+            stage={session ? stageForProgress(progress) : 'sprout'}
+            className={cx('text-ink', stack ? 'size-12 @[8rem]:size-14' : 'size-14 @[9rem]:size-16')}
+          />
+        </DirtPad>
         <div className={cx('min-w-0', stack ? 'text-center' : 'flex-1 text-left')}>
           <p className="tabular text-stat font-semibold leading-none text-ink">{clock}</p>
           <p className="mt-1 text-meta text-ink-faint">

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { GARDEN_ROWS, catalogueItem, formatLongDate, plantPlacement, todayISO } from '@vistaar/core';
+import { catalogueItem, formatLongDate, todayISO } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, EmptyState, Panel, cx } from '../../components/ui.jsx';
 import { Plant, STAGE_LABELS } from '../../grove/plants.jsx';
 import { Decoration, environmentOf } from '../../grove/decor.jsx';
+import { DirtPad, GardenPlot, gridCell, gridSizeForCount } from '../../grove/GardenPlot.jsx';
 
 /** How many plants are drawn. Older ones are counted, not crowded into the scene. */
-const VISIBLE = 48;
+const VISIBLE = 36;
 
 export function Garden() {
   const { state } = useWorkspace();
@@ -18,18 +19,56 @@ export function Garden() {
   const decorations = garden.unlocked.filter((id) => catalogueItem(id)?.kind === 'decoration');
   const shown = useMemo(() => garden.plants.slice(-VISIBLE), [garden.plants]);
   const older = garden.plants.length - shown.length;
+  const size = gridSizeForCount(shown.length);
 
   const chosen = selected ? garden.plants.find((p) => p.id === selected) : null;
   const chosenSession = chosen ? sessions.find((s) => s.id === chosen.sessionId) : null;
 
+  const cells = useMemo(() => {
+    // Newest plants fill from the front of the plot so the garden grows toward you.
+    const capacity = size * size;
+    const plants = shown.slice(-capacity);
+    return plants.map((plant, index) => {
+      const { col, row } = gridCell(index, size);
+      const session = sessions.find((s) => s.id === plant.sessionId);
+      const active = selected === plant.id;
+      return {
+        key: plant.id,
+        col,
+        row,
+        node: (
+          <button
+            type="button"
+            onClick={() => setSelected(active ? null : plant.id)}
+            aria-pressed={active}
+            className={cx(
+              'block rounded-chip transition-transform duration-150 hover:scale-105',
+              active && 'scale-110',
+            )}
+          >
+            <Plant
+              speciesId={plant.speciesId}
+              stage={plant.stage}
+              glow={active}
+              className="size-full text-ink drop-shadow-sm"
+            />
+            <span className="sr-only">
+              {catalogueItem(plant.speciesId)?.name ?? 'Plant'}, {STAGE_LABELS[plant.stage].toLowerCase()}
+              {session ? `, ${session.plannedMinutes} minute session` : ''}
+            </span>
+          </button>
+        ),
+      };
+    });
+  }, [shown, size, sessions, selected]);
+
   if (garden.plants.length === 0) {
     return (
-      <Panel className="relative overflow-hidden p-8 text-center">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none mx-auto mb-4 flex size-28 items-center justify-center opacity-90"
-        >
-          <Plant speciesId={garden.selectedSpeciesId} stage="sprout" className="size-28 text-ink" />
+      <Panel className="relative overflow-hidden p-6 text-center sm:p-8">
+        <div className="mx-auto mb-2 flex justify-center">
+          <DirtPad>
+            <Plant speciesId={garden.selectedSpeciesId} stage="sprout" className="size-24 text-ink sm:size-28" />
+          </DirtPad>
         </div>
         <EmptyState
           title="Your Focus Garden is empty"
@@ -41,67 +80,25 @@ export function Garden() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div
-        className="relative isolate h-72 overflow-hidden rounded-panel border border-line bg-inset sm:h-80"
-        role="img"
-        aria-label={`Your garden: ${garden.plants.length} plants from ${garden.plants.length} focus sessions.`}
-      >
-        <div className="pointer-events-none absolute inset-0" style={{ background: environment.sky }} aria-hidden="true" />
-        <div className="pointer-events-none absolute inset-0" style={{ background: environment.haze }} aria-hidden="true" />
+      <GardenPlot
+        size={size}
+        cells={cells}
+        sky={environment.sky}
+        haze={environment.haze}
+        className="h-72 sm:h-80"
+        emptyLabel={`Your garden: ${garden.plants.length} plants from focus sessions.`}
+      />
 
-        {/* The ground: four soft bands, one per row, so plants have something to stand on. */}
-        {Array.from({ length: GARDEN_ROWS }, (_, row) => (
-          <div
-            key={row}
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 rounded-[50%] bg-ink/[0.04]"
-            style={{ bottom: `${row * 19 - 6}%`, height: '22%', opacity: 0.5 + row * 0.12 }}
-          />
-        ))}
-
-        {decorations.map((id, index) => (
-          <span
-            key={id}
-            aria-hidden="true"
-            className="absolute text-ink"
-            style={{ left: `${12 + index * 23}%`, bottom: `${10 + (index % 2) * 26}%`, opacity: 0.55 }}
-          >
-            <Decoration id={id} className="size-10 sm:size-12" />
-          </span>
-        ))}
-
-        {shown.map((plant, index) => {
-          const { row, left, depth } = plantPlacement(plant.id, index);
-          const session = sessions.find((s) => s.id === plant.sessionId);
-          const active = selected === plant.id;
-          return (
-            <button
-              key={plant.id}
-              type="button"
-              onClick={() => setSelected(active ? null : plant.id)}
-              aria-pressed={active}
-              className={cx(
-                'absolute rounded-chip transition-opacity duration-150 hover:opacity-100',
-                active ? 'opacity-100' : 'opacity-[var(--plant-opacity)]',
-              )}
-              style={{
-                left: `${left}%`,
-                bottom: `${row * 19 + 2}%`,
-                zIndex: row + 1,
-                // Nearer rows are bigger and brighter; the furthest fade back.
-                transform: `scale(${0.55 + depth * 0.45})`,
-                '--plant-opacity': 0.55 + depth * 0.4,
-              }}
-            >
-              <Plant speciesId={plant.speciesId} stage={plant.stage} glow={active} className="size-16 text-ink" />
-              <span className="sr-only">
-                {catalogueItem(plant.speciesId)?.name ?? 'Plant'}, {STAGE_LABELS[plant.stage].toLowerCase()}
-                {session ? `, ${session.plannedMinutes} minute session` : ''}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {decorations.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-1" aria-label="Unlocked decorations">
+          {decorations.map((id) => (
+            <span key={id} className="inline-flex items-center gap-1 text-ink-faint" title={catalogueItem(id)?.name}>
+              <Decoration id={id} className="size-7" />
+              <span className="text-[10px]">{catalogueItem(id)?.name}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-2">
         {chosen ? (

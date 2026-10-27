@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { formatDate, formatTrackedDuration, websiteTimeByDay } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { WebsiteRules } from '../components/WebsiteRules.jsx';
-import { LineChart } from '../components/LineChart.jsx';
+import { LineChart, MultiLineChart, colorForSeries } from '../components/LineChart.jsx';
 import { EmptyState, Panel, SectionHeader, Stat, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
@@ -124,7 +124,7 @@ export function Websites() {
             <LineChart
               values={chart.totals}
               labels={dayLabels}
-              height={160}
+              height={120}
               formatValue={formatTrackedDuration}
               ariaLabel={`Total tracked website time over ${days} days`}
             />
@@ -134,6 +134,9 @@ export function Websites() {
         <Panel className="overflow-hidden p-0">
           <div className="border-b border-line px-5 py-4 sm:px-6">
             <h3 className="text-card font-medium text-ink">By site</h3>
+            <p className="text-meta text-ink-faint">
+              Every tracked site on one chart — colour matches the legend.
+            </p>
           </div>
           {chart.series.length === 0 ? (
             <p className="px-5 py-6 text-sm text-ink-muted sm:px-6">
@@ -141,13 +144,29 @@ export function Websites() {
               and the extension is running.
             </p>
           ) : (
-            <ul className="divide-y divide-line">
-              {chart.series.map((row) => (
-                <li key={row.ruleId} className="flex flex-col gap-3 px-5 py-4 sm:px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-card bg-inset text-sm font-semibold text-ink">
-                      {(row.label || '?').slice(0, 1).toUpperCase()}
-                    </div>
+            <>
+              <div className="px-5 py-4 sm:px-6">
+                <MultiLineChart
+                  series={chart.series.map((row, index) => ({
+                    id: row.ruleId,
+                    label: row.label,
+                    values: row.points,
+                    color: colorForSeries(index),
+                  }))}
+                  labels={dayLabels}
+                  height={140}
+                  formatValue={formatTrackedDuration}
+                  ariaLabel={`Tracked time by site over ${days} days`}
+                />
+              </div>
+              <ul className="divide-y divide-line border-t border-line">
+                {chart.series.map((row, index) => (
+                  <li key={row.ruleId} className="flex items-center gap-3 px-5 py-3 sm:px-6">
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: colorForSeries(index) }}
+                    />
                     <div className="min-w-0 flex-1">
                       <p className={cx('truncate text-sm font-medium text-ink', !row.enabled && 'text-ink-faint line-through')}>
                         {row.label}
@@ -159,17 +178,10 @@ export function Websites() {
                     <p className="tabular shrink-0 text-card font-semibold text-ink">
                       {formatTrackedDuration(row.total)}
                     </p>
-                  </div>
-                  <LineChart
-                    values={row.points}
-                    labels={dayLabels}
-                    height={72}
-                    formatValue={formatTrackedDuration}
-                    ariaLabel={`${row.label}: ${formatTrackedDuration(row.total)} over ${days} days`}
-                  />
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </Panel>
       </div>

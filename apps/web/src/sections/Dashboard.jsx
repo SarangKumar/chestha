@@ -49,16 +49,17 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   /**
    * Two refs, deliberately.
    *
-   * `measureRef` sits on a wrapper that is always rendered; `gridRef` is on the
-   * grid itself, which is replaced by an empty state when there is nothing to
-   * place. Measuring the grid meant that whenever it was absent at mount — which
-   * is every load, since widgets wait for storage — the measurement never ran,
-   * and the hook's initial guess of 12 columns became permanent. The two
-   * elements are the same width, so measuring the wrapper costs nothing.
+   * `measureRef` (callback) sits on a wrapper that is always rendered; `gridRef`
+   * is on the grid itself, which is replaced by an empty state when there is
+   * nothing to place. Measuring the grid meant that whenever it was absent at
+   * mount — which is every load, since widgets wait for storage — the
+   * measurement never ran, and the hook's initial guess of 12 columns became
+   * permanent. The two elements are the same width, so measuring the wrapper
+   * costs nothing. The hook returns a callback ref so attachment re-triggers
+   * measurement (a plain object ref cannot).
    */
-  const measureRef = useRef(null);
   const gridRef = useRef(null);
-  const { columns, cell } = useGridMetrics(measureRef);
+  const { columns, cell, measureRef, hostRef } = useGridMetrics();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -87,7 +88,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const editScrollRef = useRef(null);
   useLayoutEffect(() => {
     const measure = () => {
-      const el = editScrollRef.current ?? measureRef.current;
+      const el = editScrollRef.current ?? hostRef.current;
       const top = el?.getBoundingClientRect().top ?? 0;
       const bottomReserve = window.matchMedia('(min-width: 640px)').matches ? 0 : 56;
       const available = Math.max(0, window.innerHeight - top - bottomReserve);
@@ -339,11 +340,19 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           ref={editScrollRef}
           className={cx(
             'bg-transparent',
-            canEdit && 'overflow-x-hidden overflow-y-auto scrollbar-thin',
+            // Above sticky header (z-20): edit chrome sits in this surface, so the
+            // whole band must stack higher or pill backgrounds paint under the header.
+            canEdit && 'relative z-[25] overflow-x-hidden overflow-y-auto scrollbar-thin',
           )}
           style={canEdit && viewportHeight > 0 ? {
             maxHeight: viewportHeight,
-            // Scroll room under the floating pills; still grid/guides, not empty chrome.
+            // Top pad so -top-3 edit pills are not clipped by overflow-y-auto.
+            // Cancel with equal negative margin so the grid does not jump down
+            // when edit mode opens (padding alone caused a ~12px layout shift).
+            paddingTop: 12,
+            marginTop: -12,
+            // Bottom pad for the fixed floating Done/Add island — does not
+            // move content; only grows scrollable room under the last row.
             paddingBottom: 72,
           } : undefined}
         >
@@ -429,8 +438,8 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                   gridRow: `${widget.y + 1} / span ${widget.h}`,
                 }}
                 className={cx(
-                  // Hover/focus raises the card above the sticky header (z-20) and
-                  // mobile nav (z-30) so edit / remove / resize stay clickable.
+                  // Edit surface is z-[25] above the sticky header; hover/focus then
+                  // lifts one card over its neighbours so chrome stays clickable.
                   'group/widget relative min-h-0 min-w-0',
                   canEdit && 'hover:z-50 focus-within:z-50',
                   isDragging && 'z-50 opacity-60',

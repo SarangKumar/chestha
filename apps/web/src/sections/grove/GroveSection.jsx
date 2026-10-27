@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { availableSeeds, levelFromXp, todayISO, xpOnDay } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Meter, Panel, cx } from '../../components/ui.jsx';
+import { Icon } from '../../components/icons.jsx';
 import { Session } from './Session.jsx';
 import { Garden } from './Garden.jsx';
 import { Collection } from './Collection.jsx';
@@ -20,6 +22,7 @@ export function GroveSection({ tab, onChangeTab, onNavigate }) {
   const settings = state['grove.settings'];
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   const Render = active.render;
+  const [howOpen, setHowOpen] = useState(false);
 
   const level = levelFromXp(ledger.lifetime.xp);
   const xpToday = xpOnDay(ledger, todayISO());
@@ -71,39 +74,6 @@ export function GroveSection({ tab, onChangeTab, onNavigate }) {
         />
       </div>
 
-      <Panel level="inset" className="mb-5 space-y-2 p-4">
-        <h2 className="text-card font-medium text-ink">How Grove works</h2>
-        <dl className="space-y-2 text-meta leading-relaxed text-ink-muted">
-          <div>
-            <dt className="font-medium text-ink">XP</dt>
-            <dd>
-              Experience points — a running total of focused work. XP never goes down and is never spent.
-              Your <span className="text-ink">level</span> is derived from lifetime XP; fill the meter above to reach the next one.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-ink">How you gain XP</dt>
-            <dd>
-              <span className="text-ink">Focus sessions</span> earn about {xpPerMin} XP per eligible minute
-              (plus a completion bonus when you finish the full timer).
-              {' '}<span className="text-ink">Tasks</span> earn about {taskXp} XP when you complete one
-              (priority can add a little; capped around {taskCap} XP/day from tasks).
-              {' '}<span className="text-ink">Tracked websites</span> earn XP at minute thresholds you set in Settings — only while that tab is in front.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-ink">Seeds</dt>
-            <dd>
-              Come from focus sessions and are spent in Collection to unlock plants and scenery.
-              Levels gate what you may unlock; seeds decide what you take. Spending seeds never costs XP or levels.
-            </dd>
-          </div>
-        </dl>
-        <p className="text-[10px] leading-relaxed text-ink-faint">
-          Numbers are tunable in Settings. Ending a session early still keeps the plant and the XP you already earned.
-        </p>
-      </Panel>
-
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div role="tablist" aria-label="Grove views" className="flex flex-wrap gap-1 rounded-card border border-line bg-surface p-1 shadow-card">
           {TABS.map((item) => (
@@ -133,6 +103,57 @@ export function GroveSection({ tab, onChangeTab, onNavigate }) {
       </div>
 
       <Render />
+
+      <Panel level="inset" className="mt-5 overflow-hidden p-0">
+        <button
+          type="button"
+          onClick={() => setHowOpen((open) => !open)}
+          aria-expanded={howOpen}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-hover"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-card font-medium text-ink">How Grove works</span>
+            <span className="block text-meta text-ink-faint">XP, levels, seeds, and how you earn them</span>
+          </span>
+          <Icon
+            name={howOpen ? 'chevronLeft' : 'chevronRight'}
+            className={cx('size-4 shrink-0 text-ink-faint transition-transform duration-150', howOpen && '-rotate-90')}
+          />
+        </button>
+        {howOpen && (
+          <div className="space-y-2 border-t border-line px-4 py-3">
+            <dl className="space-y-2 text-meta leading-relaxed text-ink-muted">
+              <div>
+                <dt className="font-medium text-ink">XP</dt>
+                <dd>
+                  Experience points — a running total of focused work. XP never goes down and is never spent.
+                  Your <span className="text-ink">level</span> is derived from lifetime XP; fill the meter above to reach the next one.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">How you gain XP</dt>
+                <dd>
+                  <span className="text-ink">Focus sessions</span> earn about {xpPerMin} XP per eligible minute
+                  (plus a completion bonus when you finish the full timer).
+                  {' '}<span className="text-ink">Tasks</span> earn about {taskXp} XP when you complete one
+                  (priority can add a little; capped around {taskCap} XP/day from tasks).
+                  {' '}<span className="text-ink">Tracked websites</span> earn XP at minute thresholds you set in Settings — only while that tab is in front.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">Seeds</dt>
+                <dd>
+                  Come from focus sessions and are spent in Collection to unlock plants and scenery.
+                  Levels gate what you may unlock; seeds decide what you take. Spending seeds never costs XP or levels.
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[10px] leading-relaxed text-ink-faint">
+              Numbers are tunable in Settings. Ending a session early still keeps the plant and the XP you already earned.
+            </p>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { CELL_PX, cellForWidth, columnsForWidth } from '@vistaar/core';
 
 /**
@@ -15,27 +15,34 @@ import { CELL_PX, cellForWidth, columnsForWidth } from '@vistaar/core';
  * size and then snapped to the measured one — a visible layout shift every time
  * the dashboard opened. A layout effect measures before the first paint, so the
  * guess is never shown.
+ *
+ * The measure host must be attached with the returned callback ref (`measureRef`),
+ * not a plain object ref. Object refs do not re-render when `.current` is set, so
+ * an effect keyed only on the ref object can read `null` once (Strict Mode
+ * remount, late commit, conditional host) and then never retry — leaving the
+ * column guess permanent and, after the warn was added, flooding the console.
+ * A callback ref updates `host` when React attaches or detaches the node, so
+ * measurement starts as soon as the element exists and stops cleanly on unmount.
  */
-export function useGridMetrics(ref) {
+export function useGridMetrics() {
   // Never painted — the layout effect below measures first — but a guess at the
   // real cell size is still better than one that would be wildly wrong if it ever
   // were shown.
   const [metrics, setMetrics] = useState({ columns: 12, cell: CELL_PX });
+  const [host, setHost] = useState(null);
+  // Same node as `host`, exposed as an object ref for callers that need to read
+  // the element outside the callback (e.g. viewport math while editing).
+  const hostRef = useRef(null);
+
+  const measureRef = useCallback((node) => {
+    hostRef.current = node;
+    setHost((previous) => (previous === node ? previous : node));
+  }, []);
 
   useLayoutEffect(() => {
-    const element = ref?.current;
-    // A null node here cannot be recovered from: the dependency is the ref
-    // object, which never changes, so the effect would not run again and the
-    // guess above would become permanent. Measure a node that is always
-    // rendered — never one behind a conditional.
-    if (!element) {
-      if (typeof console !== 'undefined') {
-        console.warn('useGridMetrics: nothing to measure. The ref must be on an element that always renders.');
-      }
-      return undefined;
-    }
+    if (!host) return undefined;
     const measure = () => {
-      const width = element.getBoundingClientRect().width;
+      const width = host.getBoundingClientRect().width;
       if (!width) return;
       const columns = columnsForWidth(width);
       const cell = cellForWidth(width, columns);
@@ -45,9 +52,9 @@ export function useGridMetrics(ref) {
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(element);
+    observer.observe(host);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [host]);
 
-  return metrics;
+  return { columns: metrics.columns, cell: metrics.cell, measureRef, hostRef };
 }

@@ -7,6 +7,7 @@ import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, Panel, Select, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
 import { Plant, STAGE_LABELS } from '../../grove/plants.jsx';
+import { DirtPad } from '../../grove/GardenPlot.jsx';
 import { environmentOf } from '../../grove/decor.jsx';
 import {
   pauseSessionSound, resumeSessionSound, startSessionSound, stopSessionSound,
@@ -77,18 +78,14 @@ export function Session() {
       >
         <div className="pointer-events-none absolute inset-0" style={{ background: environment.sky }} aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0" style={{ background: environment.haze }} aria-hidden="true" />
-        {/* Soft ground so the plant has soil to stand in. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-[-10%] bottom-0 h-[42%] rounded-[50%] bg-ink/[0.06]"
-        />
-
         <div className="relative z-[1] flex flex-1 flex-col items-center justify-center">
-          <Plant
-            speciesId={garden.selectedSpeciesId}
-            stage={session ? stage : 'sprout'}
-            className="size-40 text-ink drop-shadow-sm sm:size-52"
-          />
+          <DirtPad className="mb-1">
+            <Plant
+              speciesId={garden.selectedSpeciesId}
+              stage={session ? stage : 'sprout'}
+              className="size-40 text-ink drop-shadow-sm sm:size-52"
+            />
+          </DirtPad>
           <p className="tabular mt-3 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
             {clock(displayMs)}
           </p>

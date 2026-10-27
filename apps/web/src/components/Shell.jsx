@@ -13,6 +13,7 @@ const TITLES = {
   calendar: 'Calendar',
   dsa: 'DSA',
   grove: 'Grove',
+  websites: 'Productive time',
   sounds: 'Sounds',
   settings: 'Settings',
   about: 'About',
