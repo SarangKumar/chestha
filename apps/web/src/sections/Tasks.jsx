@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   PRIORITIES, SORTS, isCompleted, matchesQuery, selectCompleted, selectNoDate,
   selectOverdue, selectToday, selectUpcoming, sortTasks, sortWithCompletedLast, tagKey,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { PRIORITY_LABEL, TaskList } from '../components/TaskItem.jsx';
 import { Button, EmptyState, Panel, SectionHeader, Select, TextInput, cx } from '../components/ui.jsx';

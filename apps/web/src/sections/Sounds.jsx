@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, renamePreset,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import {

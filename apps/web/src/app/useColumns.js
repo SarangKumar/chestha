@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { CELL_PX, cellForWidth, columnsForWidth } from '@vistaar/core';
+import { CELL_PX, cellForWidth, columnsForWidth } from '@kalpvan/core';
 
 /**
  * Measures the grid and reports both the column count and the square cell size.

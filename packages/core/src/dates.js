@@ -1,4 +1,4 @@
-// Dates in Vistaar are plain local calendar dates: 'YYYY-MM-DD'.
+// Dates in Kalpvan are plain local calendar dates: 'YYYY-MM-DD'.
 // There is no time component and no timezone. A task due Thursday is due
 // Thursday wherever the user is, so no conversion ever happens.
 

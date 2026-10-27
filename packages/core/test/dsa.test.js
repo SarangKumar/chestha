@@ -412,7 +412,7 @@ test('export round-trips DSA data, and a version 1 backup still restores', async
   assert.deepEqual(result.data['dsa.progress'].events, store.getState()['dsa.progress'].events);
 
   // A pre-DSA backup must still import, with the new areas defaulted.
-  const v1 = { format: 'vistaar.workspace', version: 1, exportedAt: new Date().toISOString(),
+  const v1 = { format: 'kalpvan.workspace', version: 1, exportedAt: new Date().toISOString(),
     data: { tasks: [], tags: [], notes: { text: 'old' }, dashboard: { widgets: [] }, sound: {}, settings: {} } };
   const legacy = parseImport(JSON.stringify(v1));
   assert.equal(legacy.ok, true, 'version 1 files still import');
@@ -428,7 +428,7 @@ test('an import that is refused leaves DSA data untouched', async () => {
   store.update('dsa.progress', (p) => ({ ...p, events: [createEvent({ slug: 'keep-me', at: at(TODAY) })] }));
   const before = structuredClone(store.getState()['dsa.progress']);
 
-  for (const bad of ['', '{]', '{"format":"other","version":2,"data":{}}', '{"format":"vistaar.workspace","version":99,"data":{}}']) {
+  for (const bad of ['', '{]', '{"format":"other","version":2,"data":{}}', '{"format":"kalpvan.workspace","version":99,"data":{}}']) {
     assert.equal(parseImport(bad).ok, false);
   }
   assert.deepEqual(store.getState()['dsa.progress'], before);
@@ -575,9 +575,9 @@ test('a malformed pack is refused with a specific reason', () => {
     ['[]', /pack object/i],
     ['{"version":1,"questions":[]}', /format marker/i],
     ['{"format":"other","version":1,"questions":[]}', /reports its format/i],
-    ['{"format":"vistaar.dsa.pack","questions":[]}', /version number/i],
-    ['{"format":"vistaar.dsa.pack","version":99,"questions":[]}', /newer version/i],
-    ['{"format":"vistaar.dsa.pack","version":1}', /no question list/i],
+    ['{"format":"kalpvan.dsa.pack","questions":[]}', /version number/i],
+    ['{"format":"kalpvan.dsa.pack","version":99,"questions":[]}', /newer version/i],
+    ['{"format":"kalpvan.dsa.pack","version":1}', /no question list/i],
   ]) {
     const result = parsePack(input);
     assert.equal(result.ok, false, `should refuse: ${input}`);
@@ -587,7 +587,7 @@ test('a malformed pack is refused with a specific reason', () => {
 
 test('pack memberships pointing at absent questions are dropped', () => {
   const result = parsePack(JSON.stringify({
-    format: 'vistaar.dsa.pack', version: 1, questions: [{ slug: 'two-sum', title: 'Two Sum' }],
+    format: 'kalpvan.dsa.pack', version: 1, questions: [{ slug: 'two-sum', title: 'Two Sum' }],
     lists: [{ id: 'l1', name: 'L1' }],
     memberships: [{ listId: 'l1', slug: 'two-sum' }, { listId: 'l1', slug: 'ghost' }, { listId: 'nope', slug: 'two-sum' }],
   }));

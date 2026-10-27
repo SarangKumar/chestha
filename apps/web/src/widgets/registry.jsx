@@ -9,11 +9,11 @@ import {
   isValidGithubUsername, normalizeLines, pickForDay, questionUrl, selectCompletedOn,
   selectNoDate, selectOverdue, selectToday, selectUpcoming, shortAge, sortTasks,
   summariseEvents, summariseGeocode, summariseRepos, summariseWeather, websiteTimeByDay,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import {
   availableSeeds, isPaused as sessionPaused, levelFromXp, remainingMs, sessionProgress,
   stageForProgress, todayISO, xpOnDay,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import * as engine from '../audio/engine.js';
 import { Plant } from '../grove/plants.jsx';
 import { DirtPad, GardenPlot, gridCell, gridSizeForCount } from '../grove/GardenPlot.jsx';

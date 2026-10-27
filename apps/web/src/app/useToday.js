@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { msUntilNextLocalMidnight, todayISO } from '@vistaar/core';
+import { msUntilNextLocalMidnight, todayISO } from '@kalpvan/core';
 
 /** Today must stop being today at local midnight, even in a session that has
  *  been open since yesterday evening. */

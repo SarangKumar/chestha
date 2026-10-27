@@ -1,4 +1,4 @@
-# Chrome Web Store — Listing copy (Vistaar v0.1.0)
+# Chrome Web Store — Listing copy (Kalpvan v0.1.0)
 
 Paste these fields into the Chrome Web Store Developer Dashboard → **Store listing**.
 Keep claims faithful to the shipped product: local-first, no account, no telemetry, no sync/cloud.
@@ -9,7 +9,7 @@ Official image guide: https://developer.chrome.com/docs/webstore/images
 
 ## Item name
 
-**Vistaar**
+**Kalpvan**
 
 - Limit: ≤ 45 characters
 - Matches `manifest.json` `name` / `short_name`
@@ -35,7 +35,7 @@ Manifest description (for reference, not the Store short field):
 Copy everything between the markers into the **Detailed description** field.
 
 ```
-Vistaar replaces your New Tab with a personal productivity workspace: tasks, calendar, focus tools, ambient sound, and interview-prep tracking — all in one calm screen that opens every time you start something new.
+Kalpvan replaces your New Tab with a personal productivity workspace: tasks, calendar, focus tools, ambient sound, and interview-prep tracking — all in one calm screen that opens every time you start something new.
 
 Why install it
 • Stop bouncing between apps just to see what’s due today, what’s next on the calendar, and where you left a note.
@@ -53,11 +53,11 @@ What it does
 • Settings for appearance, Grove, export/import, and privacy controls that match a local-only product.
 
 Privacy, briefly
-Vistaar does not require sign-in and does not send your tasks, notes, or practice history to a Vistaar server — there isn’t one. Optional network features (GitHub public activity, weather forecast, shortcut icons) only run after you opt in. Website timing stores domain + local date + seconds on your device for sites you listed.
+Kalpvan does not require sign-in and does not send your tasks, notes, or practice history to a Kalpvan server — there isn’t one. Optional network features (GitHub public activity, weather forecast, shortcut icons) only run after you opt in. Website timing stores domain + local date + seconds on your device for sites you listed.
 
 Export regularly from Settings so a cleared browser profile doesn’t take your data with it.
 
-Vistaar is not affiliated with LeetCode, NeetCode, takeUforward, GitHub, Google, or other named services. Trademarks belong to their owners.
+Kalpvan is not affiliated with LeetCode, NeetCode, takeUforward, GitHub, Google, or other named services. Trademarks belong to their owners.
 ```
 
 ---
@@ -125,4 +125,4 @@ YouTube video: optional; leave blank until you have a short walkthrough.
 ## Version shown to reviewers
 
 - Manifest version: **0.1.0**
-- Package: `release/vistaar-0.1.0.zip` via `npm run pack:extension` from the repo root
+- Package: `release/kalpvan-0.1.0.zip` via `npm run pack:extension` from the repo root

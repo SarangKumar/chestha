@@ -1,4 +1,4 @@
-import { PRIORITIES, describeRecurrence, formatDueDate, isCompleted, isOverdue, isRecurring } from '@vistaar/core';
+import { PRIORITIES, describeRecurrence, formatDueDate, isCompleted, isOverdue, isRecurring } from '@kalpvan/core';
 import { Icon } from './icons.jsx';
 import { Badge, IconButton, cx } from './ui.jsx';
 

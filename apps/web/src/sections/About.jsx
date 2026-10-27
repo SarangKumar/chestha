@@ -1,4 +1,4 @@
-import { HIDEABLE_SECTIONS } from '@vistaar/core';
+import { HIDEABLE_SECTIONS } from '@kalpvan/core';
 import { Panel, SectionHeader } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 
@@ -14,7 +14,7 @@ export function About({ onNavigate }) {
   return (
     <div className="space-y-4">
       <SectionHeader
-        title="About Vistaar"
+        title="About Kalpvan"
         description="A local-first personal workspace: tasks, a calendar, ambient sound, a dashboard you arrange yourself, and a tracker for data-structures practice."
       />
 

@@ -1,7 +1,13 @@
 import { AREAS, STATE_VERSION, coerceArea } from './schema.js';
 
-export const EXPORT_FORMAT = 'vistaar.workspace';
+export const EXPORT_FORMAT = 'kalpvan.workspace';
+/** Older exports used the pre-rename product slug. Still accepted on import. */
+export const LEGACY_EXPORT_FORMATS = Object.freeze(['vistaar.workspace']);
 export const EXPORT_VERSION = STATE_VERSION;
+
+function isKnownExportFormat(format) {
+  return format === EXPORT_FORMAT || LEGACY_EXPORT_FORMATS.includes(format);
+}
 
 export function buildExport(state) {
   const payload = {
@@ -16,7 +22,7 @@ export function buildExport(state) {
 
 export function exportFilename(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
-  return `vistaar-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
+  return `kalpvan-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
 }
 
 /**
@@ -34,18 +40,18 @@ export function parseImport(text) {
   } catch (error) {
     return {
       ok: false,
-      error: `That file is not valid JSON, so it may be truncated or not a Vistaar export (${error.message}).`,
+      error: `That file is not valid JSON, so it may be truncated or not a Kalpvan export (${error.message}).`,
     };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: 'That file does not contain a Vistaar export object.' };
+    return { ok: false, error: 'That file does not contain a Kalpvan export object.' };
   }
-  if (parsed.format !== EXPORT_FORMAT) {
+  if (!isKnownExportFormat(parsed.format)) {
     return {
       ok: false,
       error: parsed.format
-        ? `That file reports its format as "${String(parsed.format).slice(0, 40)}", not a Vistaar export.`
-        : 'That file is missing its format marker, so it was not produced by Vistaar.',
+        ? `That file reports its format as "${String(parsed.format).slice(0, 40)}", not a Kalpvan export.`
+        : 'That file is missing its format marker, so it was not produced by Kalpvan.',
     };
   }
   if (!Number.isInteger(parsed.version)) {
@@ -56,7 +62,7 @@ export function parseImport(text) {
   if (parsed.version > EXPORT_VERSION) {
     return {
       ok: false,
-      error: `That export was written by a newer version of Vistaar (format ${parsed.version}; this version reads up to ${EXPORT_VERSION}).`,
+      error: `That export was written by a newer version of Kalpvan (format ${parsed.version}; this version reads up to ${EXPORT_VERSION}).`,
     };
   }
   if (!parsed.data || typeof parsed.data !== 'object') {

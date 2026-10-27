@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { addDays, catalogueItem, eligibleMinutes, milestones, todayISO } from '@vistaar/core';
+import { addDays, catalogueItem, eligibleMinutes, milestones, todayISO } from '@kalpvan/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { EmptyState, Meter, Panel, Stat, cx } from '../../components/ui.jsx';
 

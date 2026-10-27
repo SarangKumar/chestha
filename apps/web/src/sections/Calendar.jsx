@@ -3,7 +3,7 @@ import {
   addDays, addMonths, describeRecurrence, formatLongDate, isCompleted, isRecurring, isSameMonth,
   monthGrid, monthLabel, occurrencesInRange, orderedWeekdays, selectDueOn, selectNoDate, sortTasks,
   startOfMonth, weekdayIndex,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
 import { Button, EmptyState, Panel, SectionHeader, cx } from '../components/ui.jsx';

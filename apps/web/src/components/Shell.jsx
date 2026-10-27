@@ -1,4 +1,4 @@
-import { formatLongDate } from '@vistaar/core';
+import { formatLongDate } from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { NavRail } from './NavRail.jsx';
 import { RightSidebar } from './RightSidebar.jsx';

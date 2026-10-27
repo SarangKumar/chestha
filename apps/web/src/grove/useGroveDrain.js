@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { applySegments, appendRewards } from '@vistaar/core';
+import { applySegments, appendRewards } from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { KEY_INBOX, KEY_PAUSED, KEY_RULES, trackingAvailable } from './trackerBridge.js';
 

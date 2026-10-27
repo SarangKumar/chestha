@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { formatLongDate, selectCompletedOn, selectToday, sortTasks } from '@vistaar/core';
+import { formatLongDate, selectCompletedOn, selectToday, sortTasks } from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from './TaskItem.jsx';
 import { Button, Drawer, EmptyState } from './ui.jsx';

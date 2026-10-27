@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   DIFFICULTIES, buildRows, difficultyProgress, goalState, listProgress, revisionState,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Badge, Button, CardTitle, EmptyState, Meter, Panel, Stat } from '../../components/ui.jsx';
 

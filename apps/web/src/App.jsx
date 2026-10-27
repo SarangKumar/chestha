@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { todayISO } from '@vistaar/core';
+import { todayISO } from '@kalpvan/core';
 import { useShortcutDispatch } from './app/useShortcutDispatch.js';
 import { useGroveDrain } from './grove/useGroveDrain.js';
 import { useGroveMaintenance } from './grove/useGroveMaintenance.js';
@@ -95,7 +95,7 @@ function Workspace() {
     { id: 'import', label: 'Import a backup', group: 'Data', keywords: 'restore upload', run: () => go('settings') },
     {
       id: 'go-about',
-      label: 'About Vistaar',
+      label: 'About Kalpvan',
       group: 'Navigate',
       keywords: 'version privacy credits licence license help what is this',
       run: () => go('about'),

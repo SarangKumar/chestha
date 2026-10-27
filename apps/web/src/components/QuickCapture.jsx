@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { addDays, describeRecurrence, firstOccurrence, formatDueDate, todayISO } from '@vistaar/core';
+import { addDays, describeRecurrence, firstOccurrence, formatDueDate, todayISO } from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Badge, Button, Dialog, Field, TextInput, cx } from './ui.jsx';
 import { RepeatPicker } from './RepeatPicker.jsx';

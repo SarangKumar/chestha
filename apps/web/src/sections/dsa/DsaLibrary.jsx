@@ -3,7 +3,7 @@ import {
   BUNDLED_PACKS, DIFFICULTIES, EMPTY_FILTERS, GROUPINGS, QUESTION_SORTS, REVISION_FILTERS,
   SOURCES, STATUS_LABELS, applyPack, buildRows, difficultyProgress, filterRows, groupRows,
   hasActiveFilters, parsePack, questionUrl, sheetShortLabel, sortRows, topicKey,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
   Badge, Button, CardTitle, EmptyState, Panel, Select, Stat, TextInput, cx,

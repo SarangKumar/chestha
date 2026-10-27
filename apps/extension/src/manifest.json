@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Vistaar",
-  "short_name": "Vistaar",
+  "name": "Kalpvan",
+  "short_name": "Kalpvan",
   "version": "0.1.0",
   "description": "A local-first personal productivity workspace. Opens your tasks, calendar, sounds and DSA practice in one tab.",
   "action": {
-    "default_title": "Open Vistaar",
+    "default_title": "Open Kalpvan",
     "default_icon": {
       "16": "icon-16.png",
       "32": "icon-32.png",

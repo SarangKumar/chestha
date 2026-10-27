@@ -1,11 +1,11 @@
-# Terms of Use and Privacy Notice — Vistaar
+# Terms of Use and Privacy Notice — Kalpvan
 
 **Status: draft, not legal advice.** This file records what the software actually
 does, so that whoever prepares the published terms is working from facts rather
 than assumptions. Have a lawyer review it before publishing. Replace every
 `[BRACKETED]` placeholder.
 
-- **Product:** Vistaar — a local-first personal productivity workspace
+- **Product:** Kalpvan — a local-first personal productivity workspace
 - **Publisher:** `[LEGAL NAME / ENTITY]`
 - **Contact:** `[SUPPORT EMAIL]`
 - **Last updated:** `[DATE ON PUBLICATION]`
@@ -15,7 +15,7 @@ than assumptions. Have a lawyer review it before publishing. Replace every
 
 ## 1. What this software is
 
-Vistaar is a personal workspace for tasks, a calendar view, ambient sound, and
+Kalpvan is a personal workspace for tasks, a calendar view, ambient sound, and
 tracking practice of coding-interview questions. It runs entirely in your browser.
 
 There is no account, no sign-in, and no server operated by us that holds your
@@ -153,7 +153,7 @@ membership, and on nominative use of these names, before publishing.]`
 
 ### Not affiliated
 
-Vistaar is not affiliated with, endorsed by, or sponsored by LeetCode, NeetCode,
+Kalpvan is not affiliated with, endorsed by, or sponsored by LeetCode, NeetCode,
 takeUforward, Pixabay, Google, or any other named service. All trademarks belong
 to their owners.
 

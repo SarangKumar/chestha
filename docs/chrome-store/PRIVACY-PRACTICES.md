@@ -1,4 +1,4 @@
-# Chrome Web Store — Privacy practices (Vistaar v0.1.0)
+# Chrome Web Store — Privacy practices (Kalpvan v0.1.0)
 
 Answers for the Developer Dashboard **Privacy practices** / data-safety tab.
 Align with `TERMS.md` and `apps/extension/src/manifest.json`. Re-verify against the shipped ZIP before submit.
@@ -7,7 +7,7 @@ Align with `TERMS.md` and `apps/extension/src/manifest.json`. Re-verify against 
 
 ## Single purpose description
 
-**Vistaar is a local-first personal productivity New Tab workspace: tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking, with optional on-device focus/website-time features for Grove XP.**
+**Kalpvan is a local-first personal productivity New Tab workspace: tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking, with optional on-device focus/website-time features for Grove XP.**
 
 Keep this narrow. Do not describe advertising, content scraping, or general browsing-history products.
 
@@ -22,10 +22,10 @@ Manifest permissions: `tabs`, `idle`, `alarms`, `storage`.
 
 Used to:
 
-1. Focus an already-open Vistaar workspace tab instead of opening a duplicate.
+1. Focus an already-open Kalpvan workspace tab instead of opening a duplicate.
 2. Read the **address** of the active tab so optional website-time (Grove) can attribute seconds to a **site the user added a rule for**.
 
-Chrome’s permission wording may say “read your browsing history.” Honest disclosure: Vistaar does **not** read or store browsing history. Sites without a user-defined rule are never recorded. No page path, query, title, favicon, or page contents are stored.
+Chrome’s permission wording may say “read your browsing history.” Honest disclosure: Kalpvan does **not** read or store browsing history. Sites without a user-defined rule are never recorded. No page path, query, title, favicon, or page contents are stored.
 
 ### `idle`
 
@@ -53,7 +53,7 @@ The extension does not execute remote code. UI and logic ship inside the package
 
 ### What the developer collects
 
-**Essentially none.** There is no Vistaar backend, no account, no analytics, no telemetry, no crash reporter, and no advertising SDK. The publisher does not receive tasks, notes, calendar data, DSA history, or website-time records.
+**Essentially none.** There is no Kalpvan backend, no account, no analytics, no telemetry, no crash reporter, and no advertising SDK. The publisher does not receive tasks, notes, calendar data, DSA history, or website-time records.
 
 ### What stays on the device
 
@@ -109,14 +109,14 @@ Placeholders to replace before hosting: `[LEGAL NAME / ENTITY]`, `[SUPPORT EMAIL
 You can publish the following as a standalone page. It is a concise Store-facing policy derived from `TERMS.md`; it is **not** a substitute for legal review.
 
 ```
-Privacy Policy — Vistaar
+Privacy Policy — Kalpvan
 
 Publisher: [LEGAL NAME / ENTITY]
 Contact: [SUPPORT EMAIL]
 Last updated: [DATE ON PUBLICATION]
 
 1. Overview
-Vistaar is a local-first personal productivity browser extension and web app. It replaces (or can be opened as) a New Tab workspace for tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking. We do not operate a user-content server for Vistaar, and we do not require an account.
+Kalpvan is a local-first personal productivity browser extension and web app. It replaces (or can be opened as) a New Tab workspace for tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking. We do not operate a user-content server for Kalpvan, and we do not require an account.
 
 2. Data we collect
 We do not collect your workspace data. We do not use analytics, advertising, crash reporting, or usage telemetry in the application.
@@ -141,7 +141,7 @@ storage — hold small pending timing records for the workspace.
 No host permissions. No content scripts. No remote code.
 
 7. Children
-Vistaar is not directed at children under 13. Do not use it to store sensitive data about minors.
+Kalpvan is not directed at children under 13. Do not use it to store sensitive data about minors.
 
 8. Changes
 We may update this policy. The “Last updated” date will change when we do. Because we do not hold your workspace data on our servers, policy changes do not alter data we already store about you — we store none.

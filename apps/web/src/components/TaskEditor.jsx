@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PRIORITIES, addDays, completedLocalDay, describeRecurrence, firstOccurrence, isCompleted,
   normalizeTags, tagKey, todayISO,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { RepeatPicker } from './RepeatPicker.jsx';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Badge, Button, Dialog, Field, Select, TextArea, TextInput, cx } from './ui.jsx';

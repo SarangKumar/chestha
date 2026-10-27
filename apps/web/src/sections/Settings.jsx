@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   BACKGROUND_LABELS, BACKGROUND_PATTERNS, HIDEABLE_SECTIONS, buildExport, estimateUsage,
   exportFilename, formatLongDate, parseImport, tagKey,
-} from '@vistaar/core';
+} from '@kalpvan/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, Toggle, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
@@ -423,7 +423,7 @@ function StorageGroup({ status }) {
         <div>
           <dt className="text-ink-faint">Backing store</dt>
           <dd className="font-medium text-ink">
-            {status.mode === 'idb' ? 'IndexedDB (“vistaar”)' : status.storageReason ?? 'Unavailable'}
+            {status.mode === 'idb' ? 'IndexedDB (“kalpvan”)' : status.storageReason ?? 'Unavailable'}
           </dd>
         </div>
       </dl>

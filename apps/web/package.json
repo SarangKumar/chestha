@@ -1,5 +1,5 @@
 {
-  "name": "@vistaar/web",
+  "name": "@kalpvan/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vistaar/core": "*",
+    "@kalpvan/core": "*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
