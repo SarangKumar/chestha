@@ -25,8 +25,12 @@ export const SPECIES = {
   plant_fern: { light: '#8fc49b', dark: '#2f6b4a', bloom: null, glow: '#6fae84' },
   plant_bamboo: { light: '#b9cf86', dark: '#5a7f3c', bloom: null, glow: '#9bbd6d' },
   plant_cactus: { light: '#8fbf9c', dark: '#3f6f58', bloom: '#e4b7a0', glow: '#7aa98c' },
+  plant_ivy: { light: '#7fba8a', dark: '#2f5f3d', bloom: null, glow: '#6aa878' },
   plant_blossom: { light: '#9cc49a', dark: '#4a7a55', bloom: '#e6bfd0', glow: '#c99fb4' },
+  plant_olive: { light: '#b7c48a', dark: '#6a7a3e', bloom: null, glow: '#9aaa6a' },
   plant_moonflower: { light: '#a8c3c9', dark: '#44666f', bloom: '#eae3f2', glow: '#9fb6d6' },
+  plant_lotus: { light: '#9ec4b0', dark: '#3f6f5c', bloom: '#f0c4d8', glow: '#d4a0b8' },
+  plant_pine: { light: '#7a9e78', dark: '#2f4f38', bloom: null, glow: '#5f8a62' },
 };
 
 const paletteFor = (id) => SPECIES[id] ?? SPECIES.plant_sprout;

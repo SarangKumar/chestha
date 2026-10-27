@@ -78,9 +78,10 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
   const glass = state.settings.glass ?? 0.55;
 
-  // Visible edit surface: how many rows fit below the grid top and above the
-  // floating edit chrome / mobile nav, and the pixel height of that band so the
-  // edit grid can be capped to the screen instead of sprawling past it.
+  // Cap the edit grid to the remaining viewport so it fills the screen. Do NOT
+  // reserve a band for the floating pills — that empty canvas read as a full-
+  // width black strip under the grid. Pills overlay the grid; mobile only
+  // clears the bottom nav.
   const [viewportRows, setViewportRows] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const editScrollRef = useRef(null);
@@ -88,11 +89,9 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
     const measure = () => {
       const el = editScrollRef.current ?? measureRef.current;
       const top = el?.getBoundingClientRect().top ?? 0;
-      // sm: floating Done island (~bottom-6 + bar); mobile: bottom nav + island.
-      const bottomReserve = window.matchMedia('(min-width: 640px)').matches ? 80 : 112;
+      const bottomReserve = window.matchMedia('(min-width: 640px)').matches ? 0 : 56;
       const available = Math.max(0, window.innerHeight - top - bottomReserve);
       const pitch = cell + GAP;
-      // Rows that fit exactly in the band (n*cell + (n-1)*GAP <= available).
       const fit = pitch > 0 ? Math.floor((available + GAP) / pitch) : 0;
       setViewportHeight(available);
       setViewportRows(Math.max(0, fit));
@@ -229,65 +228,50 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         * right-hand padding keeps the centre measured against the grid rather
         * than the window when the today panel is open.
         */}
-      <div
-        className={cx(
-          // Fixed overlay — never participates in document flow, so the grid
-          // keeps the full viewport band measured for edit mode.
-          'pointer-events-none fixed inset-x-0 bottom-20 z-40 px-4 sm:bottom-6',
-          // Clear the fixed NavRail on sm+ so the left "rows" pill is readable.
-          'sm:pl-20',
-        )}
-      >
-        {!editing ? (
-          /* Deliberately small and recessive: it is chrome, not content, and
-             should not read as another tile sitting on the grid. */
-          <div className="flex justify-end">
+      {/*
+        * Edit chrome: shrink-wrapped floating pills only. Transparent fixed
+        * wrappers — never a full-width strip. Grid shows through behind them.
+        */}
+      {!editing ? (
+        <div className="pointer-events-none fixed bottom-20 right-4 z-40 bg-transparent sm:bottom-6 sm:right-6">
+          <Button
+            size="sm"
+            onClick={() => setEditing(true)}
+            title="Edit the dashboard layout"
+            className="pointer-events-auto h-8 rounded-full px-3 shadow-card"
+          >
+            <Icon name="edit" className="size-3.5" /> Edit
+          </Button>
+        </div>
+      ) : (
+        <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 flex w-max -translate-x-1/2 flex-col items-center gap-1.5 bg-transparent sm:bottom-6">
+          {canEdit && (
+            <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
+              Drag anywhere · Alt + arrows to move · add Shift to resize
+            </p>
+          )}
+          <div className="pointer-events-auto flex w-max items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
+            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
+              Reset
+            </Button>
             <Button
               size="sm"
-              onClick={() => setEditing(true)}
-              title="Edit the dashboard layout"
-              className="pointer-events-auto h-8 rounded-full px-3 shadow-card"
+              tone="quiet"
+              className="rounded-full"
+              onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
+              title="Remove deliberate gaps and pack everything to the top"
             >
-              <Icon name="edit" className="size-3.5" /> Edit
+              Tidy up
+            </Button>
+            <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
+              <Icon name="plus" className="size-4" /> Add
+            </Button>
+            <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
+              <Icon name="check" className="size-4" /> Done
             </Button>
           </div>
-        ) : (
-          <div className="relative flex items-end justify-center">
-            {canEdit && (
-              <p className="pointer-events-auto absolute bottom-0 left-0 rounded-full border border-line bg-overlay/90 px-2.5 py-1 text-meta text-ink-faint shadow-card backdrop-blur">
-                {rows} row{rows === 1 ? '' : 's'} in use.
-              </p>
-            )}
-            <div className="flex flex-col items-center gap-1.5">
-              {canEdit && (
-                <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
-                  Drag anywhere · Alt + arrows to move · add Shift to resize
-                </p>
-              )}
-              <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
-                <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
-                  Reset
-                </Button>
-                <Button
-                  size="sm"
-                  tone="quiet"
-                  className="rounded-full"
-                  onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
-                  title="Remove deliberate gaps and pack everything to the top"
-                >
-                  Tidy up
-                </Button>
-                <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
-                  <Icon name="plus" className="size-4" /> Add
-                </Button>
-                <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
-                  <Icon name="check" className="size-4" /> Done
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">
@@ -353,8 +337,15 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
       ) : (
         <div
           ref={editScrollRef}
-          className={cx(canEdit && 'overflow-x-hidden overflow-y-auto scrollbar-thin')}
-          style={canEdit && viewportHeight > 0 ? { maxHeight: viewportHeight } : undefined}
+          className={cx(
+            'bg-transparent',
+            canEdit && 'overflow-x-hidden overflow-y-auto scrollbar-thin',
+          )}
+          style={canEdit && viewportHeight > 0 ? {
+            maxHeight: viewportHeight,
+            // Scroll room under the floating pills; still grid/guides, not empty chrome.
+            paddingBottom: 72,
+          } : undefined}
         >
         <div
           ref={surfaceRef}
@@ -438,9 +429,12 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                   gridRow: `${widget.y + 1} / span ${widget.h}`,
                 }}
                 className={cx(
+                  // Hover/focus raises the card above the sticky header (z-20) and
+                  // mobile nav (z-30) so edit / remove / resize stay clickable.
                   'group/widget relative min-h-0 min-w-0',
-                  isDragging && 'z-20 opacity-60',
-                  isConfiguring && 'z-10',
+                  canEdit && 'hover:z-50 focus-within:z-50',
+                  isDragging && 'z-50 opacity-60',
+                  isConfiguring && 'z-50',
                 )}
               >
                 {/*
@@ -485,7 +479,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     <span
                       onPointerDown={(event) => begin(event, widget, 'move')}
                       className={cx(
-                        'absolute z-20 cursor-grab touch-none rounded-chip bg-overlay/90 p-1 text-ink-faint shadow-card',
+                        'absolute z-[60] cursor-grab touch-none rounded-chip bg-overlay/90 p-1 text-ink-faint shadow-card',
                         'hover:bg-hover hover:text-ink active:cursor-grabbing',
                         // Sit in the padding corner so the title/body stay put.
                         presentation === 'transparent' ? 'left-0.5 top-0.5' : 'left-1.5 top-1.5',
@@ -518,7 +512,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                   <>
                     <div
                       className={cx(
-                        'absolute -top-3 right-0 z-30 flex items-center gap-0.5 rounded-full border border-line bg-overlay p-0.5 shadow-card',
+                        'absolute -top-3 right-0 z-[60] flex items-center gap-0.5 rounded-full border border-line bg-overlay p-0.5 shadow-card',
                         'opacity-0 transition-opacity duration-150',
                         'pointer-events-none group-hover/widget:pointer-events-auto group-hover/widget:opacity-100',
                         'group-focus-within/widget:pointer-events-auto group-focus-within/widget:opacity-100',
@@ -551,7 +545,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                       tabIndex={-1}
                       aria-label={`Resize ${definition.name}`}
                       className={cx(
-                        'absolute -bottom-2.5 -right-2.5 z-30 cursor-nwse-resize touch-none rounded-full border border-line bg-overlay p-1.5 text-ink-faint shadow-card',
+                        'absolute -bottom-2.5 -right-2.5 z-[60] cursor-nwse-resize touch-none rounded-full border border-line bg-overlay p-1.5 text-ink-faint shadow-card',
                         'opacity-0 transition-opacity duration-150 hover:bg-hover hover:text-ink',
                         'pointer-events-none group-hover/widget:pointer-events-auto group-hover/widget:opacity-100',
                         'group-focus-within/widget:pointer-events-auto group-focus-within/widget:opacity-100',

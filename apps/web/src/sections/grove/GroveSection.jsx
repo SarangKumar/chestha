@@ -1,6 +1,6 @@
 import { availableSeeds, levelFromXp, todayISO, xpOnDay } from '@vistaar/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
-import { Meter, cx } from '../../components/ui.jsx';
+import { Meter, Panel, cx } from '../../components/ui.jsx';
 import { Session } from './Session.jsx';
 import { Garden } from './Garden.jsx';
 import { Collection } from './Collection.jsx';
@@ -8,7 +8,7 @@ import { Stats } from './Stats.jsx';
 
 /** Sub-navigation lives inside the section, as it does for DSA: the rail is full. */
 const TABS = [
-  { id: 'session', label: 'Session', render: Session },
+  { id: 'session', label: 'Focus', render: Session },
   { id: 'garden', label: 'Garden', render: Garden },
   { id: 'collection', label: 'Collection', render: Collection },
   { id: 'stats', label: 'Stats', render: Stats },
@@ -17,10 +17,17 @@ const TABS = [
 export function GroveSection({ tab, onChangeTab, onNavigate }) {
   const { state } = useWorkspace();
   const ledger = state['grove.ledger'];
+  const settings = state['grove.settings'];
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   const Render = active.render;
 
   const level = levelFromXp(ledger.lifetime.xp);
+  const xpToday = xpOnDay(ledger, todayISO());
+  const seeds = availableSeeds(ledger);
+  const focus = settings.focus ?? {};
+  const taskXp = settings.taskBaseXp ?? 10;
+  const taskCap = settings.dailyTaskCapXp ?? 120;
+  const xpPerMin = focus.xpPerMinute ?? 2;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col">
@@ -28,22 +35,35 @@ export function GroveSection({ tab, onChangeTab, onNavigate }) {
         <div>
           <h1 className="text-page font-semibold text-ink">Grove</h1>
           <p className="text-meta text-ink-muted">
-            One session, one plant. Interrupting it never costs you what you have grown.
+            Grow your focus, one session at a time. Interrupting never costs what you have grown.
           </p>
         </div>
         <dl className="flex items-center gap-5 text-right">
           <div>
+            <dt className="text-meta text-ink-faint">Level</dt>
+            <dd className="tabular text-stat font-semibold text-ink">{level.level}</dd>
+          </div>
+          <div>
             <dt className="text-meta text-ink-faint">XP today</dt>
-            <dd className="tabular text-stat font-semibold text-ink">{xpOnDay(ledger, todayISO())}</dd>
+            <dd className="tabular text-stat font-semibold text-ink">{xpToday}</dd>
           </div>
           <div>
             <dt className="text-meta text-ink-faint">Seeds</dt>
-            <dd className="tabular text-stat font-semibold text-ink">{availableSeeds(ledger)}</dd>
+            <dd className="tabular text-stat font-semibold text-ink">{seeds}</dd>
           </div>
         </dl>
       </header>
 
-      <div className="mb-5">
+      <div className="mb-3">
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-medium text-ink">
+            Level {level.level}
+            <span className="ml-2 text-meta font-normal text-ink-faint">
+              {level.into} / {level.needed} XP to level {level.level + 1}
+            </span>
+          </p>
+          <p className="tabular text-meta text-ink-faint">{ledger.lifetime.xp} XP lifetime</p>
+        </div>
         <Meter
           value={level.into}
           max={level.needed}
@@ -51,23 +71,56 @@ export function GroveSection({ tab, onChangeTab, onNavigate }) {
         />
       </div>
 
+      <Panel level="inset" className="mb-5 space-y-2 p-4">
+        <h2 className="text-card font-medium text-ink">How Grove works</h2>
+        <dl className="space-y-2 text-meta leading-relaxed text-ink-muted">
+          <div>
+            <dt className="font-medium text-ink">XP</dt>
+            <dd>
+              Experience points — a running total of focused work. XP never goes down and is never spent.
+              Your <span className="text-ink">level</span> is derived from lifetime XP; fill the meter above to reach the next one.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-ink">How you gain XP</dt>
+            <dd>
+              <span className="text-ink">Focus sessions</span> earn about {xpPerMin} XP per eligible minute
+              (plus a completion bonus when you finish the full timer).
+              {' '}<span className="text-ink">Tasks</span> earn about {taskXp} XP when you complete one
+              (priority can add a little; capped around {taskCap} XP/day from tasks).
+              {' '}<span className="text-ink">Tracked websites</span> earn XP at minute thresholds you set in Settings — only while that tab is in front.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-ink">Seeds</dt>
+            <dd>
+              Come from focus sessions and are spent in Collection to unlock plants and scenery.
+              Levels gate what you may unlock; seeds decide what you take. Spending seeds never costs XP or levels.
+            </dd>
+          </div>
+        </dl>
+        <p className="text-[10px] leading-relaxed text-ink-faint">
+          Numbers are tunable in Settings. Ending a session early still keeps the plant and the XP you already earned.
+        </p>
+      </Panel>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div role="tablist" aria-label="Grove views" className="flex flex-wrap gap-1 rounded-card border border-line bg-surface p-1 shadow-card">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={active.id === item.id}
-            onClick={() => onChangeTab(item.id)}
-            className={cx(
-              'rounded-chip px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-              active.id === item.id ? 'bg-accent-soft text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active.id === item.id}
+              onClick={() => onChangeTab(item.id)}
+              className={cx(
+                'rounded-chip px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                active.id === item.id ? 'bg-accent-soft text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
         <button

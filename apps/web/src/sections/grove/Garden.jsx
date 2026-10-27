@@ -24,9 +24,15 @@ export function Garden() {
 
   if (garden.plants.length === 0) {
     return (
-      <Panel className="p-6">
+      <Panel className="relative overflow-hidden p-8 text-center">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none mx-auto mb-4 flex size-28 items-center justify-center opacity-90"
+        >
+          <Plant speciesId={garden.selectedSpeciesId} stage="sprout" className="size-28 text-ink" />
+        </div>
         <EmptyState
-          title="Nothing planted yet"
+          title="Your Focus Garden is empty"
           description="Every focus session plants one. Start a session and it will be here when you come back — however it ends."
         />
       </Panel>

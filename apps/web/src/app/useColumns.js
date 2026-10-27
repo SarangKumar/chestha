@@ -5,7 +5,7 @@ import { CELL_PX, cellForWidth, columnsForWidth } from '@vistaar/core';
  * Measures the grid and reports both the column count and the square cell size.
  *
  * The grid spans the page edge to edge. The column count is the nearest whole
- * number of ~48px squares that fits, and the cell is then the width divided
+ * number of ~44px squares that fits, and the cell is then the width divided
  * evenly between them — so the last column ends at the right edge rather than
  * short of it, while the square stays within a pixel or two of its intended
  * size.

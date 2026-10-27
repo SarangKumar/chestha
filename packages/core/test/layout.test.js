@@ -371,10 +371,10 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
 });
 
 test('the default layout is anchored, so its spacing survives compaction', () => {
-  // The shipped layout is positioned deliberately — DSA top-right, clock centred
-  // with search beneath it, scratchpad and shortcuts along the bottom. Without
-  // anchors, compaction would collapse all of it into the first column on the
-  // very first render.
+  // The shipped layout is positioned deliberately — weather top-left, Focus
+  // Garden top-right, clock/search/intention centred, scratchpad and shortcuts
+  // along the bottom. Without anchors, compaction would collapse all of it into
+  // the first column on the very first render.
   assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => w.pinned), 'every widget is anchored');
   assert.ok(isValidLayout(DEFAULT_DASHBOARD.widgets, BASE_COLUMNS));
 
@@ -400,17 +400,24 @@ test('the default layout reaches the corners of whatever width it is resolved at
     assert.ok(widgets.every((w) => w.pinned), 'and still anchored');
 
     const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
-    // The weather tile is the top-right corner, and shortcuts the bottom-right.
-    assert.equal(byId.w_weather.x + byId.w_weather.w, columns, `weather hugs the right edge at ${columns}`);
-    assert.equal(byId.w_weather.y, 0, 'at the top');
+    // Weather top-left, Focus Garden top-right, shortcuts bottom-right.
+    assert.equal(byId.w_weather.x, 0, `weather hugs the left edge at ${columns}`);
+    assert.equal(byId.w_weather.y, 0, 'weather at the top');
+    assert.equal(byId.w_grove.x + byId.w_grove.w, columns, `Focus Garden hugs the right edge at ${columns}`);
+    assert.equal(byId.w_grove.y, 0, 'Focus Garden at the top');
     assert.equal(byId.w_shortcuts.x + byId.w_shortcuts.w, columns, 'shortcuts hug the right edge');
     assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
 
-    // The clock and the search box are centred, and centred on each other.
+    // Clock, search and intention share a centre line.
     const clockMid = byId.w_clock.x + byId.w_clock.w / 2;
     const searchMid = byId.w_search.x + byId.w_search.w / 2;
+    const intentionMid = byId.w_inspiration.x + byId.w_inspiration.w / 2;
     assert.equal(clockMid, searchMid, 'the clock sits over the search box');
+    assert.equal(searchMid, intentionMid, 'the intention sits under the search box');
     assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
+
+    assert.equal(byId.w_clock.config?.showSeconds, true, 'clock shows seconds by default');
+    assert.equal(byId.w_inspiration.config?.showTitle, false, 'intention is title-free');
   }
 
   // Nothing is placed off the grid, however absurd the column count.
@@ -422,6 +429,7 @@ test('the default layout reaches the corners of whatever width it is resolved at
 
   // The DSA tile is deliberately absent; the section is paused.
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'dsaToday'));
+  assert.ok(defaultWidgetsFor(24).some((w) => w.type === 'grove'), 'Focus Garden is on the default');
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────
@@ -476,7 +484,7 @@ test('resizing to a preset respects the widget limits regardless', () => {
 });
 
 test('the grid fills the page exactly, and its squares stay square', () => {
-  // Wide enough that a fixed 48px cell still reaches the right edge of a large
+  // Wide enough that a fixed ~44px cell still reaches the right edge of a large
   // desktop, so the placement grid covers the screen rather than stopping short.
   assert.equal(BASE_COLUMNS, 48);
   assert.equal(V3_COLUMNS, 24, 'the width old coordinates were written against');

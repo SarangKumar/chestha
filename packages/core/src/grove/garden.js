@@ -4,7 +4,7 @@ import { availableSeeds } from './ledger.js';
 /**
  * The catalogue: what there is to own.
  *
- * Deliberately small. Six plants, four decorations, three environments is enough for
+ * Deliberately bounded. Ten plants, four decorations, three environments is enough for
  * the loop to mean something and little enough that none of it is filler; the shape
  * here takes more without changing anything else.
  *
@@ -18,8 +18,12 @@ export const CATALOGUE = [
   { id: 'plant_fern', kind: 'plant', name: 'Fern', unlockLevel: 2, seedCost: 2, note: 'Patient, and happy in shade.' },
   { id: 'plant_bamboo', kind: 'plant', name: 'Bamboo', unlockLevel: 3, seedCost: 3, note: 'Grows in visible steps.' },
   { id: 'plant_cactus', kind: 'plant', name: 'Cactus', unlockLevel: 4, seedCost: 4, note: 'Survives a thin week.' },
+  { id: 'plant_ivy', kind: 'plant', name: 'Ivy', unlockLevel: 5, seedCost: 5, note: 'Quietly covers what it finds.' },
   { id: 'plant_blossom', kind: 'plant', name: 'Cherry blossom', unlockLevel: 6, seedCost: 6, note: 'Brief, and worth it.' },
+  { id: 'plant_olive', kind: 'plant', name: 'Olive', unlockLevel: 7, seedCost: 6, note: 'Slow, and built to last.' },
   { id: 'plant_moonflower', kind: 'plant', name: 'Moon flower', unlockLevel: 8, seedCost: 8, note: 'Opens after dark.' },
+  { id: 'plant_lotus', kind: 'plant', name: 'Lotus', unlockLevel: 9, seedCost: 9, note: 'Rises clean from still water.' },
+  { id: 'plant_pine', kind: 'plant', name: 'Pine', unlockLevel: 10, seedCost: 10, note: 'Keeps its green through winter.' },
 
   { id: 'deco_stone', kind: 'decoration', name: 'Standing stone', unlockLevel: 2, seedCost: 2 },
   { id: 'deco_lantern', kind: 'decoration', name: 'Lantern', unlockLevel: 3, seedCost: 3 },

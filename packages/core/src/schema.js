@@ -65,18 +65,27 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
  *
  * `offset` shifts a widget inward from its anchor, in columns.
  */
+/**
+ * Default dashboard — matched to docs/default-dashboard-ref.png:
+ * weather top-left, Focus Garden top-right, clock / search / intention centred,
+ * scratchpad bottom-left, shortcuts bottom-right. Calm spacing, pinned anchors.
+ */
 const DEFAULT_SKETCH = [
-  { id: 'w_weather', type: 'weather', anchor: 'right', offset: 0, y: 0, w: 2, h: 2 },
-  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 4, h: 2 },
-  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 8, h: 2 },
-  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 8, w: 4, h: 4 },
-  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 8, w: 4, h: 2 },
+  { id: 'w_weather', type: 'weather', anchor: 'left', offset: 0, y: 0, w: 3, h: 2 },
+  { id: 'w_grove', type: 'grove', anchor: 'right', offset: 0, y: 0, w: 3, h: 3 },
+  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 3, w: 6, h: 2,
+    config: { showSeconds: true } },
+  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 5, w: 8, h: 2 },
+  { id: 'w_inspiration', type: 'inspiration', anchor: 'center', offset: 0, y: 7, w: 8, h: 1,
+    config: { showTitle: false, presentation: 'transparent' } },
+  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 9, w: 4, h: 3 },
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 9, w: 4, h: 2 },
 ];
 
 /**
  * The width the stored default is resolved at.
  *
- * Only as many fixed-size columns as fit are on screen — 16 at a 1024px window.
+ * Only as many fixed-size columns as fit are on screen — enough for the default at a 1024px window.
  * A default resolved against the whole canvas would not fit a laptop, and a
  * layout that does not fit has its editing paused to protect it, so the app
  * would open in a guarded state on an ordinary screen. Restoring the default
@@ -97,13 +106,13 @@ export function defaultWidgetsFor(columns = DEFAULT_COLUMNS) {
   // drawn; above BASE_COLUMNS is off the canonical grid.
   const cols = Math.max(8, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
 
-  return DEFAULT_SKETCH.map(({ anchor, offset, ...widget }) => {
+  return DEFAULT_SKETCH.map(({ anchor, offset, config, ...widget }) => {
     const x = anchor === 'right'
       ? Math.max(0, cols - widget.w - offset)
       : anchor === 'center'
         ? Math.max(0, Math.round((cols - widget.w) / 2) + offset)
         : Math.min(offset, Math.max(0, cols - widget.w));
-    return { ...widget, x, pinned: true, config: {} };
+    return { ...widget, x, pinned: true, config: { ...(config ?? {}) } };
   });
 }
 

@@ -1642,7 +1642,7 @@ function WeatherConfig({ widget, onChange }) {
  * Container queries, not breakpoints: a narrow tile shows the plant and the clock, a
  * wider one earns the level meter, and a wider one still earns the duration chips.
  */
-function GroveWidget({ onNavigate }) {
+function GroveWidget({ onNavigate, span }) {
   const { state, actions, notify } = useWorkspace();
   const session = state['grove.focus'].active;
   const garden = state['grove.garden'];
@@ -1662,65 +1662,106 @@ function GroveWidget({ onNavigate }) {
   const remaining = session ? remainingMs(session, now) : settings.focus.defaultMinutes * 60000;
   const total = Math.ceil(remaining / 1000);
   const clock = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  const w = span?.w ?? 1;
+  const h = span?.h ?? 1;
+  // 3×3 and up: stacked “start session” card. Smaller tiles stay compact.
+  const mid = w >= 3 && h >= 3;
+  const roomy = w >= 4 && h >= 3;
+
+  const startSession = () => {
+    setNow(Date.now());
+    actions.startFocusSession();
+    const preset = state.sound.presets.find((p) => p.id === settings.soundMixId);
+    if (preset) startSessionSound(preset, state.sound.masterVolume);
+  };
+
+  const pauseToggle = () => {
+    if (sessionPaused(session)) { actions.resumeFocusSession(); resumeSessionSound(); }
+    else { actions.pauseFocusSession(); pauseSessionSound(); }
+  };
+
+  const endSession = () => {
+    const result = actions.endFocusSession();
+    if (!result) return;
+    stopSessionSound({ chime: settings.chimeOnComplete });
+    notify(`Ended · +${result.earned.xp} XP`);
+  };
+
+  if (!session && mid) {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 overflow-hidden px-2 py-1 text-center">
+        <Plant
+          speciesId={garden.selectedSpeciesId}
+          stage="sprout"
+          className={cx('text-ink', roomy ? 'size-20 @[14rem]:size-28' : 'size-14 @[10rem]:size-16')}
+        />
+        <p className={cx(
+          'max-w-[14rem] text-balance leading-snug text-ink-muted',
+          roomy ? 'text-sm' : 'text-[11px]',
+        )}>
+          Grow your focus, one session at a time
+        </p>
+        <Button size="sm" onClick={startSession}>
+          <Icon name="play" className="size-4" /> Start session
+        </Button>
+        <div className="mt-auto w-full px-0.5 pt-1">
+          <p className="mb-1 text-left text-[10px] text-ink-faint">
+            Level {level.level} · {level.into}/{level.needed} XP
+          </p>
+          <Meter value={level.into} max={level.needed} label={`Level ${level.level}`} />
+        </div>
+      </div>
+    );
+  }
+
+  // Compact / mid-with-session: stack on square tiles so 3×3 never clips.
+  const stack = w <= 3 || h <= 3;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <Plant
-        speciesId={garden.selectedSpeciesId}
-        stage={session ? stageForProgress(progress) : 'seed'}
-        className="size-14 text-ink @[9rem]:size-20"
-      />
-      <p className="tabular text-stat font-semibold text-ink">{clock}</p>
-      <p className="text-meta text-ink-faint">
-        {session ? (sessionPaused(session) ? 'Paused' : `${session.plannedMinutes} min session`) : `Level ${level.level}`}
-      </p>
-
-      <div className="hidden w-full px-2 @[9rem]:block">
-        <Meter value={level.into} max={level.needed} label={`Level ${level.level}, ${level.into} of ${level.needed} XP`} />
+    <div className={cx(
+      'flex h-full min-h-0 flex-col justify-center gap-1.5 overflow-hidden',
+      stack ? 'items-center px-1.5 py-1 text-center' : 'items-stretch px-2',
+    )}>
+      <div className={cx(
+        'flex min-h-0 w-full items-center gap-2',
+        stack ? 'flex-col justify-center' : 'flex-row justify-center',
+      )}>
+        <Plant
+          speciesId={garden.selectedSpeciesId}
+          stage={session ? stageForProgress(progress) : 'sprout'}
+          className={cx('shrink-0 text-ink', stack ? 'size-12 @[8rem]:size-14' : 'size-14 @[9rem]:size-16')}
+        />
+        <div className={cx('min-w-0', stack ? 'text-center' : 'flex-1 text-left')}>
+          <p className="tabular text-stat font-semibold leading-none text-ink">{clock}</p>
+          <p className="mt-1 text-meta text-ink-faint">
+            {session
+              ? (sessionPaused(session) ? 'Paused' : `${session.plannedMinutes} min`)
+              : `Level ${level.level}`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {session ? (
+            <>
+              <Button size="sm" tone="quiet" className="rounded-full" onClick={pauseToggle}>
+                <Icon name={sessionPaused(session) ? 'play' : 'pause'} className="size-4" />
+              </Button>
+              <Button size="sm" tone="quiet" className="rounded-full" onClick={endSession}>
+                <Icon name="stop" className="size-4" />
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" className="rounded-full" onClick={startSession}>
+              <Icon name="play" className="size-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        {session ? (
-          <>
-            <Button
-              size="sm"
-              tone="quiet"
-              onClick={() => {
-                if (sessionPaused(session)) { actions.resumeFocusSession(); resumeSessionSound(); }
-                else { actions.pauseFocusSession(); pauseSessionSound(); }
-              }}
-            >
-              <Icon name={sessionPaused(session) ? 'play' : 'pause'} className="size-4" />
-            </Button>
-            <Button
-              size="sm"
-              tone="quiet"
-              onClick={() => {
-                const result = actions.endFocusSession();
-                if (!result) return;
-                stopSessionSound({ chime: settings.chimeOnComplete });
-                notify(`Ended · +${result.earned.xp} XP`);
-              }}
-            >
-              <Icon name="stop" className="size-4" />
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            onClick={() => {
-              setNow(Date.now());
-              actions.startFocusSession();
-              const preset = state.sound.presets.find((p) => p.id === settings.soundMixId);
-              if (preset) startSessionSound(preset, state.sound.masterVolume);
-            }}
-          >
-            <Icon name="play" className="size-4" /> Start
-          </Button>
-        )}
-        <Button size="sm" tone="quiet" className="hidden @[13rem]:inline-flex" onClick={() => onNavigate('grove', 'session')}>
-          Open Grove
-        </Button>
+      <div className="mt-auto w-full px-0.5">
+        <p className="mb-1 text-left text-[10px] text-ink-faint">
+          Level {level.level} · {level.into}/{level.needed} XP
+        </p>
+        <Meter value={level.into} max={level.needed} label={`Level ${level.level}, ${level.into} of ${level.needed} XP`} />
       </div>
     </div>
   );
@@ -1938,10 +1979,10 @@ export const WIDGETS = {
   },
   grove: {
     presentation: 'card',
-    name: 'Grove',
-    description: 'Your plant, the focus timer and your level. The session screen is one click away.',
-    defaultSize: { w: 4, h: 4 },
-    sizes: ['small', 'tall', 'wide', 'large', 'column'],
+    name: 'Focus Garden',
+    description: 'Focus Garden on the dashboard — plant, timer, and a way to start a session.',
+    defaultSize: { w: 3, h: 3 },
+    sizes: ['small', 'square', 'tall', 'wide', 'large', 'column'],
     limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     render: GroveWidget,
   },

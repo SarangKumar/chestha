@@ -72,34 +72,40 @@ export function WebsiteRules() {
         </label>
       )}
 
-      <form
-        onSubmit={add}
-        className="grid min-w-0 grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto] items-start gap-x-3 gap-y-1.5"
-      >
-        <label htmlFor="website-rule-name" className="text-meta font-medium text-ink">Name</label>
-        <label htmlFor="website-rule-domain" className="text-meta font-medium text-ink">Website</label>
-        <span className="sr-only">Add</span>
-
-        <TextInput
-          id="website-rule-name"
-          value={draft.label}
-          onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-          placeholder="Practice"
-        />
-        <TextInput
-          id="website-rule-domain"
-          value={draft.domain}
-          onChange={(event) => { setDraft({ ...draft, domain: event.target.value }); setError(''); }}
-          placeholder="leetcode.com"
-          aria-invalid={error ? 'true' : undefined}
-        />
-        <Button type="submit" className="h-9 shrink-0 self-center">
-          <Icon name="plus" className="size-4" /> Add
-        </Button>
-
-        <p className="text-meta leading-relaxed text-ink-faint">Optional</p>
-        <p className="text-meta leading-relaxed text-ink-faint">Just the site, like leetcode.com</p>
-        <span aria-hidden="true" />
+      {/*
+        * One horizontal row of three columns: Name, Website, Add. Each field
+        * stacks label → input → hint so hints never shove the button onto a
+        * new line. Plain flex (not an arbitrary grid-template) so Tailwind
+        * cannot drop the columns.
+        */}
+      <form onSubmit={add} className="flex w-full min-w-0 flex-row items-start gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="website-rule-name" className="text-meta font-medium text-ink">Name</label>
+          <TextInput
+            id="website-rule-name"
+            value={draft.label}
+            onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+            placeholder="Practice"
+          />
+          <p className="text-meta leading-relaxed text-ink-faint">Optional</p>
+        </div>
+        <div className="flex min-w-0 flex-[1.35] flex-col gap-1.5">
+          <label htmlFor="website-rule-domain" className="text-meta font-medium text-ink">Website</label>
+          <TextInput
+            id="website-rule-domain"
+            value={draft.domain}
+            onChange={(event) => { setDraft({ ...draft, domain: event.target.value }); setError(''); }}
+            placeholder="leetcode.com"
+            aria-invalid={error ? 'true' : undefined}
+          />
+          <p className="text-meta leading-relaxed text-ink-faint">Just the site, like leetcode.com</p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <span className="invisible select-none text-meta font-medium" aria-hidden="true">Add</span>
+          <Button type="submit" className="h-9">
+            <Icon name="plus" className="size-4" /> Add
+          </Button>
+        </div>
       </form>
       {error && <p className="text-meta text-danger">{error}</p>}
 

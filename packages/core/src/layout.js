@@ -52,7 +52,7 @@ export const V3_COLUMNS = 24;
  * widget is — only how many columns fit beside it. Deriving the cell from the
  * width instead made every square shrink as the window narrowed.
  */
-export const CELL_PX = 48;
+export const CELL_PX = 44;
 
 /**
  * How many columns fill the page.
@@ -100,6 +100,7 @@ export const MIN_H = 1;
 export const SIZE_PRESETS = [
   { key: 'tiny', label: 'XS', title: 'Tiny', w: 1, h: 1 },
   { key: 'small', label: 'S', title: 'Small', w: 2, h: 2 },
+  { key: 'square', label: '3', title: 'Square', w: 3, h: 3 },
   { key: 'wide', label: 'W', title: 'Wide', w: 4, h: 2 },
   { key: 'tall', label: 'T', title: 'Tall', w: 2, h: 4 },
   { key: 'large', label: 'L', title: 'Large', w: 4, h: 4 },

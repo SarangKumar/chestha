@@ -97,8 +97,12 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
 
         <main
           className={cx(
-            'w-full px-4 pb-24 pt-6 sm:px-6 sm:pb-12 sm:pt-8',
-            FULL_WIDTH_SECTIONS.has(section) ? 'max-w-none' : 'mx-auto max-w-5xl',
+            // Dashboard/settings stay edge-to-edge from 1024px: lighter horizontal
+            // padding so ~16 columns still fit beside the nav rail.
+            'w-full pb-24 pt-6 sm:pb-12 sm:pt-8',
+            FULL_WIDTH_SECTIONS.has(section)
+              ? 'max-w-none px-3 sm:px-4'
+              : 'mx-auto max-w-5xl px-4 sm:px-6',
           )}
         >
           <div className="mb-6 space-y-2 empty:mb-0">
