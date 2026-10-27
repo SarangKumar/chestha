@@ -371,10 +371,10 @@ test('anchors persist, so a deliberate layout survives a reload', async () => {
 });
 
 test('the default layout is anchored, so its spacing survives compaction', () => {
-  // The shipped layout is positioned deliberately — weather top-left, Focus
-  // Garden top-right, clock/search/intention centred, scratchpad and shortcuts
-  // along the bottom. Without anchors, compaction would collapse all of it into
-  // the first column on the very first render.
+  // The shipped layout is positioned deliberately — weather top-right, clock and
+  // search centred, scratchpad and shortcuts in the bottom corners, open mid
+  // board. Without anchors, compaction would collapse all of it into the first
+  // column on the very first render.
   assert.ok(DEFAULT_DASHBOARD.widgets.every((w) => w.pinned), 'every widget is anchored');
   assert.ok(isValidLayout(DEFAULT_DASHBOARD.widgets, BASE_COLUMNS));
 
@@ -400,24 +400,29 @@ test('the default layout reaches the corners of whatever width it is resolved at
     assert.ok(widgets.every((w) => w.pinned), 'and still anchored');
 
     const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
-    // Weather top-left, Focus Garden top-right, shortcuts bottom-right.
-    assert.equal(byId.w_weather.x, 0, `weather hugs the left edge at ${columns}`);
+    // Weather top-right, scratchpad bottom-left, shortcuts bottom-right.
+    assert.equal(byId.w_weather.x + byId.w_weather.w, columns, `weather hugs the right edge at ${columns}`);
     assert.equal(byId.w_weather.y, 0, 'weather at the top');
-    assert.equal(byId.w_grove.x + byId.w_grove.w, columns, `Focus Garden hugs the right edge at ${columns}`);
-    assert.equal(byId.w_grove.y, 0, 'Focus Garden at the top');
+    assert.equal(byId.w_weather.config?.presentation, 'transparent', 'weather is glass');
     assert.equal(byId.w_shortcuts.x + byId.w_shortcuts.w, columns, 'shortcuts hug the right edge');
+    assert.equal(byId.w_shortcuts.config?.presentation, 'transparent', 'shortcuts are glass');
     assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
+    assert.equal(byId.w_notes.config?.presentation, 'transparent', 'scratchpad is glass');
 
-    // Clock, search and intention share a centre line.
+    // Clock and search share a centre line; mid-board stays open below them.
     const clockMid = byId.w_clock.x + byId.w_clock.w / 2;
     const searchMid = byId.w_search.x + byId.w_search.w / 2;
-    const intentionMid = byId.w_inspiration.x + byId.w_inspiration.w / 2;
     assert.equal(clockMid, searchMid, 'the clock sits over the search box');
-    assert.equal(searchMid, intentionMid, 'the intention sits under the search box');
     assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
+    assert.ok(byId.w_search.y > byId.w_clock.y, 'search sits under the clock');
+    assert.ok(byId.w_notes.y > byId.w_search.y + byId.w_search.h, 'scratchpad leaves open mid-board');
+    assert.equal(byId.w_notes.y, byId.w_shortcuts.y, 'bottom corners share a row');
 
-    assert.equal(byId.w_clock.config?.showSeconds, true, 'clock shows seconds by default');
-    assert.equal(byId.w_inspiration.config?.showTitle, false, 'intention is title-free');
+    assert.equal(byId.w_clock.config?.showSeconds, false, 'clock matches the digital HH:MM look');
+    assert.equal(byId.w_clock.config?.presentation, 'transparent', 'clock is glass');
+    assert.equal(byId.w_search.config?.presentation, 'transparent', 'search is glass');
+    assert.equal(byId.w_inspiration, undefined, 'intention is not on the default board');
+    assert.equal(byId.w_grove, undefined, 'Focus Garden is not on the default board');
   }
 
   // Nothing is placed off the grid, however absurd the column count.
@@ -427,9 +432,10 @@ test('the default layout reaches the corners of whatever width it is resolved at
     assert.ok(widgets.every((w) => w.x + w.w <= BASE_COLUMNS), `inside the canvas at ${columns}`);
   }
 
-  // The DSA tile is deliberately absent; the section is paused.
+  // The DSA tile and Focus Garden are deliberately absent from the shipped board.
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'dsaToday'));
-  assert.ok(defaultWidgetsFor(24).some((w) => w.type === 'grove'), 'Focus Garden is on the default');
+  assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'grove'), 'Focus Garden is off the default');
+  assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'inspiration'), 'intention is off the default');
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────

@@ -44,42 +44,35 @@ export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
 export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 
 /**
- * The shipped layout, laid out to a sketch rather than packed to the top-left:
- * DSA in the top-right corner, the clock centred with the search bar directly
- * beneath it, the scratchpad bottom-left and shortcuts bottom-right.
- *
- * Every widget is `pinned`, which is load-bearing. Compaction floats unpinned
- * widgets upward, so without anchors the deliberate spacing here would collapse
- * into a block in the first column the moment the dashboard rendered. "Tidy up"
- * releases the anchors for anyone who does want it packed.
- */
-/**
  * The shipped arrangement, described by where each widget is anchored rather
  * than by fixed coordinates.
  *
  * The number of columns on screen depends on the window, so a layout written as
  * absolute x positions only looks right at one width — it bunched into the left
- * third of a large monitor. Anchoring says what was actually meant: the weather
- * tile belongs in the top-right corner, the clock and search box are centred,
- * the scratchpad and shortcuts sit in the bottom corners.
+ * third of a large monitor. Anchoring says what was actually meant: weather in
+ * the top-right corner, clock and search centred, scratchpad and shortcuts in
+ * the bottom corners. Every widget is `pinned` so compaction cannot collapse
+ * the open mid-board; "Tidy up" releases those anchors.
  *
  * `offset` shifts a widget inward from its anchor, in columns.
  */
 /**
- * Default dashboard — matched to docs/default-dashboard-ref.png:
- * weather top-left, Focus Garden top-right, clock / search / intention centred,
- * scratchpad bottom-left, shortcuts bottom-right. Calm spacing, pinned anchors.
+ * Default dashboard — sparse corners + centre stack (glass / transparent):
+ * weather top-right, clock and search centred upper-middle, scratchpad
+ * bottom-left, shortcuts bottom-right. Open mid-board; no Focus Garden or
+ * intention on the shipped board (add those from the widget picker).
  */
 const DEFAULT_SKETCH = [
-  { id: 'w_weather', type: 'weather', anchor: 'left', offset: 0, y: 0, w: 3, h: 2 },
-  { id: 'w_grove', type: 'grove', anchor: 'right', offset: 0, y: 0, w: 3, h: 3 },
-  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 3, w: 6, h: 2,
-    config: { showSeconds: true } },
-  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 5, w: 8, h: 2 },
-  { id: 'w_inspiration', type: 'inspiration', anchor: 'center', offset: 0, y: 7, w: 8, h: 1,
-    config: { showTitle: false, presentation: 'transparent' } },
-  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 9, w: 4, h: 3 },
-  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 9, w: 4, h: 2 },
+  { id: 'w_weather', type: 'weather', anchor: 'right', offset: 0, y: 0, w: 3, h: 2,
+    config: { presentation: 'transparent' } },
+  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 6, h: 2,
+    config: { showSeconds: false, presentation: 'transparent' } },
+  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 8, h: 2,
+    config: { presentation: 'transparent' } },
+  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 10, w: 4, h: 3,
+    config: { presentation: 'transparent' } },
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 10, w: 4, h: 2,
+    config: { presentation: 'transparent' } },
 ];
 
 /**

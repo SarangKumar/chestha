@@ -1,5 +1,36 @@
 import { cx } from './ui.jsx';
 
+/**
+ * Catmull–Rom → cubic Bézier path through `[x, y]` points.
+ * Gives Productive time charts a smooth stroke without a chart library.
+ */
+function smoothLinePath(coords) {
+  if (!coords.length) return '';
+  const fmt = (n) => n.toFixed(2);
+  if (coords.length === 1) {
+    const [x, y] = coords[0];
+    return `M${fmt(x)} ${fmt(y)}`;
+  }
+  if (coords.length === 2) {
+    const [[x0, y0], [x1, y1]] = coords;
+    return `M${fmt(x0)} ${fmt(y0)} L${fmt(x1)} ${fmt(y1)}`;
+  }
+  let d = `M${fmt(coords[0][0])} ${fmt(coords[0][1])}`;
+  for (let i = 0; i < coords.length - 1; i += 1) {
+    const p0 = coords[i - 1] ?? coords[i];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] ?? p2;
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${fmt(cp1x)} ${fmt(cp1y)}, ${fmt(cp2x)} ${fmt(cp2y)}, ${fmt(p2[0])} ${fmt(p2[1])}`;
+  }
+  return d;
+}
+
+
 /** Y ticks (max, mid, 0) shown beside a chart with a fixed pixel height. */
 function YAxis({ max, height, formatValue }) {
   const fmt = (v) => (formatValue ? formatValue(v) : String(Math.round(v)));
@@ -61,7 +92,7 @@ export function LineChart({
     return [x, y];
   });
 
-  const line = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+  const line = smoothLinePath(coords);
   const area = coords.length
     ? `${line} L${coords[coords.length - 1][0].toFixed(2)} ${(padY + innerH).toFixed(2)} L${coords[0][0].toFixed(2)} ${(padY + innerH).toFixed(2)} Z`
     : '';
@@ -176,11 +207,12 @@ export function MultiLineChart({
   const pathFor = (points) => {
     if (!points.length) return '';
     const count = points.length;
-    return points.map((value, index) => {
+    const coords = points.map((value, index) => {
       const x = padX + (count === 1 ? innerW / 2 : (index / (count - 1)) * innerW);
       const y = padY + innerH - (value / max) * innerH;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
-    }).join(' ');
+      return [x, y];
+    });
+    return smoothLinePath(coords);
   };
 
   const tipParts = rows.map((row) => {
