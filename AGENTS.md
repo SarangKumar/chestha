@@ -157,7 +157,7 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   layers — shaped noise or tones, optional filters, LFOs and scheduled grain
   bursts, which is what gives fire its crackle and thunder its rumble. No audio
   files, no licence to verify, works offline. Users can add their own recordings by
-  dropping files in `apps/web/public/audio/` and listing them in `manifest.json`;
+  dropping files in `apps/web/public/audio/` and listing them in `catalog.json`;
   the manifest rejects absolute paths, `..` and remote URLs, so it cannot make the
   app fetch from elsewhere. **Pixabay cannot be downloaded from automatically** —
   it returns 403 to automated requests, like LeetCode. The engine is a module singleton so navigation

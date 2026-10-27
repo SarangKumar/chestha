@@ -2,7 +2,7 @@
 
 The built-in sounds are synthesised in the browser and need no files. To add real
 recordings — from Pixabay, Freesound, or anywhere you have the rights to use —
-drop them in this folder and list them in `manifest.json`:
+drop them in this folder and list them in `catalog.json`:
 
 ```json
 {

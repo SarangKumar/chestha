@@ -12,12 +12,15 @@
  *   2. Size. The audio alone is ~25 MB of a ~27 MB build, and every installer
  *      downloads it whether or not they ever open the Sounds page.
  *
- * Stripping media leaves each manifest in place with an empty list rather than
- * deleting it, because the app fetches those manifests on load; an empty list
- * is a normal state the catalogue already handles, a 404 is not.
+ * Stripping media leaves each media catalog in place with an empty list rather
+ * than deleting it, because the app fetches those catalogs on load; an empty
+ * list is a normal state the catalogue already handles, a 404 is not.
  *
- * The staging copy is built beside the zip and left in place, so you can inspect
- * exactly what was uploaded after the fact.
+ * Media indexes are named catalog.json (not manifest.json). Chrome Web Store
+ * rejects a package that contains more than one file named manifest.json, and
+ * the MV3 extension manifest must be the only one.
+ *
+ * Staging is deleted after the zip is written — only the .zip remains.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -37,10 +40,14 @@ const DROP_ALWAYS = [
   'icon.png', // superseded by the sized icons; referenced by neither manifest nor page
 ];
 
-/** Folders whose media is the author's own, each paired with its manifest. */
+/**
+ * Folders whose media is the author's own, each paired with its catalog.
+ * Catalogs must NOT be named manifest.json — CWS treats every path ending in
+ * /manifest.json as an extension manifest.
+ */
 const MEDIA_FOLDERS = [
-  { dir: 'audio', manifest: 'audio/manifest.json', key: 'sounds' },
-  { dir: 'backgrounds', manifest: 'backgrounds/manifest.json', key: 'backgrounds' },
+  { dir: 'audio', catalog: 'audio/catalog.json', key: 'sounds' },
+  { dir: 'backgrounds', catalog: 'backgrounds/catalog.json', key: 'images' },
 ];
 
 function walk(dir, base = dir) {
@@ -54,6 +61,10 @@ const human = (bytes) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 
 function totalBytes(dir) {
   return walk(dir).reduce((sum, rel) => sum + statSync(`${dir}/${rel}`).size, 0);
+}
+
+function isManifestPath(rel) {
+  return rel === 'manifest.json' || rel.endsWith('/manifest.json');
 }
 
 export function packExtension({ keepMedia = false, quiet = false } = {}) {
@@ -82,19 +93,35 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
 
   for (const rel of DROP_ALWAYS) drop(rel);
 
+  // Drop any leftover media indexes named manifest.json (legacy name). CWS
+  // would treat them as extra extension manifests.
+  for (const { dir } of MEDIA_FOLDERS) {
+    drop(`${dir}/manifest.json`);
+  }
+
   if (!keepMedia) {
-    for (const { dir, manifest, key } of MEDIA_FOLDERS) {
+    for (const { dir, catalog, key } of MEDIA_FOLDERS) {
       const folder = `${stage}/${dir}`;
       if (!existsSync(folder)) continue;
-      // Everything but the manifest itself: the manifest is rewritten, not removed.
+      // Everything but the catalog itself: the catalog is rewritten, not removed.
       for (const name of readdirSync(folder)) {
-        if (`${dir}/${name}` !== manifest) drop(`${dir}/${name}`);
+        if (`${dir}/${name}` !== catalog) drop(`${dir}/${name}`);
       }
       writeFileSync(
-        `${stage}/${manifest}`,
+        `${stage}/${catalog}`,
         `${JSON.stringify({ comment: 'Bundled media is not redistributed. Add your own files here.', [key]: [] }, null, 2)}\n`,
       );
     }
+  }
+
+  // Guard: never ship a second file named manifest.json
+  const stagedFiles = walk(stage);
+  const allNamedManifest = stagedFiles.filter(isManifestPath);
+  if (allNamedManifest.length !== 1 || allNamedManifest[0] !== 'manifest.json') {
+    rmSync(stage, { recursive: true, force: true });
+    throw new Error(
+      `Pack refused: expected exactly one manifest.json at package root, found: ${allNamedManifest.join(', ') || '(none)'}`,
+    );
   }
 
   // `zip -r` from inside the staging folder, so paths in the archive are
@@ -102,13 +129,19 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
   // manifest.json sits inside a wrapper directory.
   execFileSync('zip', ['-r', '-q', '-X', zip, '.'], { cwd: stage });
 
+  const after = totalBytes(stage);
+  const zipped = statSync(zip).size;
+
+  // Remove temporary staging — only the .zip remains.
+  rmSync(stage, { recursive: true, force: true });
+
   const result = {
     zip,
-    stage,
+    stage: null,
     version,
     before,
-    after: totalBytes(stage),
-    zipped: statSync(zip).size,
+    after,
+    zipped,
     dropped,
     keptMedia: keepMedia,
   };
@@ -118,14 +151,14 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
     if (dropped.length > 0) {
       console.log('Stripped:');
       for (const line of dropped) console.log(`  - ${line}`);
-      if (!keepMedia) console.log('  (audio and background manifests kept, with empty lists)');
+      if (!keepMedia) console.log('  (audio and background catalogs kept, with empty lists)');
       console.log('');
     }
     console.log(`  unpacked build  ${human(result.before)}`);
     console.log(`  after stripping ${human(result.after)}`);
     console.log(`  zipped          ${human(result.zipped)}\n`);
     console.log(`Upload:  ${zip}`);
-    console.log(`Staged:  ${stage}  (what the archive contains, for checking)\n`);
+    console.log('Staging removed after pack.\n');
     console.log('Pass --keep-media to include the bundled wallpaper and audio. Only do that');
     console.log('if you hold redistribution rights for every file in those folders.');
   }
@@ -134,5 +167,10 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
-  if (!packExtension({ keepMedia: process.argv.includes('--keep-media') })) process.exit(1);
+  try {
+    if (!packExtension({ keepMedia: process.argv.includes('--keep-media') })) process.exit(1);
+  } catch (err) {
+    console.error(err.message || err);
+    process.exit(1);
+  }
 }

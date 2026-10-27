@@ -97,7 +97,7 @@ export function Settings() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/backgrounds/manifest.json')
+    fetch('/backgrounds/catalog.json')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!cancelled && Array.isArray(data?.images)) setBackgroundImages(data.images);

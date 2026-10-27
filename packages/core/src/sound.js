@@ -191,7 +191,7 @@ export function soundById(id, extra = []) {
 }
 
 /**
- * Validates a user-supplied audio manifest (apps/web/public/audio/manifest.json).
+ * Validates a user-supplied audio manifest (apps/web/public/audio/catalog.json).
  * Files are optional; the built-in set works with none of them present.
  */
 export function coerceAudioManifest(raw) {

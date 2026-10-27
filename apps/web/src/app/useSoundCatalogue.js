@@ -17,7 +17,7 @@ const listeners = new Set();
 function load() {
   if (cache) return Promise.resolve(cache);
   if (inFlight) return inFlight;
-  inFlight = fetch('/audio/manifest.json')
+  inFlight = fetch('/audio/catalog.json')
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => coerceAudioManifest(data ?? {}))
     .catch(() => [])
