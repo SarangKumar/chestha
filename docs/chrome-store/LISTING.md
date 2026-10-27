@@ -1,4 +1,4 @@
-# Chrome Web Store — Listing copy (Kalpvan v0.1.0)
+# Chrome Web Store — Listing copy (Kalpvan v0.1.1)
 
 Paste these fields into the Chrome Web Store Developer Dashboard → **Store listing**.
 Keep claims faithful to the shipped product: local-first, no account, no telemetry, no sync/cloud.
@@ -124,5 +124,5 @@ YouTube video: optional; leave blank until you have a short walkthrough.
 
 ## Version shown to reviewers
 
-- Manifest version: **0.1.0**
-- Package: `release/kalpvan-0.1.0.zip` via `npm run pack:extension` from the repo root
+- Manifest version: **0.1.1**
+- Package: `release/kalpvan-0.1.1.zip` via `npm run pack:extension` from the repo root

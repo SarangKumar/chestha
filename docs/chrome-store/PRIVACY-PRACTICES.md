@@ -1,4 +1,4 @@
-# Chrome Web Store — Privacy practices (Kalpvan v0.1.0)
+# Chrome Web Store — Privacy practices (Kalpvan v0.1.1)
 
 Answers for the Developer Dashboard **Privacy practices** / data-safety tab.
 Align with `TERMS.md` and `apps/extension/src/manifest.json`. Re-verify against the shipped ZIP before submit.

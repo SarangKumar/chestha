@@ -1,4 +1,4 @@
-# Chrome Web Store — Upload checklist (Kalpvan v0.1.0)
+# Chrome Web Store — Upload checklist (Kalpvan v0.1.1)
 
 Do this from the Kalpvan repo root on your Mac. No CloudAgent required.
 
@@ -28,11 +28,11 @@ npm run pack:extension
 
 Upload this archive (version follows `package.json`):
 
-`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/kalpvan-0.1.0.zip`
+`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/kalpvan-0.1.1.zip`
 
 Staging folder for inspection:
 
-`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/kalpvan-0.1.0/`
+`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/kalpvan-0.1.1/`
 
 Default pack strips local media you may not redistribute. Only use `--keep-media` if you hold rights for every file.
 
@@ -41,7 +41,7 @@ Default pack strips local media you may not redistribute. Only use `--keep-media
 ## Upload order (recommended)
 
 1. [ ] Create / select the item in Chrome Web Store Developer Dashboard.
-2. [ ] **Package** — upload `release/kalpvan-0.1.0.zip`.
+2. [ ] **Package** — upload `release/kalpvan-0.1.1.zip`.
 3. [ ] **Store listing** — paste fields from `LISTING.md`:
    - Item name: Kalpvan
    - Summary (≤132)

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Kalpvan",
   "short_name": "Kalpvan",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local-first personal productivity workspace. Opens your tasks, calendar, sounds and DSA practice in one tab.",
   "action": {
     "default_title": "Open Kalpvan",
