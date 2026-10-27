@@ -15,6 +15,7 @@ import { Calendar } from './sections/Calendar.jsx';
 import { DsaSection } from './sections/dsa/DsaSection.jsx';
 import { GroveSection } from './sections/grove/GroveSection.jsx';
 import { Sounds } from './sections/Sounds.jsx';
+import { Websites } from './sections/Websites.jsx';
 import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
 
@@ -74,6 +75,7 @@ function Workspace() {
     { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', run: () => { actions.startFocusSession(); go('grove'); } },
     { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', run: () => actions.endFocusSession() },
     { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', run: () => go('sounds') },
+    { id: 'go-websites', label: 'Go to productive time', group: 'Navigate', keywords: 'time tracking sites domains websites', shortcut: 'G W', run: () => go('websites') },
     { id: 'go-settings', label: 'Go to settings', group: 'Navigate', shortcut: 'G S', run: () => go('settings') },
     {
       id: 'toggle-theme',
@@ -116,6 +118,7 @@ function Workspace() {
       'go-calendar': () => go('calendar', todayISO()),
       'go-dsa': () => go('dsa', 'home'),
       'go-sounds': () => go('sounds'),
+      'go-websites': () => go('websites'),
       'go-settings': () => go('settings'),
       navigate: go,
     },
@@ -163,6 +166,7 @@ function Workspace() {
             onNavigate={go}
           />
         )}
+        {section === 'websites' && <Websites />}
         {section === 'sounds' && <Sounds />}
         {section === 'settings' && <Settings />}
         {section === 'about' && <About onNavigate={go} />}

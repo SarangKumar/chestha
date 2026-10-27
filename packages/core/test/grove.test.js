@@ -10,6 +10,7 @@ import {
   MAX_TICK_MS, applySegments, catalogueItem, creditableMs, hostOf,
   isUnlocked, matchRule, splitAtMidnight, unlockItem, unlockState,
   MAX_LIVE_EVENTS, ROLLUP_AFTER_DAYS, addDays, GARDEN_ROWS, plantPlacement,
+  formatTrackedDuration, websiteTimeByDay,
 } from '../src/index.js';
 
 const DAY = '2026-10-23';
@@ -692,4 +693,46 @@ test('a plant stands in the same place every time the garden is drawn', () => {
   assert.equal(new Set(once.map((s) => s.row)).size, GARDEN_ROWS, 'every row is used');
   // Two plants with different ids in the same slot do not stand on top of each other.
   assert.notEqual(plantPlacement('pl_a', 0).left, plantPlacement('pl_b', 0).left);
+});
+
+
+// --- website time charts ----------------------------------------------------
+
+test('formatTrackedDuration rounds to readable minutes and hours', () => {
+  assert.equal(formatTrackedDuration(0), '0m');
+  assert.equal(formatTrackedDuration(59), '1m');
+  assert.equal(formatTrackedDuration(60 * 45), '45m');
+  assert.equal(formatTrackedDuration(60 * 90), '1h 30m');
+  assert.equal(formatTrackedDuration(60 * 120), '2h');
+});
+
+test('websiteTimeByDay builds a dense day series with totals and orphans', () => {
+  const rules = [
+    { id: 'rule_a', domain: 'leetcode.com', label: 'LeetCode', enabled: true },
+    { id: 'rule_b', domain: 'github.com', label: 'GitHub', enabled: true },
+  ];
+  const time = {
+    days: {
+      '2026-10-22': { rules: { rule_a: { seconds: 600, awarded: [], focusCoveredSeconds: 0 } }, websiteXp: 0 },
+      '2026-10-23': {
+        rules: {
+          rule_a: { seconds: 1200, awarded: [], focusCoveredSeconds: 0 },
+          rule_b: { seconds: 300, awarded: [], focusCoveredSeconds: 0 },
+          rule_gone: { seconds: 90, awarded: [], focusCoveredSeconds: 0 },
+        },
+        websiteXp: 0,
+      },
+    },
+    seenSegments: [],
+  };
+  const chart = websiteTimeByDay(time, rules, { days: 3, today: '2026-10-23' });
+  assert.deepEqual(chart.days, ['2026-10-21', '2026-10-22', '2026-10-23']);
+  assert.equal(chart.series[0].ruleId, 'rule_a');
+  assert.deepEqual(chart.series[0].points, [0, 600, 1200]);
+  assert.equal(chart.series[0].total, 1800);
+  const orphan = chart.series.find((row) => row.ruleId === 'rule_gone');
+  assert.ok(orphan);
+  assert.equal(orphan.label, 'A removed rule');
+  assert.deepEqual(chart.totals, [0, 600, 1590]);
+  assert.equal(chart.grandTotal, 2190);
 });

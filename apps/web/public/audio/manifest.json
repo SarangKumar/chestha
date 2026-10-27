@@ -2,12 +2,44 @@
   "comment": "Drop your own looping audio files in this folder and list them here. They appear in the Sounds library alongside the built-in synthesised ones, with their own volume, and work in mixes and presets identically. Nothing is fetched from the internet - files are served from this app only.",
   "sounds": [
     {
-      "id": "night-forest",
-      "name": "Night Forest with Frogs and Crickets for Sleep",
+      "id": "rain-leaves",
+      "name": "Rain on leaves",
       "group": "Your files",
-      "description": "Ambient forest sounds for a peaceful night.",
-      "credit": "Pixabay - Content License",
-      "file": "night-forest.mp3"
+      "description": "Steady rain falling on foliage — a continuous outdoor bed.",
+      "credit": "Gravity Sound — CC BY 4.0 (Wikimedia Commons)",
+      "file": "rain-leaves.m4a"
+    },
+    {
+      "id": "light-rain",
+      "name": "Light rainfall",
+      "group": "Your files",
+      "description": "Soft rain without thunder; loops cleanly for long sessions.",
+      "credit": "Mijesty — CC BY-SA 4.0 (Wikimedia Commons)",
+      "file": "light-rain.m4a"
+    },
+    {
+      "id": "forest-ambience",
+      "name": "Forest ambience",
+      "group": "Your files",
+      "description": "Birds and woodland air recorded outdoors.",
+      "credit": "dobroide — CC BY 3.0 (Freesound / Wikimedia Commons)",
+      "file": "forest-ambience.m4a"
+    },
+    {
+      "id": "ocean-waves",
+      "name": "Ocean waves",
+      "group": "Your files",
+      "description": "Waves breaking on a shore — a two-minute steady loop.",
+      "credit": "Luftrum — CC BY 3.0 (Wikimedia Commons)",
+      "file": "ocean-waves.m4a"
+    },
+    {
+      "id": "soft-murmur",
+      "name": "Soft murmur",
+      "group": "Your files",
+      "description": "Gentle room-tone pink noise with rare soft taps — a cafe-like bed generated for this app.",
+      "credit": "Original for Vistaar — CC0",
+      "file": "soft-murmur.m4a"
     }
   ]
 }

@@ -54,7 +54,7 @@ export function useShortcutDispatch({ enabled, overrides, handlers, blocked }) {
       // Fixed G-then-X sequences, which are documented but not customisable.
       const key = event.key.toLowerCase();
       if (awaitingGo) {
-        const destination = { d: 'dashboard', t: 'tasks', c: 'calendar', a: 'dsa', o: 'sounds', s: 'settings' }[key];
+        const destination = { d: 'dashboard', t: 'tasks', c: 'calendar', a: 'dsa', o: 'sounds', w: 'websites', s: 'settings' }[key];
         awaitingGo = false;
         clearTimeout(goTimer);
         if (destination && current.navigate) {

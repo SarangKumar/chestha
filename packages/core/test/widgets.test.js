@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GITHUB_FORMS, HIDEABLE_SECTIONS, TEMPERATURE_UNITS, activityLevel, buildActivityCalendar,
+  GITHUB_FORMS, HIDEABLE_SECTIONS, TEMPERATURE_UNITS, activityDayLabels, activityLevel,
+  activityMonthLabels, buildActivityCalendar, buildContributionYearCalendar,
   coerceArea, coerceGithubForm, coerceTemperatureUnit, coerceWeatherPlace, describeCondition,
   describeEvent, describeGithubError, describePlace, forecastUrl, formatTemperature, geocodeUrl,
-  githubEventsUrl, githubProfileUrl, githubReposUrl, isValidGithubUsername, normalizeLines,
+  githubContributionsUrl, githubEventsUrl, githubProfileUrl, githubReposUrl, isValidGithubUsername, normalizeLines,
   pickForDay, shortAge, summariseEvents, summariseGeocode, summariseRepos, summariseWeather,
 } from '../src/index.js';
 
@@ -390,4 +391,55 @@ test('temperatures are whole degrees, and a missing one is visibly missing', () 
   assert.equal(formatTemperature(null, '°C'), '—', 'never a bare 0 standing in for no data');
   assert.equal(formatTemperature(undefined), '—');
   assert.equal(formatTemperature('warm'), '—');
+});
+
+
+test('activity month and day labels match GitHub’s contribution layout', () => {
+  const calendar = buildActivityCalendar([], '2026-10-23', 8, 0, { truncated: false });
+  const months = activityMonthLabels(calendar.columns);
+  assert.ok(months.length >= 1);
+  assert.equal(months[0].index, 0);
+  assert.match(months[0].label, /^[A-Z][a-z]{2}$/);
+  // Sunday-start weeks: Mon/Wed/Fri sit on rows 1, 3 and 5.
+  assert.deepEqual(activityDayLabels(0), [
+    { row: 1, label: 'Mon' },
+    { row: 3, label: 'Wed' },
+    { row: 5, label: 'Fri' },
+  ]);
+  // Monday-start weeks: those same weekdays sit on rows 0, 2 and 4.
+  assert.deepEqual(activityDayLabels(1), [
+    { row: 0, label: 'Mon' },
+    { row: 2, label: 'Wed' },
+    { row: 4, label: 'Fri' },
+  ]);
+});
+
+
+test('contribution year calendar fills ~53 weeks from day rows', () => {
+  const days = [
+    { date: '2026-10-20', count: 2, level: 1 },
+    { date: '2026-10-21', count: 0, level: 0 },
+    { date: '2026-10-22', count: 5, level: 3 },
+    { date: '2026-10-23', count: 1, level: 1 },
+  ];
+  const calendar = buildContributionYearCalendar(days, '2026-10-23', 53, 0);
+  assert.equal(calendar.weeks, 53);
+  assert.equal(calendar.columns.length, 53);
+  assert.equal(calendar.columns[0].length, 7);
+  assert.equal(calendar.source, 'contributions');
+  const cell = calendar.columns.flat().find((d) => d.date === '2026-10-22');
+  assert.ok(cell);
+  assert.equal(cell.count, 5);
+  assert.equal(cell.known, true);
+  assert.equal(cell.level, 3);
+  const future = calendar.columns.flat().filter((d) => d.future);
+  assert.ok(future.every((d) => d.count === 0));
+});
+
+test('contribution calendar URL is built from the username only', () => {
+  assert.equal(
+    githubContributionsUrl('octocat'),
+    'https://github-contributions-api.jogruber.de/v4/octocat',
+  );
+  assert.ok(githubContributionsUrl('a b').includes('a%20b'));
 });

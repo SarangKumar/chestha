@@ -78,18 +78,29 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
 
   const glass = state.settings.glass ?? 0.55;
 
-  // How many grid rows the visible part of the page is tall. Measured from the
-  // grid's own top, so the header and any notices above it are already excluded.
+  // Visible edit surface: how many rows fit below the grid top and above the
+  // floating edit chrome / mobile nav, and the pixel height of that band so the
+  // edit grid can be capped to the screen instead of sprawling past it.
   const [viewportRows, setViewportRows] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const editScrollRef = useRef(null);
   useLayoutEffect(() => {
     const measure = () => {
-      const top = measureRef.current?.getBoundingClientRect().top ?? 0;
-      setViewportRows(Math.max(0, (window.innerHeight - top) / (cell + GAP)));
+      const el = editScrollRef.current ?? measureRef.current;
+      const top = el?.getBoundingClientRect().top ?? 0;
+      // sm: floating Done island (~bottom-6 + bar); mobile: bottom nav + island.
+      const bottomReserve = window.matchMedia('(min-width: 640px)').matches ? 80 : 112;
+      const available = Math.max(0, window.innerHeight - top - bottomReserve);
+      const pitch = cell + GAP;
+      // Rows that fit exactly in the band (n*cell + (n-1)*GAP <= available).
+      const fit = pitch > 0 ? Math.floor((available + GAP) / pitch) : 0;
+      setViewportHeight(available);
+      setViewportRows(Math.max(0, fit));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [cell]);
+  }, [cell, editing]);
 
   const stored = state.dashboard.widgets;
 
@@ -194,13 +205,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   };
 
   const rows = Math.max(layoutHeight(visible), 1);
-  // The guide grid covers the whole screen, not just the rows in use: an empty
-  // lower half with no guides reads as "nothing can go here", when in fact that
-  // is exactly where there is room. `cell + GAP` is one row's pitch.
-  const guideRows = Math.max(rows + 2, Math.ceil(viewportRows));
+  // Guides fill the visible edit band (and cover every occupied row when the
+  // layout is taller). They no longer add extra rows past the viewport — that
+  // used to make the edit surface taller than the screen.
+  const guideRows = Math.max(rows, viewportRows || 1);
 
   return (
-    <div>
+    <div ref={measureRef} className="w-full">
       <h1 className="sr-only">Dashboard</h1>
 
       {/*
@@ -220,50 +231,61 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         */}
       <div
         className={cx(
-          'pointer-events-none fixed inset-x-0 bottom-20 z-40 flex flex-col gap-1.5 px-4 sm:bottom-6',
-          editing ? 'items-center' : 'items-end',
+          // Fixed overlay — never participates in document flow, so the grid
+          // keeps the full viewport band measured for edit mode.
+          'pointer-events-none fixed inset-x-0 bottom-20 z-40 px-4 sm:bottom-6',
+          // Clear the fixed NavRail on sm+ so the left "rows" pill is readable.
+          'sm:pl-20',
         )}
       >
         {!editing ? (
           /* Deliberately small and recessive: it is chrome, not content, and
              should not read as another tile sitting on the grid. */
-          <Button
-            size="sm"
-            onClick={() => setEditing(true)}
-            title="Edit the dashboard layout"
-            className="pointer-events-auto h-8 rounded-full px-3 shadow-card"
-          >
-            <Icon name="edit" className="size-3.5" /> Edit
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => setEditing(true)}
+              title="Edit the dashboard layout"
+              className="pointer-events-auto h-8 rounded-full px-3 shadow-card"
+            >
+              <Icon name="edit" className="size-3.5" /> Edit
+            </Button>
+          </div>
         ) : (
-          <>
+          <div className="relative flex items-end justify-center">
             {canEdit && (
-              <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
-                Drag anywhere · Alt + arrows to move · add Shift to resize
+              <p className="pointer-events-auto absolute bottom-0 left-0 rounded-full border border-line bg-overlay/90 px-2.5 py-1 text-meta text-ink-faint shadow-card backdrop-blur">
+                {rows} row{rows === 1 ? '' : 's'} in use.
               </p>
             )}
-
-            <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
-              <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
-                Reset
-              </Button>
-              <Button
-                size="sm"
-                tone="quiet"
-                className="rounded-full"
-                onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
-                title="Remove deliberate gaps and pack everything to the top"
-              >
-                Tidy up
-              </Button>
-              <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
-                <Icon name="plus" className="size-4" /> Add
-              </Button>
-              <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
-                <Icon name="check" className="size-4" /> Done
-              </Button>
+            <div className="flex flex-col items-center gap-1.5">
+              {canEdit && (
+                <p className="pointer-events-auto rounded-full border border-line bg-overlay/90 px-2.5 py-0.5 text-[10px] text-ink-faint shadow-card backdrop-blur">
+                  Drag anywhere · Alt + arrows to move · add Shift to resize
+                </p>
+              )}
+              <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-overlay p-1 shadow-overlay">
+                <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setResetting(true)}>
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  tone="quiet"
+                  className="rounded-full"
+                  onClick={() => { commit(tidy(stored)); notify('Packed the layout and released every anchor'); }}
+                  title="Remove deliberate gaps and pack everything to the top"
+                >
+                  Tidy up
+                </Button>
+                <Button size="sm" tone="quiet" className="rounded-full" onClick={() => setAdding(true)}>
+                  <Icon name="plus" className="size-4" /> Add
+                </Button>
+                <Button size="sm" tone="primary" className="rounded-full" onClick={() => setEditing(false)}>
+                  <Icon name="check" className="size-4" /> Done
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -330,18 +352,21 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         />
       ) : (
         <div
+          ref={editScrollRef}
+          className={cx(canEdit && 'overflow-x-hidden overflow-y-auto scrollbar-thin')}
+          style={canEdit && viewportHeight > 0 ? { maxHeight: viewportHeight } : undefined}
+        >
+        <div
           ref={surfaceRef}
           onPointerMove={canEdit ? move : undefined}
           onPointerUp={canEdit ? end : undefined}
           onPointerCancel={canEdit ? end : undefined}
           className="relative grid touch-pan-y"
           style={{
-            // `1fr` rather than the measured pixel value: the column count is
-            // already chosen so the cell divides the width evenly, and fr tracks
-            // reach the same geometry without a sub-pixel rounding error that
-            // could overflow the row and raise a horizontal scrollbar. Rows stay
-            // in pixels, which is what keeps each cell square.
-            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            // Fixed square tracks from the measured cell. Using the same pixel
+            // size for columns and rows keeps the edit guides square; leftover
+            // width (sub-pixel) sits on the right rather than stretching cells.
+            gridTemplateColumns: `repeat(${columns}, ${cell}px)`,
             // Set once here and inherited by every widget, so the glass slider
             // costs one property write rather than one per widget.
             '--glass': glass,
@@ -362,9 +387,23 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                 gridColumn: (index % columns) + 1,
                 gridRow: Math.floor(index / columns) + 1,
               }}
-              className="pointer-events-none rounded-card border border-dashed border-line/60"
+              className="pointer-events-none rounded-[4px] border border-dashed border-line opacity-25"
             />
           ))}
+
+          {/* Crosshair through the middle of the edit surface for alignment. */}
+          {canEdit && (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-1/2 z-[1] w-0 -translate-x-px border-l border-dotted border-line/50"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-1/2 z-[1] h-0 -translate-y-px border-t border-dotted border-line/50"
+              />
+            </>
+          )}
 
           {/* The snap preview: where the dragged widget will land. */}
           {canEdit && drag && (
@@ -383,14 +422,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
             const Render = definition.render;
             const Config = definition.Config;
             const presentation = resolvePresentation(widget, definition);
-            // The title is a per-widget choice; a transparent widget defaults to
-            // hiding it. While editing it is always shown, because that row also
-            // carries the drag handle and remove control.
+            // Same title rule as the homepage — including while editing — so
+            // "Show the title" previews the real card. Edit chrome lives outside.
             const titleWanted = typeof widget.config.showTitle === 'boolean'
               ? widget.config.showTitle
               : presentation !== 'transparent';
-            const showTitle = canEdit || titleWanted;
             const isDragging = drag?.id === widget.id;
+            const isConfiguring = configuring === widget.id;
 
             return (
               <div
@@ -399,8 +437,19 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                   gridColumn: `${widget.x + 1} / span ${widget.w}`,
                   gridRow: `${widget.y + 1} / span ${widget.h}`,
                 }}
-                className={cx('relative min-h-0', isDragging && 'z-20 opacity-60')}
+                className={cx(
+                  'group/widget relative min-h-0 min-w-0',
+                  isDragging && 'z-20 opacity-60',
+                  isConfiguring && 'z-10',
+                )}
               >
+                {/*
+                  * The card itself matches the homepage: same title rule, same
+                  * padding, no edit ring. DnD grip is absolutely overlaid so it
+                  * cannot shove the title. Edit / remove / resize float outside
+                  * the border and only appear on hover (or while this card is
+                  * being configured / focused).
+                  */}
                 <div
                   tabIndex={canEdit ? 0 : undefined}
                   aria-label={canEdit
@@ -417,46 +466,41 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                     event.currentTarget.focus();
                   }}
                   className={cx(
-                    'flex h-full w-full flex-col overflow-hidden rounded-card border',
+                    'relative flex h-full w-full flex-col overflow-hidden rounded-card border',
                     presentation === 'transparent' ? 'p-1.5' : 'p-4',
                     PRESENTATION_CLASS[presentation],
-                    canEdit && (presentation === 'transparent'
-                      ? 'border-dashed border-line-strong'
-                      : 'ring-1 ring-line-strong'),
                   )}
                 >
-                  <div className={cx('flex items-center gap-1.5', showTitle ? 'mb-2.5' : 'sr-only')}>
-                    {canEdit && (
-                      <span
-                        onPointerDown={(event) => begin(event, widget, 'move')}
-                        className="-ml-1 cursor-grab touch-none rounded-chip px-1 py-0.5 text-ink-faint hover:bg-hover hover:text-ink active:cursor-grabbing"
-                        role="button"
-                        tabIndex={-1}
-                        aria-label={`Drag ${definition.name}`}
-                      >
-                        <Icon name="grip" className="size-4" />
-                      </span>
-                    )}
-                    <CardTitle className="min-w-0 flex-1 truncate">{definition.name}</CardTitle>
-                    {canEdit && (
-                      <>
-                        <IconButton
-                          label={`Edit ${definition.name}`}
-                          onClick={() => openConfig(widget.id)}
-                          className="size-6"
-                        >
-                          <Icon name="edit" className="size-3.5" />
-                        </IconButton>
-                        <IconButton label={`Remove ${definition.name}`} onClick={() => remove(widget.id)} className="size-6 hover:text-danger">
-                          <span aria-hidden="true" className="text-sm leading-none">×</span>
-                        </IconButton>
-                      </>
-                    )}
-                  </div>
+                  {titleWanted ? (
+                    <div className="relative z-10 mb-2.5 flex shrink-0 items-center gap-1.5">
+                      <CardTitle className="min-w-0 flex-1 truncate pr-1">{definition.name}</CardTitle>
+                    </div>
+                  ) : (
+                    <div className="sr-only">
+                      <CardTitle>{definition.name}</CardTitle>
+                    </div>
+                  )}
+
+                  {canEdit && (
+                    <span
+                      onPointerDown={(event) => begin(event, widget, 'move')}
+                      className={cx(
+                        'absolute z-20 cursor-grab touch-none rounded-chip bg-overlay/90 p-1 text-ink-faint shadow-card',
+                        'hover:bg-hover hover:text-ink active:cursor-grabbing',
+                        // Sit in the padding corner so the title/body stay put.
+                        presentation === 'transparent' ? 'left-0.5 top-0.5' : 'left-1.5 top-1.5',
+                      )}
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={`Drag ${definition.name}`}
+                    >
+                      <Icon name="grip" className="size-3.5" />
+                    </span>
+                  )}
 
                   {/* A container query scope, so a widget adapts to its own
                       width and height rather than to the viewport. */}
-                  <div className="@container min-h-0 flex-1">
+                  <div className="@container min-h-0 min-w-0 flex-1 overflow-hidden">
                     <Render
                       widget={widget}
                       span={{ w: widget.w, h: widget.h }}
@@ -471,23 +515,59 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                 </div>
 
                 {canEdit && (
-                  <span
-                    onPointerDown={(event) => begin(event, widget, 'resize')}
-                    role="button"
-                    tabIndex={-1}
-                    aria-label={`Resize ${definition.name}`}
-                    className="absolute bottom-1 right-1 cursor-nwse-resize touch-none rounded-chip p-1 text-ink-faint hover:bg-hover hover:text-ink"
-                  >
-                    <Icon name="resize" className="size-3.5" />
-                  </span>
+                  <>
+                    <div
+                      className={cx(
+                        'absolute -top-3 right-0 z-30 flex items-center gap-0.5 rounded-full border border-line bg-overlay p-0.5 shadow-card',
+                        'opacity-0 transition-opacity duration-150',
+                        'pointer-events-none group-hover/widget:pointer-events-auto group-hover/widget:opacity-100',
+                        'group-focus-within/widget:pointer-events-auto group-focus-within/widget:opacity-100',
+                        isConfiguring && 'pointer-events-auto opacity-100',
+                      )}
+                    >
+                      <IconButton
+                        label={`Edit ${definition.name}`}
+                        onClick={() => openConfig(widget.id)}
+                        className="size-7"
+                      >
+                        <Icon name="edit" className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={`Remove ${definition.name}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          remove(widget.id);
+                        }}
+                        className="size-7 hover:text-danger"
+                      >
+                        <span aria-hidden="true" className="text-sm leading-none">×</span>
+                      </IconButton>
+                    </div>
+
+                    <span
+                      onPointerDown={(event) => begin(event, widget, 'resize')}
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={`Resize ${definition.name}`}
+                      className={cx(
+                        'absolute -bottom-2.5 -right-2.5 z-30 cursor-nwse-resize touch-none rounded-full border border-line bg-overlay p-1.5 text-ink-faint shadow-card',
+                        'opacity-0 transition-opacity duration-150 hover:bg-hover hover:text-ink',
+                        'pointer-events-none group-hover/widget:pointer-events-auto group-hover/widget:opacity-100',
+                        'group-focus-within/widget:pointer-events-auto group-focus-within/widget:opacity-100',
+                        isConfiguring && 'pointer-events-auto opacity-100',
+                      )}
+                    >
+                      <Icon name="resize" className="size-3.5" />
+                    </span>
+                  </>
                 )}
               </div>
             );
           })}
         </div>
+        </div>
       )}
-
-      {canEdit && <p className="mt-3 px-1 text-meta text-ink-faint">{rows} row{rows === 1 ? '' : 's'} in use.</p>}
 
       <WidgetDrawer
         widget={stored.find((w) => w.id === configuring) ?? null}
@@ -574,13 +654,18 @@ function WidgetDrawer({ widget, columns, onClose, onResize, onConfig, onRemove }
     ? widget.config.showTitle
     : presentation !== 'transparent';
   const Config = definition.Config;
+  // Keep the live card clear of the panel: open on the opposite half of the grid.
+  const drawerSide = (widget.x + widget.w / 2) >= (columns / 2) ? 'left' : 'right';
 
   return (
     <Drawer
       open
+      side={drawerSide}
       onClose={onClose}
       title={definition.name}
       description={definition.description}
+      // Dim rather than bury the dashboard: toggles must be judged on the live card.
+      scrimClassName="opacity-40"
       footer={<Button tone="danger" onClick={onRemove}>Remove widget</Button>}
     >
       <div className="space-y-5">
@@ -644,6 +729,7 @@ function WidgetDrawer({ widget, columns, onClose, onResize, onConfig, onRemove }
             />
             <span className="text-sm text-ink">Show the title</span>
           </label>
+          <p className="text-meta text-ink-faint">Changes apply to the widget on the dashboard immediately.</p>
           {definition.presentations !== false && (
             <Field label="Style">
               {(id) => (

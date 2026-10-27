@@ -10,6 +10,7 @@ const PRIMARY = [
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
   { id: 'dsa', label: 'DSA', icon: 'dsa' },
   { id: 'grove', label: 'Grove', icon: 'leaf' },
+  { id: 'websites', label: 'Productive time', icon: 'websites' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
 ];
 

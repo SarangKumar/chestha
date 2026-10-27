@@ -12,7 +12,7 @@ import { Button, Dialog, Field, Select, Toggle } from './ui.jsx';
  * What counts as a productive website is a separate group higher up — that is a
  * privacy decision, not a game preference.
  */
-export function GroveSettings() {
+export function GroveSettings({ showDanger = true } = {}) {
   const { state, actions, notify } = useWorkspace();
   const settings = state['grove.settings'];
   const [resetting, setResetting] = useState(false);
@@ -63,38 +63,42 @@ export function GroveSettings() {
         onChange={(value) => setFocus({ suspendWebsiteXp: value })}
       />
 
-      <Field
-        label="Start the Grove again"
-        hint="Clears XP, seeds, sessions, plants and unlocks. Tasks, notes, the calendar and DSA progress are stored separately and are not touched."
-      >
-        {() => (
-          <div>
-            <Button tone="danger" onClick={() => setResetting(true)}>Reset Grove progress</Button>
-          </div>
-        )}
-      </Field>
+      {showDanger && (
+        <>
+          <Field
+            label="Start the Grove again"
+            hint="Clears XP, seeds, sessions, plants and unlocks. Tasks, notes, the calendar and DSA progress are stored separately and are not touched. Prefer the Danger zone in Settings."
+          >
+            {() => (
+              <div>
+                <Button tone="danger" onClick={() => setResetting(true)}>Reset Grove progress</Button>
+              </div>
+            )}
+          </Field>
 
-      <Dialog
-        open={resetting}
-        onClose={() => setResetting(false)}
-        title="Reset the Grove?"
-        description="Every plant, unlock and XP record goes. Nothing outside the Grove is affected, and this cannot be undone."
-        footer={(
-          <>
-            <Button tone="quiet" onClick={() => setResetting(false)}>Keep it</Button>
-            <Button
-              tone="danger"
-              onClick={() => {
-                actions.resetGrove();
-                setResetting(false);
-                notify('The Grove has been reset.', { tone: 'danger' });
-              }}
-            >
-              Reset the Grove
-            </Button>
-          </>
-        )}
-      />
+          <Dialog
+            open={resetting}
+            onClose={() => setResetting(false)}
+            title="Reset the Grove?"
+            description="Every plant, unlock and XP record goes. Nothing outside the Grove is affected, and this cannot be undone."
+            footer={(
+              <>
+                <Button tone="quiet" onClick={() => setResetting(false)}>Keep it</Button>
+                <Button
+                  tone="danger"
+                  onClick={() => {
+                    actions.resetGrove();
+                    setResetting(false);
+                    notify('The Grove has been reset.', { tone: 'danger' });
+                  }}
+                >
+                  Reset the Grove
+                </Button>
+              </>
+            )}
+          />
+        </>
+      )}
     </>
   );
 }

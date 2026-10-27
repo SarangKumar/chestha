@@ -237,11 +237,12 @@ export function EmptyState({ title, description, action, className }) {
 }
 
 /**
- * A panel that slides in from the right. Used for editing a widget, where the
+ * A panel that slides in from the side. Used for editing a widget, where the
  * controls need more room than the widget itself has — a 176px tile cannot hold
- * a configuration form.
+ * a configuration form. `side` is `"right"` by default; the dashboard flips it
+ * so the live card stays visible while configuring.
  */
-export function Drawer({ open, onClose, title, description, children, footer }) {
+export function Drawer({ open, onClose, title, description, children, footer, scrimClassName, side = 'right' }) {
   const panelRef = useRef(null);
   const returnTo = useRef(null);
   const titleId = useId();
@@ -275,14 +276,20 @@ export function Drawer({ open, onClose, title, description, children, footer }) 
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-scrim" onClick={onClose} aria-hidden="true" />
+      <div className={cx("absolute inset-0 bg-scrim", scrimClassName)} onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-line bg-overlay shadow-overlay"
+        className={cx(
+          'absolute inset-y-0 flex w-full max-w-sm flex-col bg-overlay shadow-overlay',
+          // NavRail is fixed w-16 from sm up; keep the left drawer clear of it.
+          side === 'left'
+            ? 'left-0 border-r border-line sm:left-16'
+            : 'right-0 border-l border-line',
+        )}
       >
         <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div className="min-w-0">

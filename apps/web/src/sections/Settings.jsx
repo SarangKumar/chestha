@@ -7,7 +7,6 @@ import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, Toggle, cx } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
-import { WebsiteRules } from '../components/WebsiteRules.jsx';
 import { GroveSettings } from '../components/GroveSettings.jsx';
 
 const SECTION_LABELS = {
@@ -16,8 +15,31 @@ const SECTION_LABELS = {
   calendar: 'Calendar',
   dsa: 'DSA',
   grove: 'Grove',
+  websites: 'Productive time',
   sounds: 'Sounds',
 };
+
+/** Icon names for hideable app sections — Grove uses the leaf mark. */
+const SECTION_ICONS = {
+  dashboard: 'dashboard',
+  tasks: 'tasks',
+  calendar: 'calendar',
+  dsa: 'dsa',
+  grove: 'leaf',
+  websites: 'websites',
+  sounds: 'sounds',
+};
+
+const SETTINGS_NAV = [
+  { id: 'styling', label: 'Styling', icon: 'sun' },
+  { id: 'tasks', label: 'Tasks', icon: 'tasks' },
+  { id: 'navigation', label: 'Navigation', icon: 'sidebar' },
+  { id: 'shortcuts', label: 'Keyboard shortcuts', icon: 'grid' },
+  { id: 'storage', label: 'Where your data lives', icon: 'info' },
+  { id: 'grove', label: 'Grove', icon: 'leaf' },
+  { id: 'data', label: 'Your data', icon: 'download' },
+  { id: 'danger', label: 'Danger zone', icon: 'alert' },
+];
 
 /**
  * Checkboxes read as "show", not "hide", because that is how the sidebar is
@@ -39,8 +61,6 @@ function SectionVisibility() {
     <div className="space-y-1.5">
       {HIDEABLE_SECTIONS.map((id) => {
         const shown = !hidden.includes(id);
-        // The last one standing is locked on: an empty sidebar is not a
-        // preference anyone means to express.
         const locked = shown && visibleCount === 1;
         return (
           <label
@@ -58,8 +78,8 @@ function SectionVisibility() {
               onChange={(e) => toggle(id, e.target.checked)}
               className="size-4 accent-[var(--app-accent)] disabled:opacity-50"
             />
-            <Icon name={id} className="size-4 text-ink-faint" />
-            <span className="flex-1">{SECTION_LABELS[id]}</span>
+            <Icon name={SECTION_ICONS[id] ?? id} className="size-4 shrink-0 text-ink-faint" />
+            <span className="flex-1">{SECTION_LABELS[id] ?? id}</span>
             {!shown && <span className="text-meta text-ink-faint">Hidden</span>}
           </label>
         );
@@ -72,8 +92,9 @@ export function Settings() {
   const { state, status, actions, store, notify } = useWorkspace();
   const { settings } = state;
   const [backgroundImages, setBackgroundImages] = useState([]);
+  const [active, setActive] = useState('styling');
+  const [stylingOpen, setStylingOpen] = useState(true);
 
-  // A browser cannot list a folder, so the picker reads a generated index.
   useEffect(() => {
     let cancelled = false;
     fetch('/backgrounds/manifest.json')
@@ -85,156 +106,244 @@ export function Settings() {
     return () => { cancelled = true; };
   }, []);
 
+  const select = (id) => {
+    setActive(id);
+    if (id === 'styling') setStylingOpen(true);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <SectionHeader
         title="Settings"
         description="Preferences, and everything to do with your data."
       />
 
-      <Group title="Appearance">
-        <Field label="Theme" hint="“System” follows your operating system, including changes while this is open.">
-          {(id) => (
-            <Select id={id} value={settings.theme} onChange={(e) => actions.setSetting('theme', e.target.value)}>
-              <option value="system">Follow system</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </Select>
-          )}
-        </Field>
-
-        <Field
-          label="Background"
-          hint="Patterns are generated from your theme — no files, no requests. Images come from apps/web/public/backgrounds; run `npm run backgrounds` after adding one."
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <nav
+          aria-label="Settings sections"
+          className="md:sticky md:top-20 md:w-52 md:shrink-0 lg:w-56"
         >
-          {(id) => (
-            <div className="space-y-2">
-              <Select
-                id={id}
-                value={settings.background?.kind ?? 'none'}
-                onChange={(e) => actions.setSetting('background', { ...settings.background, kind: e.target.value })}
+          <ul className="flex gap-1 overflow-x-auto scrollbar-thin md:flex-col md:overflow-visible">
+            {SETTINGS_NAV.map((item) => {
+              const selected = active === item.id;
+              return (
+                <li key={item.id} className="shrink-0 md:w-full">
+                  <button
+                    type="button"
+                    onClick={() => select(item.id)}
+                    aria-current={selected ? 'page' : undefined}
+                    className={cx(
+                      'flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-sm transition-colors duration-150',
+                      selected
+                        ? 'bg-accent-soft font-medium text-ink'
+                        : 'text-ink-muted hover:bg-hover hover:text-ink',
+                    )}
+                  >
+                    <Icon name={item.icon} className="size-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="min-w-0 flex-1 space-y-4">
+          {active === 'styling' && (
+            <Panel className="overflow-hidden p-0">
+              <button
+                type="button"
+                onClick={() => setStylingOpen((open) => !open)}
+                aria-expanded={stylingOpen}
+                className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-150 hover:bg-hover sm:px-6"
               >
-                <option value="none">{BACKGROUND_LABELS.none}</option>
-                <optgroup label="Generated">
-                  {BACKGROUND_PATTERNS.map((kind) => (
-                    <option key={kind} value={kind}>{BACKGROUND_LABELS[kind]}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Your files">
-                  <option value="image" disabled={backgroundImages.length === 0}>
-                    {backgroundImages.length === 0 ? 'No images found' : BACKGROUND_LABELS.image}
-                  </option>
-                </optgroup>
-              </Select>
-
-              {settings.background?.kind === 'image' && (
-                <Select
-                  value={settings.background?.image ?? ''}
-                  onChange={(e) => actions.setSetting('background', { ...settings.background, image: e.target.value })}
-                  aria-label="Background image"
-                >
-                  <option value="">Choose an image…</option>
-                  {backgroundImages.map((file) => <option key={file} value={file}>{file}</option>)}
-                </Select>
-              )}
-
-              {settings.background?.kind !== 'none' && (
-                <label className="flex items-center gap-3 text-meta text-ink-muted">
-                  Dim
-                  <input
-                    type="range"
-                    min="0" max="0.9" step="0.05"
-                    value={settings.background?.dim ?? 0.45}
-                    onChange={(e) => actions.setSetting('background', { ...settings.background, dim: Number(e.target.value) })}
-                    className="flex-1 accent-[var(--app-accent)]"
+                <Icon name="sun" className="size-4 shrink-0 text-ink-faint" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-card font-semibold text-ink">Styling</span>
+                  <span className="block text-meta text-ink-faint">
+                    Theme, background and glass. Collapse or expand — this is not a hideable app section.
+                  </span>
+                </span>
+                <Icon
+                  name={stylingOpen ? 'chevronLeft' : 'chevronRight'}
+                  className={cx('size-4 shrink-0 text-ink-faint transition-transform duration-150', stylingOpen && '-rotate-90')}
+                />
+              </button>
+              {stylingOpen && (
+                <div className="space-y-5 border-t border-line px-5 py-5 sm:px-6">
+                  <StylingFields
+                    settings={settings}
+                    actions={actions}
+                    backgroundImages={backgroundImages}
                   />
-                  <span className="tabular w-9 text-right">{Math.round((settings.background?.dim ?? 0.45) * 100)}%</span>
-                </label>
+                </div>
               )}
-            </div>
+            </Panel>
           )}
-        </Field>
 
-        <Field
-          label="Widget glass"
-          hint="How much the dashboard's widgets let the background through, in the manner of a frosted macOS panel. At zero they are solid, which is what you want over a busy photograph."
-        >
-          {(id) => (
-            <div className="flex items-center gap-3 text-meta text-ink-muted">
-              <input
-                id={id}
-                type="range"
-                min="0" max="1" step="0.05"
-                value={settings.glass ?? 0.55}
-                onChange={(e) => actions.setSetting('glass', Number(e.target.value))}
-                className="flex-1 accent-[var(--app-accent)]"
+          {active === 'tasks' && (
+            <Group title="Tasks">
+              <Field label="Upcoming horizon" hint="How far ahead the Upcoming view reaches. Widgets can override this individually.">
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={String(settings.upcomingHorizonDays)}
+                    onChange={(e) => actions.setSetting('upcomingHorizonDays', Number(e.target.value))}
+                  >
+                    {[3, 7, 14, 30].map((days) => <option key={days} value={days}>{days} days</option>)}
+                  </Select>
+                )}
+              </Field>
+              <Toggle
+                label="Hide completed tasks in lists"
+                hint="They stay in the Completed view either way."
+                checked={settings.hideCompleted}
+                onChange={(value) => actions.setSetting('hideCompleted', value)}
               />
-              <span className="tabular w-9 text-right">{Math.round((settings.glass ?? 0.55) * 100)}%</span>
-            </div>
+              <TagCleanup />
+            </Group>
           )}
-        </Field>
 
-        <Field label="Week starts on">
-          {(id) => (
-            <Select
-              id={id}
-              value={String(settings.weekStartsOn)}
-              onChange={(e) => actions.setSetting('weekStartsOn', Number(e.target.value))}
-            >
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-            </Select>
+          {active === 'navigation' && (
+            <Group title="Navigation">
+              <Field
+                label="Sections in the sidebar"
+                hint="Hiding a section only takes it out of the sidebar — it stays reachable from the command palette (⌘K) and keeps all its data. Settings and Styling cannot be hidden."
+              >
+                {() => <SectionVisibility />}
+              </Field>
+              <p className="text-sm text-ink-muted">
+                Productive time (website tracking) has its own page at{' '}
+                <a href="#/websites" className="font-medium text-ink underline-offset-2 hover:underline">
+                  #/websites
+                </a>
+                .
+              </p>
+            </Group>
           )}
-        </Field>
-      </Group>
 
-      <Group title="Tasks">
-        <Field label="Upcoming horizon" hint="How far ahead the Upcoming view reaches. Widgets can override this individually.">
-          {(id) => (
-            <Select
-              id={id}
-              value={String(settings.upcomingHorizonDays)}
-              onChange={(e) => actions.setSetting('upcomingHorizonDays', Number(e.target.value))}
-            >
-              {[3, 7, 14, 30].map((days) => <option key={days} value={days}>{days} days</option>)}
-            </Select>
+          {active === 'shortcuts' && (
+            <ShortcutSettings Group={Group} />
           )}
-        </Field>
 
-        <Toggle
-          label="Hide completed tasks in lists"
-          hint="They stay in the Completed view either way."
-          checked={settings.hideCompleted}
-          onChange={(value) => actions.setSetting('hideCompleted', value)}
-        />
+          {active === 'storage' && <StorageGroup status={status} />}
 
-        <TagCleanup />
-      </Group>
+          {active === 'grove' && (
+            <Group title="Grove">
+              <GroveSettings showDanger={false} />
+            </Group>
+          )}
 
-      <Group title="Productive time">
-        <WebsiteRules />
-      </Group>
+          {active === 'data' && (
+            <DataGroup state={state} actions={actions} store={store} notify={notify} />
+          )}
 
-      <Group title="Navigation">
-        <Field
-          label="Sections in the sidebar"
-          hint="Hiding a section only takes it out of the sidebar — it stays reachable from the command palette (⌘K) and keeps all its data. Settings cannot be hidden, since it is the way back."
-        >
-          {() => <SectionVisibility />}
-        </Field>
-      </Group>
-
-      <ShortcutSettings Group={Group} />
-
-      <StorageGroup status={status} />
-      <DataGroup state={state} actions={actions} store={store} notify={notify} />
-
-      {/* Below the data group: resetting the Grove belongs with the other
-          irreversible actions, not tucked inside the game. */}
-      <Group title="Grove">
-        <GroveSettings />
-      </Group>
+          {active === 'danger' && (
+            <DangerGroup state={state} actions={actions} store={store} notify={notify} />
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function StylingFields({ settings, actions, backgroundImages }) {
+  return (
+    <>
+      <Field label="Theme" hint="“System” follows your operating system, including changes while this is open.">
+        {(id) => (
+          <Select id={id} value={settings.theme} onChange={(e) => actions.setSetting('theme', e.target.value)}>
+            <option value="system">Follow system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </Select>
+        )}
+      </Field>
+
+      <Field
+        label="Background"
+        hint="Patterns are generated from your theme — no files, no requests. Images come from apps/web/public/backgrounds; run `npm run backgrounds` after adding one."
+      >
+        {(id) => (
+          <div className="space-y-2">
+            <Select
+              id={id}
+              value={settings.background?.kind ?? 'none'}
+              onChange={(e) => actions.setSetting('background', { ...settings.background, kind: e.target.value })}
+            >
+              <option value="none">{BACKGROUND_LABELS.none}</option>
+              <optgroup label="Generated">
+                {BACKGROUND_PATTERNS.map((kind) => (
+                  <option key={kind} value={kind}>{BACKGROUND_LABELS[kind]}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Your files">
+                <option value="image" disabled={backgroundImages.length === 0}>
+                  {backgroundImages.length === 0 ? 'No images found' : BACKGROUND_LABELS.image}
+                </option>
+              </optgroup>
+            </Select>
+
+            {settings.background?.kind === 'image' && (
+              <Select
+                value={settings.background?.image ?? ''}
+                onChange={(e) => actions.setSetting('background', { ...settings.background, image: e.target.value })}
+                aria-label="Background image"
+              >
+                <option value="">Choose an image…</option>
+                {backgroundImages.map((file) => <option key={file} value={file}>{file}</option>)}
+              </Select>
+            )}
+
+            {settings.background?.kind !== 'none' && (
+              <label className="flex items-center gap-3 text-meta text-ink-muted">
+                Dim
+                <input
+                  type="range"
+                  min="0" max="0.9" step="0.05"
+                  value={settings.background?.dim ?? 0.45}
+                  onChange={(e) => actions.setSetting('background', { ...settings.background, dim: Number(e.target.value) })}
+                  className="flex-1 accent-[var(--app-accent)]"
+                />
+                <span className="tabular w-9 text-right">{Math.round((settings.background?.dim ?? 0.45) * 100)}%</span>
+              </label>
+            )}
+          </div>
+        )}
+      </Field>
+
+      <Field
+        label="Widget glass"
+        hint="How much the dashboard's widgets let the background through, in the manner of a frosted macOS panel. At zero they are solid, which is what you want over a busy photograph."
+      >
+        {(id) => (
+          <div className="flex items-center gap-3 text-meta text-ink-muted">
+            <input
+              id={id}
+              type="range"
+              min="0" max="1" step="0.05"
+              value={settings.glass ?? 0.55}
+              onChange={(e) => actions.setSetting('glass', Number(e.target.value))}
+              className="flex-1 accent-[var(--app-accent)]"
+            />
+            <span className="tabular w-9 text-right">{Math.round((settings.glass ?? 0.55) * 100)}%</span>
+          </div>
+        )}
+      </Field>
+
+      <Field label="Week starts on">
+        {(id) => (
+          <Select
+            id={id}
+            value={String(settings.weekStartsOn)}
+            onChange={(e) => actions.setSetting('weekStartsOn', Number(e.target.value))}
+          >
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+          </Select>
+        )}
+      </Field>
+    </>
   );
 }
 
@@ -325,16 +434,12 @@ function StorageGroup({ status }) {
 function DataGroup({ state, actions, store, notify }) {
   const [pendingImport, setPendingImport] = useState(null);
   const [importError, setImportError] = useState(null);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [resetConfirm, setResetConfirm] = useState('');
   const [snapshot, setSnapshot] = useState(null);
   const fileRef = useRef(null);
 
   useEffect(() => { store.readSnapshot().then(setSnapshot); }, [store]);
 
   const doExport = async () => {
-    // A lazy area that was never opened still holds its default in memory, so it
-    // must be read before the state is snapshotted.
     await store.ensureAllAreas();
     const payload = buildExport(store.getState());
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -368,7 +473,6 @@ function DataGroup({ state, actions, store, notify }) {
     setPendingImport({ ...result, filename: file.name });
   };
 
-  // Import is all-or-nothing, and the prior state is snapshotted first.
   const applyImport = async () => {
     const saved = await store.saveSnapshot();
     const { issues } = await store.replaceAll(pendingImport.data);
@@ -424,16 +528,6 @@ function DataGroup({ state, actions, store, notify }) {
             <Button size="sm" onClick={restoreSnapshot}>Restore it</Button>
           </div>
         )}
-
-        <div className="rounded-control border border-danger/30 bg-danger-soft/50 p-4">
-          <p className="text-sm font-medium text-ink">Reset the application</p>
-          <p className="mb-3 mt-1 text-meta leading-relaxed text-ink-muted">
-            Deletes everything stored here and returns to a first-run state. This cannot be undone.
-          </p>
-          <Button tone="danger" onClick={() => { setResetConfirm(''); setResetOpen(true); }}>
-            Reset the application
-          </Button>
-        </div>
       </Group>
 
       <Dialog
@@ -474,6 +568,73 @@ function DataGroup({ state, actions, store, notify }) {
           </div>
         )}
       </Dialog>
+    </>
+  );
+}
+
+/** Destructive actions only — always the last settings section. */
+function DangerGroup({ actions, store, notify }) {
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [groveResetting, setGroveResetting] = useState(false);
+
+  const doExport = async () => {
+    await store.ensureAllAreas();
+    const payload = buildExport(store.getState());
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = exportFilename();
+    link.click();
+    URL.revokeObjectURL(url);
+    actions.setSetting('lastExportAt', new Date().toISOString());
+    notify('Exported a copy of everything');
+  };
+
+  return (
+    <>
+      <Group title="Danger zone">
+        <div className="rounded-control border border-danger/30 bg-danger-soft/50 p-4">
+          <p className="text-sm font-medium text-ink">Reset Grove progress</p>
+          <p className="mb-3 mt-1 text-meta leading-relaxed text-ink-muted">
+            Clears XP, seeds, sessions, plants and unlocks. Tasks, notes, the calendar and DSA progress are not touched.
+          </p>
+          <Button tone="danger" onClick={() => setGroveResetting(true)}>Reset Grove progress</Button>
+        </div>
+
+        <div className="rounded-control border border-danger/30 bg-danger-soft/50 p-4">
+          <p className="text-sm font-medium text-ink">Reset the application</p>
+          <p className="mb-3 mt-1 text-meta leading-relaxed text-ink-muted">
+            Deletes everything stored here and returns to a first-run state. This cannot be undone.
+          </p>
+          <Button tone="danger" onClick={() => { setResetConfirm(''); setResetOpen(true); }}>
+            Reset the application
+          </Button>
+        </div>
+      </Group>
+
+      <Dialog
+        open={groveResetting}
+        onClose={() => setGroveResetting(false)}
+        title="Reset the Grove?"
+        description="Every plant, unlock and XP record goes. Nothing outside the Grove is affected, and this cannot be undone."
+        footer={(
+          <>
+            <Button tone="quiet" onClick={() => setGroveResetting(false)}>Keep it</Button>
+            <Button
+              tone="danger"
+              onClick={() => {
+                actions.resetGrove();
+                setGroveResetting(false);
+                notify('The Grove has been reset.', { tone: 'danger' });
+              }}
+            >
+              Reset the Grove
+            </Button>
+          </>
+        )}
+      />
 
       <Dialog
         open={resetOpen}

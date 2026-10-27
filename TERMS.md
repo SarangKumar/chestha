@@ -50,6 +50,32 @@ server. If it is gone from your browser and you have no export, it is gone.
 The application contains no analytics, telemetry, crash reporting, advertising or
 usage tracking of any kind. We collect nothing, because nothing is sent anywhere.
 
+### Website time, if you turn it on
+
+The Chrome extension can count the time you spend on websites **you add yourself**,
+to award XP in the Grove. This is observation on your device, not telemetry: nothing
+is transmitted, and there is nobody to transmit it to.
+
+- It is **off until you turn it on**, and nothing is observed before that.
+- It records only sites **you have added a rule for**. A site with no rule is not
+  recorded at all — not even that you visited it.
+- What is stored for those sites is a **domain, a local date and a number of
+  seconds**. Never a page address, a path, a search query, a page title, a favicon,
+  or anything about the contents of a page.
+- The extension requests **no permission to read any website**, and injects no code
+  into any page. It can see which site a tab is on; it cannot see what is on it.
+  This is a limit of the extension's design, not a policy we could quietly change —
+  changing it would require new permissions, which Chrome would show you.
+- It counts only while a tracked site is the tab you are looking at, in the window
+  in front, and you are at the keyboard. It stops when you go idle or lock the
+  screen.
+- You can pause it, switch it off, or delete every recorded second from Settings,
+  without affecting your tasks, notes, calendar or DSA progress.
+
+Timings are approximate. The application does not claim to measure attention, only
+elapsed time with a tab active — and for a focus session, elapsed time you chose to
+describe as focus.
+
 ### Network requests
 
 In normal use the application requests only its own files from its own origin.
@@ -70,16 +96,42 @@ build output and the network panel are the checks.]`
 
 ## 3. Browser extension
 
-`[COMPLETE WHEN THE EXTENSION SHIPS — it is not built yet.]`
+The extension is the same application, bundled and run from `chrome-extension://`.
+There is no second copy of the interface and nothing is fetched from the network.
 
-The extension is intended to open the workspace and capture a task. Points to
-settle before publication:
+### Permissions, and why each one is necessary
 
-- the exact permissions requested, and why each is necessary;
-- that extension storage and website storage are **separate** and neither reads
-  the other automatically;
-- whether a new-tab override is included (it must be opt-in and reversible);
-- the store listing's data-use disclosures, which must match this document.
+| Permission | What it is for |
+| --- | --- |
+| `tabs` | Raising an already-open workspace instead of opening a duplicate, and reading the **address** of the tab you are looking at so website time can be attributed to a site you added. Chrome describes this as "read your browsing history", which overstates it: no history is read or stored, and sites without a rule are never recorded. |
+| `idle` | Knowing whether you are at the keyboard, so time does not accrue while you are away or the screen is locked. |
+| `alarms` | Waking the extension about once a minute to close off the time it has counted. Chrome suspends background extension code aggressively; without this, counted time would be lost. |
+| `storage` | Holding the handful of pending time records that the workspace has not yet taken in. |
+
+**No host permissions are requested and no content scripts are used.** The extension
+has no access to the contents of any web page, and cannot obtain it without asking
+you for a new permission that Chrome would show you.
+
+### Storage is separate
+
+The extension runs on its own origin, so **its data is separate from the same
+application opened over `http`**, and neither reads the other. Moving data between
+them is done deliberately, with Settings → Export and Import.
+
+### The New Tab page
+
+Installing the extension replaces Chrome's New Tab page. **Chrome asks you to
+confirm this the first time** and offers to keep your previous setting. It is
+reversible at any point by disabling or removing the extension, and no data is lost
+by doing so.
+
+### Store listing
+
+The data-use disclosures on the Chrome Web Store listing must match this section.
+As built, the honest disclosure is: **no data is collected or transmitted.** Website
+activity is processed on your device for a feature you switch on, and is never sent
+anywhere. `[VERIFY BEFORE PUBLISHING: re-read the permissions in
+apps/extension/src/manifest.json against the table above.]`
 
 ## 4. Third-party content and attribution
 

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  BASE_COLUMNS, DEFAULT_INTENTIONS, GITHUB_FORMS, GITHUB_FORM_LABELS, SOUNDS, activityLevel,
-  applyPreset,
-  buildActivityCalendar, coerceGithubForm, coerceTemperatureUnit, coerceWeatherPlace,
-  describeEvent, describeGithubError, describePlace, describeWeatherError,
-  forecastUrl, formatLongDate, formatTemperature, geocodeUrl, githubEventsUrl, githubProfileUrl,
-  githubReposUrl, goalState, isValidGithubUsername, normalizeLines, pickForDay, questionUrl,
-  selectCompletedOn, selectNoDate, selectOverdue, selectToday, selectUpcoming, shortAge, sortTasks,
-  summariseEvents, summariseGeocode, summariseRepos, summariseWeather,
+  BASE_COLUMNS, DEFAULT_INTENTIONS, GITHUB_FORMS, GITHUB_FORM_LABELS, SOUNDS, activityDayLabels,
+  activityLevel, activityMonthLabels, applyPreset,
+  buildActivityCalendar, buildContributionYearCalendar, coerceGithubForm, coerceTemperatureUnit,
+  coerceWeatherPlace, describeEvent, describeGithubError, describePlace, describeWeatherError,
+  forecastUrl, formatLongDate, formatTemperature, formatTrackedDuration, geocodeUrl,
+  githubContributionsUrl, githubEventsUrl, githubProfileUrl, githubReposUrl, goalState,
+  isValidGithubUsername, normalizeLines, pickForDay, questionUrl, selectCompletedOn,
+  selectNoDate, selectOverdue, selectToday, selectUpcoming, shortAge, sortTasks,
+  summariseEvents, summariseGeocode, summariseRepos, summariseWeather, websiteTimeByDay,
 } from '@vistaar/core';
 import {
   availableSeeds, isPaused as sessionPaused, levelFromXp, remainingMs, sessionProgress,
@@ -22,6 +23,7 @@ import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
 import { Badge, Button, EmptyState, Meter, Select, Stat, TextArea, cx } from '../components/ui.jsx';
+import { Sparkline } from '../components/LineChart.jsx';
 import { Icon } from '../components/icons.jsx';
 
 /** How many list rows comfortably fit a widget of this height. */
@@ -326,7 +328,7 @@ function SearchWidget({ widget, span, editing }) {
 
   return (
     <form
-      className="flex h-full flex-col justify-center gap-2"
+      className="flex h-full flex-col justify-center gap-2 px-[3px]"
       onSubmit={(event) => {
         event.preventDefault();
         const q = term.trim();
@@ -375,67 +377,143 @@ function SearchConfig({ widget, onChange }) {
 }
 
 /**
- * A question to do today, chosen from the library you have imported.
+ * LeetCode Problem of the Day.
  *
- * It is deliberately NOT LeetCode's official Daily Question: a browser page
- * cannot reach leetcode.com (no CORS grant) and their terms forbid scraping, so
- * claiming to show the official daily would be a lie. This picks deterministically
- * from your own library by date, so it is stable for the whole day and works
- * offline. Unsolved questions are preferred.
+ * LeetCode itself does not grant CORS to a browser page, so the title/slug are
+ * read from a public third-party mirror that already publishes the daily
+ * challenge metadata. Only the link, title, id and difficulty are used — never
+ * the problem statement. If the mirror is unreachable, the widget falls back to
+ * a stable pick from the local DSA library so the card is never blank offline.
  */
+const POTD_URL = 'https://alfa-leetcode-api.onrender.com/daily';
+
 function DailyQuestionWidget({ onNavigate }) {
   const { state, today } = useWorkspace();
   const library = state['dsa.library'];
   const progress = state['dsa.progress'];
+  const [potd, setPotd] = useState({ status: 'loading', data: null, error: null });
 
-  const pick = useMemo(() => {
+  useEffect(() => {
+    let cancelled = false;
+    setPotd({ status: 'loading', data: null, error: null });
+    fetch(POTD_URL)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`POTD ${response.status}`);
+        const payload = await response.json();
+        if (cancelled) return;
+        const title = typeof payload.questionTitle === 'string' ? payload.questionTitle.trim() : '';
+        const slug = typeof payload.titleSlug === 'string' ? payload.titleSlug.trim() : '';
+        if (!title || !slug) throw new Error('POTD missing fields');
+        setPotd({
+          status: 'ready',
+          data: {
+            title,
+            slug,
+            link: typeof payload.questionLink === 'string' && payload.questionLink.startsWith('https://leetcode.com/')
+              ? payload.questionLink
+              : `https://leetcode.com/problems/${encodeURIComponent(slug)}/`,
+            difficulty: typeof payload.difficulty === 'string' ? payload.difficulty : '',
+            leetcodeId: payload.questionFrontendId != null ? String(payload.questionFrontendId) : '',
+            paidOnly: payload.isPaidOnly === true,
+            date: typeof payload.date === 'string' ? payload.date : today,
+          },
+          error: null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPotd({ status: 'error', data: null, error: 'unavailable' });
+      });
+    return () => { cancelled = true; };
+  }, [today]);
+
+  const fallback = useMemo(() => {
     const questions = library.questions;
     if (questions.length === 0) return null;
     const solved = new Set(progress.events.filter((e) => e.kind === 'solve').map((e) => e.slug));
     const pool = questions.filter((q) => !solved.has(q.slug));
     const from = pool.length > 0 ? pool : questions;
-    // A simple date hash keeps the choice stable across reloads on the same day.
     const seed = [...today].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
     const chosen = from[seed % from.length];
-    return { question: chosen, alreadySolved: solved.has(chosen.slug), remaining: pool.length };
+    return { question: chosen, alreadySolved: solved.has(chosen.slug) };
   }, [library.questions, progress.events, today]);
 
-  if (!pick) {
+  if (potd.status === 'loading') {
+    return <p className="flex h-full items-start pt-0.5 text-meta text-ink-faint">Loading today&rsquo;s LeetCode problem…</p>;
+  }
+
+  if (potd.status === 'ready' && potd.data) {
+    const q = potd.data;
+    const local = library.questions.find((item) => item.slug === q.slug);
+    const solved = progress.events.some((e) => e.kind === 'solve' && e.slug === q.slug);
     return (
-      <div className="flex h-full flex-col justify-center">
+      <div className="flex h-full min-h-0 flex-col justify-start gap-1.5 overflow-hidden">
+        <p className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-ink-faint">
+          LeetCode POTD
+        </p>
+        <a
+          href={q.link}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="line-clamp-2 min-w-0 text-sm font-medium leading-snug text-ink underline-offset-2 hover:underline @[14rem]:line-clamp-3"
+        >
+          {q.title}
+        </a>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {q.leetcodeId && <Badge tone="neutral">#{q.leetcodeId}</Badge>}
+          {q.difficulty && (
+            <Badge tone={q.difficulty === 'Hard' ? 'danger' : q.difficulty === 'Medium' ? 'warn' : 'ok'}>
+              {q.difficulty}
+            </Badge>
+          )}
+          {q.paidOnly && <Badge tone="warn"><Icon name="lock" className="size-3" /> Premium</Badge>}
+          {solved && <Badge tone="ok">Solved</Badge>}
+        </div>
+        <div className="mt-auto hidden gap-2 pt-1 @[12rem]:flex">
+          {local && (
+            <Button size="sm" tone="quiet" onClick={() => onNavigate('dsa', 'library')}>In library</Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Mirror unreachable — honest fallback from the local library.
+  if (!fallback) {
+    return (
+      <div className="flex h-full flex-col justify-start gap-2 overflow-hidden">
         <EmptyState
-          title="No questions yet"
-          description="Import a pack in the DSA section and one will appear here each day."
+          title="Daily problem unavailable"
+          description="The PotD feed could not be reached, and your library is empty. Import a pack in DSA, or try again later."
           action={<Button size="sm" onClick={() => onNavigate('dsa', 'library')}>Open the library</Button>}
         />
       </div>
     );
   }
 
-  const { question } = pick;
+  const { question } = fallback;
   return (
-    <div className="flex h-full flex-col justify-center gap-2">
+    <div className="flex h-full min-h-0 flex-col justify-start gap-1.5 overflow-hidden">
+      <p className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-ink-faint">
+        Library pick · PotD offline
+      </p>
       <a
         href={questionUrl(question)}
         target="_blank"
         rel="noreferrer noopener"
-        className="line-clamp-2 text-sm font-medium text-ink underline-offset-2 hover:underline @[16rem]:line-clamp-none @[16rem]:text-base"
+        className="line-clamp-2 min-w-0 text-sm font-medium leading-snug text-ink underline-offset-2 hover:underline @[14rem]:line-clamp-3"
       >
         {question.title}
       </a>
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {question.leetcodeId && <Badge tone="neutral">#{question.leetcodeId}</Badge>}
         {question.difficulty && (
-          <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'neutral'}>
+          <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'ok'}>
             {question.difficulty}
           </Badge>
         )}
         {question.paidOnly && <Badge tone="warn"><Icon name="lock" className="size-3" /> Premium</Badge>}
-        {pick.alreadySolved && <Badge tone="ok">Solved</Badge>}
+        {fallback.alreadySolved && <Badge tone="ok">Solved</Badge>}
       </div>
-      <p className="hidden text-[10px] leading-relaxed text-ink-faint @[14rem]:block">
-        Picked from your library for {today}. Not LeetCode&rsquo;s official daily — that cannot be read from a browser.
-      </p>
     </div>
   );
 }
@@ -767,7 +845,7 @@ function InspirationWidget({ widget, onChange, editing, span }) {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
       <p className={cx(
-        'text-balance font-medium leading-snug text-ink',
+        'text-balance font-semibold leading-snug text-ink',
         (span?.h ?? 1) > 1 ? 'text-base @[20rem]:text-lg' : 'text-sm @[18rem]:text-base',
       )}>
         {chosen}
@@ -846,13 +924,13 @@ function InspirationConfig({ widget, onChange }) {
  */
 const EVENTS_PER_PAGE = 100;
 
-/** Shades for the activity heatmap, from "nothing" to "a lot for this person". */
+/** GitHub-like contribution levels; colours come from `.gh-contrib` CSS variables. */
 const HEAT = [
-  'bg-inset',
-  'bg-accent-soft',
-  'bg-accent/40',
-  'bg-accent/70',
-  'bg-accent',
+  'bg-[var(--gh-0)]',
+  'bg-[var(--gh-1)]',
+  'bg-[var(--gh-2)]',
+  'bg-[var(--gh-3)]',
+  'bg-[var(--gh-4)]',
 ];
 
 function GithubWidget({ widget, editing, span }) {
@@ -861,10 +939,9 @@ function GithubWidget({ widget, editing, span }) {
   const form = coerceGithubForm(widget.config.form);
   const [state, setState] = useState({ status: 'idle', data: null, error: null });
 
-  // The two shapes read different endpoints, so the form is a fetch dependency.
-  // Repositories need the repo list; both activity shapes share the event feed,
-  // so switching between them does not spend another request.
-  const endpoint = form === 'repos' ? 'repos' : 'events';
+  // Three shapes, three sources: repos list, recent events summary, and the
+  // public contribution-day mirror for a year-long calendar.
+  const endpoint = form === 'repos' ? 'repos' : form === 'calendar' ? 'contributions' : 'events';
 
   useEffect(() => {
     if (!username || !isValidGithubUsername(username)) {
@@ -874,14 +951,54 @@ function GithubWidget({ widget, editing, span }) {
     let cancelled = false;
     setState({ status: 'loading', data: null, error: null });
 
-    const url = endpoint === 'repos'
-      ? githubReposUrl(username)
-      // The calendar wants as much history as one request can carry; the summary
-      // only shows totals, and is happy with the same page.
-      : githubEventsUrl(username, EVENTS_PER_PAGE);
+    const load = async () => {
+      try {
+        if (endpoint === 'repos') {
+          const response = await fetch(githubReposUrl(username), {
+            headers: { Accept: 'application/vnd.github+json' },
+          });
+          if (cancelled) return;
+          if (!response.ok) {
+            setState({
+              status: 'error',
+              data: null,
+              error: describeGithubError(response.status, response.headers.get('x-ratelimit-remaining')),
+            });
+            return;
+          }
+          const payload = await response.json();
+          if (cancelled) return;
+          setState({ status: 'ready', data: { repos: summariseRepos(payload) }, error: null });
+          return;
+        }
 
-    fetch(url, { headers: { Accept: 'application/vnd.github+json' } })
-      .then(async (response) => {
+        if (endpoint === 'contributions') {
+          const response = await fetch(githubContributionsUrl(username));
+          if (cancelled) return;
+          if (!response.ok) {
+            setState({
+              status: 'error',
+              data: null,
+              error: response.status === 404
+                ? 'No such public GitHub user.'
+                : `Contribution calendar returned ${response.status}.`,
+            });
+            return;
+          }
+          const payload = await response.json();
+          if (cancelled) return;
+          const days = Array.isArray(payload?.contributions) ? payload.contributions : [];
+          setState({
+            status: 'ready',
+            data: { contributions: days, totalsByYear: payload?.total ?? {} },
+            error: null,
+          });
+          return;
+        }
+
+        const response = await fetch(githubEventsUrl(username, EVENTS_PER_PAGE), {
+          headers: { Accept: 'application/vnd.github+json' },
+        });
         if (cancelled) return;
         if (!response.ok) {
           setState({
@@ -893,23 +1010,26 @@ function GithubWidget({ widget, editing, span }) {
         }
         const payload = await response.json();
         if (cancelled) return;
-        if (endpoint === 'repos') {
-          setState({ status: 'ready', data: { repos: summariseRepos(payload) }, error: null });
-        } else {
-          const raw = Array.isArray(payload) ? payload : [];
+        const raw = Array.isArray(payload) ? payload : [];
+        setState({
+          status: 'ready',
+          data: { events: raw, truncated: raw.length >= EVENTS_PER_PAGE, summary: summariseEvents(raw) },
+          error: null,
+        });
+      } catch {
+        if (!cancelled) {
           setState({
-            status: 'ready',
-            // A full page may have older events behind it; a short one is the
-            // whole feed, which is what lets the calendar trust its quiet days.
-            data: { events: raw, truncated: raw.length >= EVENTS_PER_PAGE, summary: summariseEvents(raw) },
-            error: null,
+            status: 'error',
+            data: null,
+            error: endpoint === 'contributions'
+              ? 'Could not reach the contribution calendar.'
+              : 'Could not reach GitHub.',
           });
         }
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error', data: null, error: 'Could not reach GitHub.' });
-      });
+      }
+    };
 
+    load();
     return () => { cancelled = true; };
   }, [username, endpoint]);
 
@@ -928,7 +1048,11 @@ function GithubWidget({ widget, editing, span }) {
   if (state.status === 'loading') {
     return (
       <p className="flex h-full items-center text-meta text-ink-faint">
-        {endpoint === 'repos' ? 'Reading public repositories…' : 'Reading public activity…'}
+        {endpoint === 'repos'
+          ? 'Reading public repositories…'
+          : endpoint === 'contributions'
+            ? 'Reading the last year of contributions…'
+            : 'Reading public activity…'}
       </p>
     );
   }
@@ -951,7 +1075,7 @@ function GithubWidget({ widget, editing, span }) {
       rel="noreferrer noopener"
       className="mt-auto hidden shrink-0 pt-1.5 text-[10px] text-ink-faint underline-offset-2 hover:underline @[12rem]:block"
     >
-      {username} · public {endpoint === 'repos' ? 'repositories' : 'activity'} only
+      {username} · public {endpoint === 'repos' ? 'repositories' : endpoint === 'contributions' ? 'contributions' : 'activity'} only
     </a>
   );
 
@@ -1004,55 +1128,101 @@ function GithubWidget({ widget, editing, span }) {
   }
 
   if (form === 'calendar') {
-    // Columns are capped by the width actually available: one column needs about
-    // 10px, and a grid squeezed below that is a smear rather than a chart.
-    const available = Math.max(1, (span?.w ?? 1) * 48);
-    const weeks = Math.max(4, Math.min(26, Math.floor((available - 24) / 10)));
-    const calendar = buildActivityCalendar(
-      state.data.events,
+    // Always aim for a year (~53 weeks). On narrow cards the grid scrolls
+    // horizontally rather than dropping weeks, so the history stays intact.
+    const available = Math.max(1, (span?.w ?? 1) * 52);
+    const cell = available >= 640 ? 11 : available >= 420 ? 10 : 8;
+    const gap = cell >= 10 ? 3 : 2;
+    const weeks = 53;
+    const weekStartsOn = workspace.settings.weekStartsOn;
+    const calendar = buildContributionYearCalendar(
+      state.data.contributions,
       today,
       weeks,
-      workspace.settings.weekStartsOn,
-      { truncated: state.data.truncated },
+      weekStartsOn,
     );
+    const months = activityMonthLabels(calendar.columns);
+    const dayLabels = activityDayLabels(weekStartsOn);
+    const labelW = 28;
+    const monthH = 16;
+    const gridW = weeks * cell + Math.max(0, weeks - 1) * gap;
+    const gridH = 7 * cell + 6 * gap;
+    const yearKey = today.slice(0, 4);
+    const yearTotal = Number(state.data.totalsByYear?.[yearKey]);
+    const shownTotal = Number.isFinite(yearTotal) ? yearTotal : calendar.total;
 
     return (
-      <div className="flex h-full flex-col">
+      <div className="gh-contrib flex h-full min-w-0 flex-col overflow-hidden">
         <p className="shrink-0 text-meta text-ink-muted">
-          <span className="tabular font-medium text-ink">{calendar.total}</span> public event{calendar.total === 1 ? '' : 's'}
-          <span className="hidden @[14rem]:inline"> in the last {weeks} weeks</span>
+          <span className="tabular font-medium text-ink">{shownTotal}</span> contribution{shownTotal === 1 ? '' : 's'}
+          <span className="hidden @[14rem]:inline"> in the last year</span>
         </p>
 
-        <div className="mt-2 flex min-h-0 flex-1 items-center">
+        <div className="mt-2 min-h-0 min-w-0 flex-1 overflow-x-auto scrollbar-thin">
           <div
             role="img"
-            aria-label={`${calendar.total} public GitHub events over the last ${weeks} weeks`}
-            className="flex w-full gap-[2px]"
+            aria-label={`${shownTotal} public GitHub contributions over the last year`}
+            className="inline-block"
+            style={{ minWidth: labelW + gridW }}
           >
-            {calendar.columns.map((column) => (
-              <div key={column[0].date} className="flex flex-1 flex-col gap-[2px]">
-                {column.map((day) => (
+            <div className="relative mb-1" style={{ height: monthH, marginLeft: labelW }}>
+              {months.map((month) => (
+                <span
+                  key={`${month.label}-${month.index}`}
+                  className="absolute top-0 text-[10px] leading-none text-ink-faint"
+                  style={{ left: month.index * (cell + gap) }}
+                >
+                  {month.label}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex" style={{ gap }}>
+              <div className="relative shrink-0" style={{ width: labelW, height: gridH }}>
+                {dayLabels.map((item) => (
                   <span
-                    key={day.date}
-                    title={day.future
-                      ? day.date
-                      : day.known
-                        ? `${day.date}: ${day.count} event${day.count === 1 ? '' : 's'}`
-                        : `${day.date}: outside the range this feed covers`}
-                    className={cx(
-                      'aspect-square w-full rounded-[2px]',
-                      day.future
-                        ? 'bg-transparent'
-                        // An unknown day is drawn as an empty outline, never as
-                        // a quiet day — the data does not support that claim.
-                        : !day.known
-                          ? 'border border-dashed border-line'
-                          : HEAT[activityLevel(day.count, calendar.max)],
-                    )}
-                  />
+                    key={item.label}
+                    className="absolute right-1 text-[9px] leading-none text-ink-faint"
+                    style={{ top: item.row * (cell + gap) + 1 }}
+                  >
+                    {item.label}
+                  </span>
                 ))}
               </div>
-            ))}
+
+              <div className="flex" style={{ gap }}>
+                {calendar.columns.map((column) => (
+                  <div key={column[0].date} className="flex flex-col" style={{ gap }}>
+                    {column.map((day) => {
+                      const level = day.future
+                        ? null
+                        : (day.level != null ? day.level : activityLevel(day.count, calendar.max));
+                      return (
+                        <span
+                          key={day.date}
+                          title={day.future
+                            ? day.date
+                            : `${day.date}: ${day.count} contribution${day.count === 1 ? '' : 's'}`}
+                          className={cx(
+                            'block rounded-[2px]',
+                            day.future ? 'bg-transparent' : HEAT[level ?? 0],
+                          )}
+                          style={{ width: cell, height: cell }}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-1 text-[10px] text-ink-faint" style={{ marginLeft: labelW }}>
+              <span>Less</span>
+              {HEAT.map((cls) => (
+                <span key={cls} className={cx('rounded-[2px]', cls)} style={{ width: cell, height: cell }} />
+              ))}
+              <span>More</span>
+            </div>
           </div>
         </div>
         {footer}
@@ -1090,12 +1260,30 @@ function GithubConfig({ widget, onChange }) {
   const valid = draft.trim() === '' || isValidGithubUsername(draft);
   const form = coerceGithubForm(widget.config.form);
 
+  // Keep the field in step if config changes from elsewhere (e.g. undo).
+  useEffect(() => {
+    setDraft(widget.config.username ?? '');
+  }, [widget.config.username]);
+
   return (
     <div className="space-y-2">
       <input
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => { if (valid) onChange({ username: draft.trim() }); }}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          const trimmed = next.trim();
+          // Apply as soon as the value is usable so the card refetches live.
+          if (trimmed === '' || isValidGithubUsername(trimmed)) {
+            onChange({ username: trimmed });
+          }
+        }}
+        onBlur={() => {
+          const trimmed = draft.trim();
+          if (trimmed === '' || isValidGithubUsername(trimmed)) {
+            if (trimmed !== (widget.config.username ?? '')) onChange({ username: trimmed });
+          }
+        }}
         placeholder="github-username"
         aria-label="GitHub username"
         autoComplete="off"
@@ -1116,7 +1304,7 @@ function GithubConfig({ widget, onChange }) {
 
       <p className="text-[10px] leading-relaxed text-ink-faint">
         {form === 'calendar'
-          ? 'Public events per day. This is not GitHub’s contribution graph — that counts private contributions and a year of history, and needs an access token. This reads the public feed, which reaches back about 90 days. Days beyond it are drawn as outlines rather than as quiet days.'
+          ? 'Last year of the public contribution graph (same days a public profile shows). Private contributions still need a personal access token and are not included. Data comes from a public mirror of that graph.'
           : form === 'repos'
             ? 'Public repositories, most recently pushed first. Forks are left out. Each name links to the repository.'
             : 'Totals and the most recent public events.'}
@@ -1569,6 +1757,47 @@ function XpSummaryWidget({ onNavigate }) {
   );
 }
 
+
+function WebsiteTimeWidget({ onNavigate, span }) {
+  const { state, today } = useWorkspace();
+  const settings = state['grove.settings'];
+  const time = state['grove.time'];
+  const days = (span?.w ?? 1) >= 4 ? 14 : 7;
+  const chart = useMemo(
+    () => websiteTimeByDay(time, settings.rules, { days, today }),
+    [time, settings.rules, days, today],
+  );
+  const top = chart.series.filter((row) => row.total > 0).slice(0, Math.max(2, rowBudget(span) - 1));
+
+  return (
+    <div className="flex h-full min-w-0 flex-col overflow-hidden">
+      <Stat value={formatTrackedDuration(chart.grandTotal)} label={`last ${days} days`} />
+      {top.length === 0 ? (
+        <p className="mt-2 text-meta leading-relaxed text-ink-faint">
+          No tracked time yet. Add sites on the Productive time page — the Chrome extension has to be running.
+        </p>
+      ) : (
+        <ul className="mt-2 min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto scrollbar-thin">
+          {top.map((row) => (
+            <li key={row.ruleId} className="min-w-0">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate text-xs font-medium text-ink">{row.label}</span>
+                <span className="tabular shrink-0 text-[11px] text-ink-muted">{formatTrackedDuration(row.total)}</span>
+              </div>
+              <Sparkline values={row.points} className="mt-0.5" />
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-auto pt-2">
+        <Button size="sm" tone="quiet" onClick={() => onNavigate('websites')}>
+          Open productive time
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export const WIDGETS = {
   today: {
     presentation: 'card',
@@ -1649,11 +1878,11 @@ export const WIDGETS = {
   daily: {
     presentation: 'card',
     name: 'Question of the day',
-    description: 'One question from your library, chosen fresh each day.',
-    defaultSize: { w: 2, h: 1 },
-    // The content is a question title; one column cannot show enough of it.
-    sizes: ['wide', 'bar', 'banner', 'panel', 'row'],
-    limits: { minW: 2, minH: 1, maxW: 12, maxH: 2 },
+    description: 'LeetCode’s Problem of the Day (title and link). Falls back to your library if the feed is offline.',
+    defaultSize: { w: 4, h: 2 },
+    // Needs room for the card title plus the problem title without overlap.
+    sizes: ['wide', 'bar', 'banner', 'panel', 'row', 'large'],
+    limits: { minW: 2, minH: 2, maxW: 12, maxH: 4 },
     render: DailyQuestionWidget,
   },
   shortcuts: {
@@ -1683,17 +1912,16 @@ export const WIDGETS = {
     description: 'A line of your own, optionally rotating each day.',
     defaultSize: { w: 4, h: 2 },
     sizes: ['wide', 'bar', 'banner', 'large', 'panel', 'row'],
-    limits: { minW: 4, minH: 2, maxW: BASE_COLUMNS, maxH: 6 },
+    limits: { minW: 4, minH: 1, maxW: BASE_COLUMNS, maxH: 6 },
     render: InspirationWidget,
     Config: InspirationConfig,
   },
   github: {
     presentation: 'card',
     name: 'GitHub',
-    description: 'Public activity for a GitHub user, as a summary, an activity calendar, or a list of repositories. Contacts the internet once you set a username.',
-    defaultSize: { w: 4, h: 2 },
-    // The calendar wants width for its columns and the repository list wants
-    // height for its rows, so the taller and wider shapes are both offered.
+    description: 'Public activity for a GitHub user: summary, a year contribution calendar, or repositories. Contacts the internet once you set a username.',
+    defaultSize: { w: 8, h: 3 },
+    // The year calendar needs width; the repository list needs height.
     sizes: ['wide', 'bar', 'large', 'panel', 'banner', 'block', 'column', 'tall'],
     limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 8 },
     render: GithubWidget,
@@ -1734,6 +1962,15 @@ export const WIDGETS = {
     limits: { minW: 1, minH: 1, maxW: BASE_COLUMNS, maxH: 6 },
     description: 'Open tasks that are not on the calendar.',
     render: UndatedWidget,
+  },
+  websiteTime: {
+    presentation: 'card',
+    name: 'Website time',
+    description: 'Time spent on the sites you chose to track, with sparklines. Needs the Chrome extension.',
+    defaultSize: { w: 4, h: 2 },
+    sizes: ['wide', 'bar', 'large', 'panel', 'column'],
+    limits: { minW: 2, minH: 2, maxW: BASE_COLUMNS, maxH: 6 },
+    render: WebsiteTimeWidget,
   },
 };
 

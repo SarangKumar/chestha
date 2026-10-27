@@ -20,7 +20,7 @@ const TITLES = {
 
 // The dashboard is a workspace and uses the whole shell. Widget size is fixed by
 // the grid's own cell cap, not by narrowing the page.
-const FULL_WIDTH_SECTIONS = new Set(['dashboard']);
+const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const { state, today, actions } = useWorkspace();

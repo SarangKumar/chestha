@@ -17,6 +17,7 @@ export const SHORTCUT_ACTIONS = [
   { id: 'go-calendar', name: 'Go to calendar', description: 'Open the calendar', default: null, customizable: true },
   { id: 'go-dsa', name: 'Go to DSA', description: 'Open the DSA section', default: null, customizable: true },
   { id: 'go-sounds', name: 'Go to sounds', description: 'Open ambient sounds', default: null, customizable: true },
+  { id: 'go-websites', name: 'Go to productive time', description: 'Open productive time / website tracking', default: null, customizable: true },
   { id: 'go-settings', name: 'Go to settings', description: 'Open settings', default: null, customizable: true },
 ];
 
@@ -27,6 +28,7 @@ export const FIXED_SEQUENCES = [
   { keys: 'G then C', description: 'Go to the calendar' },
   { keys: 'G then A', description: 'Go to DSA' },
   { keys: 'G then O', description: 'Go to sounds' },
+  { keys: 'G then W', description: 'Go to productive time' },
   { keys: 'G then S', description: 'Go to settings' },
   { keys: 'Esc', description: 'Close whatever is open' },
   { keys: 'Alt + arrows', description: 'Move a widget while editing the dashboard' },

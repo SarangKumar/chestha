@@ -138,7 +138,7 @@ export const DEFAULT_SETTINGS = {
  * Hiding only affects the rail. A hidden section still renders from a deep link
  * or the palette, so nothing becomes unreachable and no data is touched.
  */
-export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'sounds'];
+export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds'];
 
 /**
  * How the app paints behind the interface.

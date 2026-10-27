@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { shadowedRules } from '@vistaar/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { trackingAvailable } from '../grove/trackerBridge.js';
-import { Button, Dialog, Field, IconButton, Panel, TextInput, cx } from './ui.jsx';
+import { Button, Dialog, IconButton, Panel, TextInput, cx } from './ui.jsx';
 import { Icon } from './icons.jsx';
 
 /**
@@ -72,29 +72,36 @@ export function WebsiteRules() {
         </label>
       )}
 
-      <form onSubmit={add} className="flex flex-wrap items-end gap-2">
-        <div className="min-w-40 flex-1">
-          <Field label="Website" hint="Just the site, like leetcode.com">
-            <TextInput
-              value={draft.domain}
-              onChange={(event) => { setDraft({ ...draft, domain: event.target.value }); setError(''); }}
-              placeholder="leetcode.com"
-              aria-invalid={error ? 'true' : undefined}
-            />
-          </Field>
-        </div>
-        <div className="min-w-32 flex-1">
-          <Field label="Name" hint="Optional">
-            <TextInput
-              value={draft.label}
-              onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-              placeholder="Practice"
-            />
-          </Field>
-        </div>
-        <Button type="submit"><Icon name="plus" className="size-4" /> Add</Button>
+      <form
+        onSubmit={add}
+        className="grid min-w-0 grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto] items-start gap-x-3 gap-y-1.5"
+      >
+        <label htmlFor="website-rule-name" className="text-meta font-medium text-ink">Name</label>
+        <label htmlFor="website-rule-domain" className="text-meta font-medium text-ink">Website</label>
+        <span className="sr-only">Add</span>
+
+        <TextInput
+          id="website-rule-name"
+          value={draft.label}
+          onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+          placeholder="Practice"
+        />
+        <TextInput
+          id="website-rule-domain"
+          value={draft.domain}
+          onChange={(event) => { setDraft({ ...draft, domain: event.target.value }); setError(''); }}
+          placeholder="leetcode.com"
+          aria-invalid={error ? 'true' : undefined}
+        />
+        <Button type="submit" className="h-9 shrink-0 self-center">
+          <Icon name="plus" className="size-4" /> Add
+        </Button>
+
+        <p className="text-meta leading-relaxed text-ink-faint">Optional</p>
+        <p className="text-meta leading-relaxed text-ink-faint">Just the site, like leetcode.com</p>
+        <span aria-hidden="true" />
       </form>
-      {error && <p className="-mt-2 text-meta text-danger">{error}</p>}
+      {error && <p className="text-meta text-danger">{error}</p>}
 
       {settings.rules.length > 0 && (
         <ul className="flex flex-col divide-y divide-line rounded-card border border-line">

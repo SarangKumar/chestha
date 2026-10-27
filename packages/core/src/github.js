@@ -12,11 +12,18 @@
  * than swallowed.
  */
 export const GITHUB_EVENTS_URL = 'https://api.github.com/users';
+/** Public contribution-day mirror (same public graph as a profile page). No token. */
+export const GITHUB_CONTRIBUTIONS_URL = 'https://github-contributions-api.jogruber.de/v4';
 
 const USERNAME = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
 
 export function isValidGithubUsername(value) {
   return USERNAME.test(String(value ?? '').trim());
+}
+
+
+export function githubContributionsUrl(username) {
+  return `${GITHUB_CONTRIBUTIONS_URL}/${encodeURIComponent(username)}`;
 }
 
 export function githubEventsUrl(username, perPage = 30) {
@@ -43,7 +50,7 @@ export const GITHUB_FORMS = ['summary', 'calendar', 'repos'];
 
 export const GITHUB_FORM_LABELS = {
   summary: 'Activity summary',
-  calendar: 'Activity calendar',
+  calendar: 'Contribution calendar',
   repos: 'Repositories',
 };
 
@@ -246,4 +253,95 @@ export function shortAge(instant, now = new Date()) {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
+}
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Month labels for an activity calendar, one per column where the month changes —
+ * the same placement GitHub uses above its contribution grid.
+ */
+export function activityMonthLabels(columns) {
+  const labels = [];
+  let last = null;
+  for (let i = 0; i < (columns?.length ?? 0); i += 1) {
+    const date = columns[i]?.[0]?.date;
+    if (!date) continue;
+    const key = date.slice(0, 7);
+    if (key === last) continue;
+    last = key;
+    const month = Number(date.slice(5, 7));
+    if (!Number.isFinite(month) || month < 1 || month > 12) continue;
+    labels.push({ index: i, label: MONTHS_SHORT[month - 1] });
+  }
+  return labels;
+}
+
+/**
+ * Which rows of a week column get a weekday label (Mon / Wed / Fri), matching
+ * GitHub's contribution graph. The row index depends on `weekStartsOn`.
+ */
+export function activityDayLabels(weekStartsOn = 0) {
+  const start = ((Number(weekStartsOn) % 7) + 7) % 7;
+  const names = { 1: 'Mon', 3: 'Wed', 5: 'Fri' };
+  const labels = [];
+  for (let row = 0; row < 7; row += 1) {
+    const dow = (start + row) % 7;
+    if (names[dow]) labels.push({ row, label: names[dow] });
+  }
+  return labels;
+}
+
+/**
+ * Builds a GitHub-shaped contribution grid for the last `weeks` weeks from a list
+ * of `{ date, count, level? }` day rows (e.g. the public contributions mirror).
+ *
+ * Every past day inside the grid is `known: true` — the mirror covers a full year
+ * the way a public profile does. Private contributions are still absent without a
+ * personal access token; this is the public graph, not a private one.
+ */
+export function buildContributionYearCalendar(days, today, weeks = 53, weekStartsOn = 0) {
+  const counts = new Map();
+  const levels = new Map();
+  for (const row of Array.isArray(days) ? days : []) {
+    if (!row || typeof row.date !== 'string') continue;
+    const date = row.date.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const count = Math.max(0, Number(row.count) || 0);
+    counts.set(date, count);
+    if (row.level != null && Number.isFinite(Number(row.level))) {
+      levels.set(date, Math.min(4, Math.max(0, Math.round(Number(row.level)))));
+    }
+  }
+
+  const end = new Date(`${today}T00:00:00`);
+  const offset = (end.getDay() - weekStartsOn + 7) % 7;
+  const start = new Date(end);
+  start.setDate(start.getDate() - offset - (weeks - 1) * 7);
+
+  const columns = [];
+  let max = 0;
+  let total = 0;
+  for (let w = 0; w < weeks; w += 1) {
+    const column = [];
+    for (let d = 0; d < 7; d += 1) {
+      const date = new Date(start);
+      date.setDate(date.getDate() + w * 7 + d);
+      const iso = localDay(date);
+      const future = iso > today;
+      const count = future ? 0 : (counts.get(iso) ?? 0);
+      if (count > max) max = count;
+      if (!future) total += count;
+      column.push({
+        date: iso,
+        count,
+        future,
+        known: !future,
+        level: future ? 0 : (levels.has(iso) ? levels.get(iso) : null),
+      });
+    }
+    columns.push(column);
+  }
+
+  return { columns, max, total, weeks, source: 'contributions' };
 }

@@ -7,3 +7,4 @@ export * from './rules.js';
 export * from './thresholds.js';
 export * from './accrual.js';
 export * from './garden.js';
+export * from './timeStats.js';
