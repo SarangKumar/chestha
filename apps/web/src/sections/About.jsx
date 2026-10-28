@@ -6,10 +6,9 @@ import { BuyMeCoffeeButton } from '../components/BuyMeCoffeeButton.jsx';
 import { isExtensionRuntime } from '../app/platform.js';
 
 /**
- * About answers "what is this and where is my data". It stays out of the nav
- * rail on purpose. On the website it is linked from the header and the site
- * footer; in the extension New Tab it remains reachable from the command
- * palette and `#/about`.
+ * About answers "what is this and where is my data". Website-only — linked
+ * from the marketing header and footer. The extension New Tab does not host
+ * About (`#/about` remaps to the dashboard there).
  *
  * Everything stated here is checked against the code. An About page that
  * overclaims on privacy is worse than none at all.
@@ -123,7 +122,7 @@ export function About({ onNavigate }) {
           {onWebsite && (
             <>
               {' '}
-              On this website, About is also linked from the top bar and the footer.
+              About is linked from the top bar and the footer on this website.
             </>
           )}
         </p>

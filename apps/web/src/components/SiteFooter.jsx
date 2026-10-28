@@ -1,8 +1,8 @@
 import { SITE_SOCIALS } from '../siteLinks.js';
-import { BuyMeCoffeeButton } from './BuyMeCoffeeButton.jsx';
 
 /**
- * Website-only footer: About, Changelog, maker socials, Buy me a coffee button.
+ * Website-only footer: About, Changelog, maker socials.
+ * Buy me a coffee lives on the landing hero, not here.
  * Not mounted in the extension New Tab (Shell gates on showSiteChrome).
  * Shell flex-column + mt-auto pins this to the bottom of the viewport when the
  * section is short.
@@ -42,9 +42,6 @@ export function SiteFooter({ onNavigate }) {
               </a>
             </li>
           ))}
-          <li>
-            <BuyMeCoffeeButton size="xs" variant="outline" />
-          </li>
         </ul>
       </div>
     </footer>

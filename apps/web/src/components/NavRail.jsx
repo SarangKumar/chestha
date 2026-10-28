@@ -1,4 +1,6 @@
 import { useWorkspace } from '../app/StoreProvider.jsx';
+import { SITE_URL } from '../siteLinks.js';
+import { isExtensionRuntime } from '../app/platform.js';
 import { Icon } from './icons.jsx';
 import { cx } from './ui.jsx';
 
@@ -46,6 +48,7 @@ export function NavRail({ section, onNavigate, onCapture }) {
   // which reads as a bug. Arriving by palette or link is the normal way in.
   const primary = PRIMARY.filter((item) => !hidden.includes(item.id) || item.id === section);
   const items = [...primary, SETTINGS];
+  const siteTarget = isExtensionRuntime() ? '_blank' : '_self';
 
   return (
     <>
@@ -53,14 +56,22 @@ export function NavRail({ section, onNavigate, onCapture }) {
         aria-label="Sections"
         className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center gap-1 overflow-y-auto border-r border-line bg-canvas py-3.5 scrollbar-thin sm:flex"
       >
-        <img
-          src="/icon-mark-128.png"
-          alt=""
-          aria-hidden="true"
-          width="36"
-          height="36"
-          className="mb-3 size-9"
-        />
+        <a
+          href={SITE_URL}
+          target={siteTarget}
+          rel="noopener noreferrer"
+          className="mb-3 flex size-9 items-center justify-center rounded-card transition-opacity duration-150 hover:opacity-90"
+          title="Chestha website"
+          aria-label="Open Chestha website"
+        >
+          <img
+            src="/icon-mark-128.png"
+            alt=""
+            width="36"
+            height="36"
+            className="size-9"
+          />
+        </a>
 
         <button
           type="button"

@@ -37,6 +37,7 @@ export function Icon({ name, className = 'size-5' }) {
     alert: <><path d="M12 4.5 20.5 19.5h-17L12 4.5Z" /><path d="M12 10v4M12 16.8v.2" /></>,
     chevronLeft: <path d="m14 7-5 5 5 5" />,
     chevronRight: <path d="m10 7 5 5-5 5" />,
+    chevronDown: <path d="m7 10 5 5 5-5" />,
     download: <><path d="M12 4v11M8 11.5l4 4 4-4" /><path d="M4.5 19.5h15" /></>,
     upload: <><path d="M12 15.5V4.5M8 8.5l4-4 4 4" /><path d="M4.5 19.5h15" /></>,
     check: <path d="m5 12.5 4.5 4.5L19 7" />,

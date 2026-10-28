@@ -1,12 +1,16 @@
 /**
  * Keep-a-Changelog style entries for the website Changelog page.
  * Dates are release days only where known; undated notes use the version span.
+ * `summary` feeds the intro under the version heading; section `kind`s drive
+ * the "On this page" TOC.
  */
 export const CHANGELOG = [
   {
     version: '0.1.1',
     date: '2026-10-28',
     title: 'Chestha',
+    summary:
+      'Product rename to Chestha, a marketing website shell, and a New Tab default layout that re-anchors to the live grid so corner widgets reach the edges.',
     sections: [
       {
         kind: 'Changed',
@@ -21,7 +25,7 @@ export const CHANGELOG = [
         items: [
           'About page with privacy notes and maker links (GitHub, portfolio, LinkedIn).',
           'Changelog page on the website.',
-          'Buy me a coffee control with the mug mark in the website footer and About.',
+          'Buy me a coffee control with the mug mark.',
           'Chrome Web Store link on Add to Chrome.',
         ],
       },
@@ -38,6 +42,8 @@ export const CHANGELOG = [
     version: '0.1.0',
     date: '2026-10',
     title: 'First store cut',
+    summary:
+      'First Chrome Web Store cut: a local-first workspace with tasks, calendar, Grove, DSA practice, ambient sound, and a New Tab extension.',
     sections: [
       {
         kind: 'Added',

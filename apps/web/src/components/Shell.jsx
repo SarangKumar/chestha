@@ -27,9 +27,9 @@ const TITLES = {
 // the grid's own cell cap, not by narrowing the page.
 const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
-const showSiteChrome = !isExtensionRuntime() && !isEmbedPreview();
-
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
+  const embed = isEmbedPreview();
+  const showSiteChrome = !isExtensionRuntime() && !embed;
   const { state, today, actions } = useWorkspace();
   const sidebarOpen = state.settings.sidebarOpen;
 
@@ -53,15 +53,20 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           <div className="absolute inset-0 bg-canvas" style={{ opacity: background.dim }} />
         </div>
       )}
-      <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />
 
-      <RightSidebar
-        open={sidebarOpen}
-        onClose={() => actions.setSetting('sidebarOpen', false)}
-        onOpenTask={onOpenTask}
-        onCapture={onCapture}
-        onNavigate={onNavigate}
-      />
+      {/* Embed preview is a framed product shot — no rail, header, or footer so
+          the default dashboard can hug the iframe corners. */}
+      {!embed && <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />}
+
+      {!embed && (
+        <RightSidebar
+          open={sidebarOpen}
+          onClose={() => actions.setSetting('sidebarOpen', false)}
+          onOpenTask={onOpenTask}
+          onCapture={onCapture}
+          onNavigate={onNavigate}
+        />
+      )}
 
       {/* No right-hand padding: the today panel is an overlay, so the page keeps
           its full width whether or not it is open. */}
@@ -69,52 +74,54 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           viewport bottom when a section is short. Extension never mounts
           SiteFooter (showSiteChrome is false). min-w-0 stops the dashboard
           grid from forcing horizontal scroll at the corners. */}
-      <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', 'sm:pl-16')}>
-        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>
-            <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
-          </div>
+      <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', !embed && 'sm:pl-16')}>
+        {!embed && (
+          <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>
+              <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
+            </div>
 
-          {showSiteChrome && (
+            {showSiteChrome && (
+              <button
+                type="button"
+                onClick={() => onNavigate('about')}
+                className="hidden h-9 items-center rounded-control px-2.5 text-xs font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink sm:inline-flex"
+              >
+                About
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => onNavigate('about')}
-              className="hidden h-9 items-center rounded-control px-2.5 text-xs font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink sm:inline-flex"
+              onClick={onPalette}
+              className="flex h-9 items-center gap-2 rounded-control border border-line bg-surface px-3 text-xs text-ink-muted shadow-card transition-colors duration-150 hover:bg-hover hover:text-ink"
             >
-              About
+              <Icon name="search" className="size-4" />
+              <span className="hidden sm:inline">Search or run a command</span>
+              <kbd className="rounded border border-line bg-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-faint">
+                ⌘K
+              </kbd>
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={onPalette}
-            className="flex h-9 items-center gap-2 rounded-control border border-line bg-surface px-3 text-xs text-ink-muted shadow-card transition-colors duration-150 hover:bg-hover hover:text-ink"
-          >
-            <Icon name="search" className="size-4" />
-            <span className="hidden sm:inline">Search or run a command</span>
-            <kbd className="rounded border border-line bg-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-faint">
-              ⌘K
-            </kbd>
-          </button>
+            <button
+              type="button"
+              onClick={onCapture}
+              className="flex h-9 items-center gap-1.5 rounded-control bg-accent px-3 text-xs font-medium text-on-accent transition-colors duration-150 hover:opacity-90 sm:hidden"
+            >
+              <Icon name="plus" className="size-4" /> Task
+            </button>
 
-          <button
-            type="button"
-            onClick={onCapture}
-            className="flex h-9 items-center gap-1.5 rounded-control bg-accent px-3 text-xs font-medium text-on-accent transition-colors duration-150 hover:opacity-90 sm:hidden"
-          >
-            <Icon name="plus" className="size-4" /> Task
-          </button>
-
-          <IconButton
-            label={sidebarOpen ? 'Hide the today panel' : 'Show the today panel'}
-            aria-pressed={sidebarOpen}
-            onClick={() => actions.setSetting('sidebarOpen', !sidebarOpen)}
-            className="hidden lg:inline-flex"
-          >
-            <Icon name="sidebar" className="size-4" />
-          </IconButton>
-        </header>
+            <IconButton
+              label={sidebarOpen ? 'Hide the today panel' : 'Show the today panel'}
+              aria-pressed={sidebarOpen}
+              onClick={() => actions.setSetting('sidebarOpen', !sidebarOpen)}
+              className="hidden lg:inline-flex"
+            >
+              <Icon name="sidebar" className="size-4" />
+            </IconButton>
+          </header>
+        )}
 
         <main
           className={cx(
@@ -123,17 +130,25 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
             // Website footer clears the mobile nav; extension keeps the old
             // main padding so the dense New Tab still sits above the bar.
             // flex-1 grows so SiteFooter (mt-auto) sits at the viewport bottom.
-            'min-w-0 flex-1 w-full pt-6 sm:pt-8',
-            showSiteChrome ? 'pb-6 sm:pb-8' : 'pb-24 sm:pb-12',
-            FULL_WIDTH_SECTIONS.has(section)
-              ? 'max-w-none px-2 sm:px-3'
-              : 'mx-auto max-w-6xl px-4 sm:px-6',
+            // Embed: minimal padding so re-anchored corner widgets hug the frame.
+            'min-w-0 flex-1 w-full',
+            embed
+              ? 'p-1.5 sm:p-2'
+              : cx(
+                'pt-6 sm:pt-8',
+                showSiteChrome ? 'pb-6 sm:pb-8' : 'pb-24 sm:pb-12',
+                FULL_WIDTH_SECTIONS.has(section)
+                  ? 'max-w-none px-2 sm:px-3'
+                  : 'mx-auto max-w-6xl px-4 sm:px-6',
+              ),
           )}
         >
-          <div className="mb-6 space-y-2 empty:mb-0">
-            <Notices onNavigate={onNavigate} />
-            <ExportReminder onNavigate={onNavigate} />
-          </div>
+          {!embed && (
+            <div className="mb-6 space-y-2 empty:mb-0">
+              <Notices onNavigate={onNavigate} />
+              <ExportReminder onNavigate={onNavigate} />
+            </div>
+          )}
           {children}
         </main>
 

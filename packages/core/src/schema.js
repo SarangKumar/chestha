@@ -65,13 +65,13 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 const DEFAULT_SKETCH = [
   { id: 'w_weather', type: 'weather', anchor: 'right', offset: 0, y: 0, w: 3, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 6, h: 2,
+  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 8, h: 2,
     config: { showSeconds: false, presentation: 'transparent' } },
-  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 8, h: 2,
+  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 10, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 10, w: 4, h: 3,
+  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 15, w: 5, h: 3,
     config: { presentation: 'transparent' } },
-  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 10, w: 4, h: 2,
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 16, w: 4, h: 2,
     config: { presentation: 'transparent' } },
 ];
 
@@ -95,9 +95,9 @@ const DEFAULT_COLUMNS = 16;
  * the very first render.
  */
 export function defaultWidgetsFor(columns = DEFAULT_COLUMNS) {
-  // The widest widget is 8 columns, so below that nothing can be placed as
+  // The widest widget is 10 columns (search), so below that nothing can be placed as
   // drawn; above BASE_COLUMNS is off the canonical grid.
-  const cols = Math.max(8, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  const cols = Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
 
   return DEFAULT_SKETCH.map(({ anchor, offset, config, ...widget }) => {
     const x = anchor === 'right'
@@ -142,7 +142,7 @@ export function isShippedDefaultLayout(widgets) {
  */
 export function shouldReanchorDefault(widgets, columns) {
   if (!isShippedDefaultLayout(widgets)) return false;
-  const cols = Math.max(8, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  const cols = Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
   const weather = widgets.find((w) => w.id === 'w_weather');
   return Boolean(weather) && weather.x + weather.w !== cols;
 }

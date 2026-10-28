@@ -3,7 +3,8 @@ import { isEmbedPreview, isExtensionRuntime } from './platform.js';
 
 /**
  * Routable sections. `home` is the website marketing landing and is absent
- * from the nav rail. `about` and `changelog` are also rail-absent — palette / footer.
+ * from the nav rail. `about` is website-only (marketing chrome); `changelog`
+ * is rail-absent — marketing / palette on the site, palette in the extension.
  */
 export const SECTIONS = [
   'home',
@@ -35,8 +36,8 @@ function read() {
   if (!section) {
     return { section: defaultSection(), param: null };
   }
-  // Extension / embed must never land on marketing.
-  if ((isExtensionRuntime() || isEmbedPreview()) && section === 'home') {
+  // Extension / embed must never land on marketing (home or About).
+  if ((isExtensionRuntime() || isEmbedPreview()) && (section === 'home' || section === 'about')) {
     return { section: 'dashboard', param: null };
   }
   return {

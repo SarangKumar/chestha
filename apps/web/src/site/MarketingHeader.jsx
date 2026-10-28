@@ -9,7 +9,10 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { BrandMark } from './BrandMark.jsx';
-import { CHROME_STORE_URL } from '../siteLinks.js';
+import { CHROME_STORE_URL, GITHUB_REPO } from '../siteLinks.js';
+import { Icon } from '../components/icons.jsx';
+import { useWorkspace } from '../app/StoreProvider.jsx';
+import { formatStarCount, useGithubStars } from './useGithubStars.js';
 
 const NAV = [
   { id: 'workspace', label: 'Workspace', section: 'dashboard' },
@@ -28,11 +31,17 @@ function MenuIcon() {
 }
 
 /**
- * Website marketing navbar — calm sticky bar inspired by Aavedak's header
- * structure (brand + links + primary CTA), rebranded for Chestha.
+ * Website marketing navbar — brand + links; right side is GitHub (with live
+ * star count) and theme toggle. Height stays h-12.
  */
 export function MarketingHeader({ onNavigate }) {
   const [open, setOpen] = useState(false);
+  const { state, actions } = useWorkspace();
+  const stars = useGithubStars();
+  const starLabel = formatStarCount(stars);
+  const theme = state.settings.theme;
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const themeIcon = theme === 'dark' ? 'sun' : 'moon';
 
   const go = (section) => {
     setOpen(false);
@@ -46,6 +55,10 @@ export function MarketingHeader({ onNavigate }) {
       return;
     }
     window.open(CHROME_STORE_URL, '_blank', 'noopener,noreferrer');
+  };
+
+  const toggleTheme = () => {
+    actions.setSetting('theme', nextTheme);
   };
 
   return (
@@ -82,6 +95,22 @@ export function MarketingHeader({ onNavigate }) {
                     {item.label}
                   </button>
                 ))}
+                <a
+                  href={GITHUB_REPO.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-foreground/5"
+                  onClick={() => setOpen(false)}
+                >
+                  GitHub{starLabel ? ` · ★ ${starLabel}` : ''}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => { toggleTheme(); setOpen(false); }}
+                  className="rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-foreground/5"
+                >
+                  Switch to {nextTheme} theme
+                </button>
                 <button
                   type="button"
                   onClick={addToChrome}
@@ -117,18 +146,29 @@ export function MarketingHeader({ onNavigate }) {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+          <a
+            href={GITHUB_REPO.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
+            aria-label={starLabel ? `Chestha on GitHub, ${starLabel} stars` : 'Chestha on GitHub'}
+          >
+            <Icon name="github" className="size-4" />
+            {starLabel ? (
+              <span className="tabular-nums text-xs">{starLabel}</span>
+            ) : null}
+          </a>
+
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             type="button"
-            className="hidden sm:inline-flex"
-            onClick={() => go('dashboard')}
+            onClick={toggleTheme}
+            aria-label={`Switch to ${nextTheme} theme`}
+            title={`Switch to ${nextTheme} theme`}
           >
-            Open workspace
-          </Button>
-          <Button size="sm" type="button" onClick={addToChrome}>
-            Add to Chrome
+            <Icon name={themeIcon} className="size-4" />
           </Button>
         </div>
       </div>

@@ -1,10 +1,8 @@
 import { SITE_SOCIALS } from '../siteLinks.js';
-import { BuyMeCoffeeButton } from '../components/BuyMeCoffeeButton.jsx';
 
 /**
- * Website marketing footer — Aavedak-simple: product line, About, Changelog,
- * socials, Buy me a coffee button. Parent landing uses min-h-dvh flex-col +
- * mt-auto so this sticks to the viewport bottom when the hero is short.
+ * Website marketing footer — product line, About, Changelog, socials.
+ * Buy me a coffee lives in the hero, not here.
  */
 export function MarketingFooter({ onNavigate }) {
   return (
@@ -50,7 +48,6 @@ export function MarketingFooter({ onNavigate }) {
               {item.label}
             </a>
           ))}
-          <BuyMeCoffeeButton size="xs" variant="outline" />
         </nav>
       </div>
     </footer>

@@ -19,3 +19,15 @@ export const BUY_ME_COFFEE = {
   href: 'https://buymeacoffee.com/sarangkumar',
   iconSrc: '/bmc-mug.png',
 };
+
+/** Product GitHub repository — navbar star count + icon link. */
+export const GITHUB_REPO = {
+  owner: 'SarangKumar',
+  name: 'chestha',
+  href: 'https://github.com/SarangKumar/chestha',
+  api: 'https://api.github.com/repos/SarangKumar/chestha',
+};
+
+/** Public marketing site. */
+export const SITE_URL = 'https://chestha.vercel.app/';
+

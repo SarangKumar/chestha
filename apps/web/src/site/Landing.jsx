@@ -3,6 +3,7 @@ import { BrandMark } from './BrandMark.jsx';
 import { MarketingHeader } from './MarketingHeader.jsx';
 import { MarketingFooter } from './MarketingFooter.jsx';
 import { WorkspacePreview } from './WorkspacePreview.jsx';
+import { BuyMeCoffeeButton } from '../components/BuyMeCoffeeButton.jsx';
 import { CHROME_STORE_URL } from '../siteLinks.js';
 
 const CHIPS = [
@@ -14,7 +15,7 @@ const CHIPS = [
 /**
  * Website-only marketing landing. Structure mirrors Aavedak's calm hero
  * (mark, title, tagline, chips, CTAs) then a large laptop-ratio workspace
- * preview — not a seeded demo.
+ * preview — not a seeded demo. Hero CTAs: Buy me a coffee + Add to Chrome.
  */
 export function Landing({ onNavigate }) {
   const addToChrome = () => {
@@ -79,16 +80,14 @@ export function Landing({ onNavigate }) {
           </div>
 
           <div className="chestha-fade-up chestha-fade-up-delay-2 mt-6 flex w-full max-w-sm flex-col items-stretch gap-2 sm:mt-8 sm:max-w-none sm:flex-row sm:items-center sm:justify-center">
-            <Button size="lg" type="button" onClick={() => onNavigate?.('dashboard')}>
-              Open workspace
-            </Button>
+            <BuyMeCoffeeButton size="lg" variant="default" className="h-10 min-h-10 max-h-10 px-6" />
             <Button size="lg" variant="outline" type="button" onClick={addToChrome}>
               Add to Chrome
             </Button>
           </div>
         </section>
 
-        <WorkspacePreview />
+        <WorkspacePreview onOpenWorkspace={() => onNavigate?.('dashboard')} />
       </main>
 
       <MarketingFooter onNavigate={onNavigate} />

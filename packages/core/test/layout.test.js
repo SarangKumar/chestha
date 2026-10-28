@@ -419,7 +419,11 @@ test('the default layout reaches the corners of whatever width it is resolved at
     assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
     assert.ok(byId.w_search.y > byId.w_clock.y, 'search sits under the clock');
     assert.ok(byId.w_notes.y > byId.w_search.y + byId.w_search.h, 'scratchpad leaves open mid-board');
-    assert.equal(byId.w_notes.y, byId.w_shortcuts.y, 'bottom corners share a row');
+    assert.equal(byId.w_clock.w, 8, 'clock is two squares wider than the first cut');
+    assert.equal(byId.w_search.w, 10, 'search is two squares wider than the first cut');
+    assert.equal(byId.w_notes.w, 5, 'scratchpad is one square wider');
+    assert.equal(byId.w_notes.y, 15, 'scratchpad is five squares lower');
+    assert.equal(byId.w_shortcuts.y, 16, 'shortcuts are six squares lower');
 
     assert.equal(byId.w_clock.config?.showSeconds, false, 'clock matches the digital HH:MM look');
     assert.equal(byId.w_clock.config?.presentation, 'transparent', 'clock is glass');

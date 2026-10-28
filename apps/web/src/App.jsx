@@ -20,7 +20,10 @@ import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
 import { Changelog } from './sections/Changelog.jsx';
 import { Landing } from './site/Landing.jsx';
+import { MarketingHeader } from './site/MarketingHeader.jsx';
+import { MarketingFooter } from './site/MarketingFooter.jsx';
 import { isExtensionRuntime } from './app/platform.js';
+import { SITE_URL } from './siteLinks.js';
 
 const TASK_VIEWS = ['today', 'upcoming', 'overdue', 'nodate', 'completed', 'all'];
 
@@ -97,19 +100,26 @@ function Workspace() {
     { id: 'export', label: 'Export my data', group: 'Data', keywords: 'backup download save', run: () => go('settings') },
     { id: 'import', label: 'Import a backup', group: 'Data', keywords: 'restore upload', run: () => go('settings') },
     {
-      id: 'go-about',
-      label: 'About Chestha',
-      group: 'Navigate',
-      keywords: 'version privacy credits licence license help what is this',
-      run: () => go('about'),
-    },
-    {
       id: 'go-changelog',
       label: 'Changelog',
       group: 'Navigate',
       keywords: 'release notes version history whats new',
       run: () => go('changelog'),
     },
+    {
+      id: 'open-website',
+      label: 'Open Chestha website',
+      group: 'Navigate',
+      keywords: 'home marketing landing chestha.vercel.app site',
+      run: () => window.open(SITE_URL, '_blank', 'noopener,noreferrer'),
+    },
+    ...(!isExtensionRuntime() ? [{
+      id: 'go-about',
+      label: 'About Chestha',
+      group: 'Navigate',
+      keywords: 'version privacy credits licence license help what is this',
+      run: () => go('about'),
+    }] : []),
   ], [state.settings, actions, go, openCapture]);
 
   useGroveDrain();
@@ -134,9 +144,23 @@ function Workspace() {
     },
   });
 
-  // Website marketing landing — never shown in the extension New Tab.
-  if (section === 'home' && !isExtensionRuntime()) {
-    return <Landing onNavigate={go} />;
+  // Website marketing surfaces — never shown in the extension New Tab.
+  // About lives only on the site (marketing chrome). Changelog uses the same
+  // chrome on the website; the extension still opens #/changelog in the Shell.
+  if (!isExtensionRuntime() && (section === 'home' || section === 'about' || section === 'changelog')) {
+    if (section === 'home') {
+      return <Landing onNavigate={go} />;
+    }
+    return (
+      <div className="relative flex min-h-dvh flex-col bg-canvas text-ink">
+        <MarketingHeader onNavigate={go} />
+        <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+          {section === 'about' && <About onNavigate={go} />}
+          {section === 'changelog' && <Changelog />}
+        </main>
+        <MarketingFooter onNavigate={go} />
+      </div>
+    );
   }
 
   return (
@@ -184,7 +208,6 @@ function Workspace() {
         {section === 'websites' && <Websites />}
         {section === 'sounds' && <Sounds />}
         {section === 'settings' && <Settings />}
-        {section === 'about' && <About onNavigate={go} />}
         {section === 'changelog' && <Changelog />}
       </Shell>
 
