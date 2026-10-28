@@ -11,6 +11,7 @@ export const LIST_KINDS = ['curated', 'personal'];
 export const LIST_FAMILIES = {
   'blind-75': 'blind',
   'grind-75': 'blind',
+  'grind-169': 'blind',
   'neetcode-75': 'neetcode',
   'neetcode-150': 'neetcode',
   'neetcode-250': 'neetcode',

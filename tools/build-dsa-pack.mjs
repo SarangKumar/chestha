@@ -6,13 +6,19 @@
  * an external request. Keeping it in the repo makes the bundled data auditable
  * and refreshable rather than a mystery blob.
  *
- * Sources (both MIT-licensed at the time of writing — re-check before refreshing):
- *   - Question metadata: huggingface.co/datasets/kaysss/leetcode-problem-set
+ * Sources (re-check licences before refreshing):
+ *   - Question metadata: huggingface.co/datasets/kaysss/leetcode-problem-set (MIT).
  *     Note: that dataset's own README states it was scraped from LeetCode. We
  *     consume a published dataset rather than scraping, and record the fact here
  *     so the provenance is visible instead of buried.
- *   - Curated list membership: github.com/leetnotion/vscode-leetnotion
- *     (data/sheets.json), keyed by LeetCode's frontendQuestionId.
+ *   - Curated list membership (Blind / NeetCode / LeetCode official): 
+ *     github.com/leetnotion/vscode-leetnotion (data/sheets.json, MIT), keyed by
+ *     LeetCode's frontendQuestionId.
+ *   - Grind 75 / Grind 169 membership: github.com/jrddp/leet-cli
+ *     (data/grind75_template.json, ISC) — ordered problem URLs for the full
+ *     Grind 75 pool (169). Grind 75 is the first 75 in that order; Grind 169 is
+ *     the full list. Origin list: techinterviewhandbook.org/grind75. We do not
+ *     scrape LeetCode HTML.
  *
  * Only facts are bundled: title, slug, difficulty, topic tags, question id.
  * Problem statements are never included — those are LeetCode's copyrighted text.
@@ -21,16 +27,23 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 
 const METADATA_URL = 'https://huggingface.co/datasets/kaysss/leetcode-problem-set/resolve/main/data.csv';
 const SHEETS_URL = 'https://raw.githubusercontent.com/leetnotion/vscode-leetnotion/HEAD/data/sheets.json';
+const GRIND_URL = 'https://raw.githubusercontent.com/jrddp/leet-cli/main/data/grind75_template.json';
 const OUT_DIR = new URL('../apps/web/public/dsa-packs/', import.meta.url);
 
-/** Lists we ship, with the total each is known to contain. A list whose fetched
- *  size disagrees with its documented total is rejected rather than shipped. */
+/** Lists we ship from leetnotion sheets.json. A list whose fetched size
+ *  disagrees with its documented total is rejected rather than shipped. */
 const LISTS = [
   { sheet: 'Blind 75', id: 'blind-75', name: 'Blind 75', family: 'blind', expected: 75 },
   { sheet: 'Neetcode 150', id: 'neetcode-150', name: 'NeetCode 150', family: 'neetcode', expected: 150 },
   { sheet: 'Neetcode 250', id: 'neetcode-250', name: 'NeetCode 250', family: 'neetcode', expected: 250 },
   { sheet: 'LeetCode 75', id: 'leetcode-75', name: 'LeetCode 75', family: 'leetcode-official', expected: 75 },
   { sheet: 'Top Interview 150', id: 'leetcode-top-interview-150', name: 'LeetCode Top Interview 150', family: 'leetcode-official', expected: 150 },
+];
+
+/** Grind lists — membership from GRIND_URL (ordered slugs). */
+const GRIND_LISTS = [
+  { id: 'grind-75', name: 'Grind 75', family: 'blind', expected: 75, take: 75 },
+  { id: 'grind-169', name: 'Grind 169', family: 'blind', expected: 169, take: 169 },
 ];
 
 function parseCsv(text) {
@@ -86,6 +99,8 @@ for (const r of meta) {
 }
 console.log(`  ${byId.size} questions`);
 
+const bySlug = new Map([...byId.values()].map((q) => [q.slug, q]));
+
 console.log('fetching curated lists…');
 const sheets = await (await fetch(SHEETS_URL)).json();
 
@@ -118,6 +133,56 @@ for (const spec of LISTS) {
   console.log(`  ${spec.name}: ${ids.length} verified`);
 }
 
+console.log('fetching Grind 75 / 169 membership…');
+const grindRaw = await (await fetch(GRIND_URL)).json();
+if (!Array.isArray(grindRaw)) {
+  problems.push('Grind template: expected an array of problems');
+} else {
+  const grindSlugs = [];
+  for (const row of grindRaw) {
+    const url = typeof row?.url === 'string' ? row.url : '';
+    const match = url.match(/leetcode\.com\/problems\/([^/?#]+)/i);
+    if (!match) {
+      problems.push(`Grind template: could not parse slug from ${url || '(missing url)'}`);
+      break;
+    }
+    grindSlugs.push(match[1]);
+  }
+  if (!problems.some((p) => p.startsWith('Grind template:'))) {
+    if (grindSlugs.length !== 169) {
+      problems.push(`Grind template: ${grindSlugs.length} entries, expected 169`);
+    }
+    const missing = grindSlugs.filter((slug) => !bySlug.has(slug));
+    if (missing.length) {
+      problems.push(`Grind template: ${missing.length} slugs missing from metadata (e.g. ${missing.slice(0, 3).join(', ')})`);
+    }
+    if (new Set(grindSlugs).size !== grindSlugs.length) {
+      problems.push('Grind template: duplicate slugs');
+    }
+  }
+  if (!problems.some((p) => p.startsWith('Grind'))) {
+    for (const spec of GRIND_LISTS) {
+      const slugs = grindSlugs.slice(0, spec.take);
+      if (slugs.length !== spec.expected) {
+        problems.push(`${spec.name}: ${slugs.length} entries, expected ${spec.expected}`);
+        continue;
+      }
+      lists.push({
+        id: spec.id,
+        name: spec.name,
+        family: spec.family,
+        source: spec.id,
+        sourceVersion: fetchedAt.slice(0, 10),
+      });
+      slugs.forEach((slug, order) => {
+        usedSlugs.add(slug);
+        memberships.push({ listId: spec.id, slug, order });
+      });
+      console.log(`  ${spec.name}: ${slugs.length} verified`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error('\nRefusing to write a pack — source verification failed:');
   for (const p of problems) console.error(`  - ${p}`);
@@ -127,6 +192,12 @@ if (problems.length) {
 const provenance = {
   questions: { source: METADATA_URL, licence: 'MIT', fetchedAt, note: 'Upstream README states the data was scraped from LeetCode by that dataset’s author.' },
   lists: { source: SHEETS_URL, licence: 'MIT', fetchedAt, note: 'Membership keyed by LeetCode frontendQuestionId and joined locally to slugs.' },
+  grind: {
+    source: GRIND_URL,
+    licence: 'ISC',
+    fetchedAt,
+    note: 'Ordered Grind 75 pool (169). Grind 75 = first 75; Grind 169 = full list. Origin: techinterviewhandbook.org/grind75. Not scraped from LeetCode.',
+  },
 };
 
 const pack = (id, name, description, questions, packLists, packMemberships) => ({
@@ -149,7 +220,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 writeFileSync(new URL('curated-core.json', OUT_DIR), JSON.stringify(
   pack('curated-core', 'Curated interview lists',
-    'Blind 75, NeetCode 150/250, LeetCode 75 and Top Interview 150, with the metadata for every question they contain.',
+    'Blind 75, Grind 75, Grind 169, NeetCode 150/250, LeetCode 75 and Top Interview 150, with the metadata for every question they contain.',
     curatedQuestions, lists, memberships),
 ));
 

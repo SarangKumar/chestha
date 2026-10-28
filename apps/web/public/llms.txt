@@ -16,7 +16,7 @@ Chestha is a Vite + React SPA. Primary navigation uses hash routes (`#/…`). Th
 
 - Tasks — today, upcoming, overdue, undated, completed.
 - Calendar — date-only due dates; tasks are the single source of truth.
-- DSA — curated packs + personal lists, revision ladder, daily targets.
+- DSA — curated packs (Blind 75, Grind 75, Grind 169, NeetCode 150/250, LeetCode 75, Top Interview 150) + personal lists, revision ladder, daily targets.
 - Grove — focus sessions that grow a garden and earn XP.
 - Productive time — domain-only website time tracking (extension).
 - Sounds — synthesised ambient mixes in the browser.

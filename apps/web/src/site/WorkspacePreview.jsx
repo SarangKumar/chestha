@@ -1,10 +1,14 @@
+import { useState } from 'react';
+
 /**
  * Laptop-ratio product shot for the landing page. Embeds the real dashboard
  * (no seeded demo data) in a framed browser chrome at ~16:10.
  * Traffic lights use macOS colours; green / fullscreen opens the workspace.
+ * Shows a Chestha-styled loading layer until the embed iframe reports ready.
  */
 export function WorkspacePreview({ onOpenWorkspace }) {
   const src = `${window.location.pathname}?embed=1#/dashboard`;
+  const [loaded, setLoaded] = useState(false);
 
   return (
     <section
@@ -39,12 +43,36 @@ export function WorkspacePreview({ onOpenWorkspace }) {
           <span className="w-10" aria-hidden />
         </div>
         <div className="relative aspect-[16/10] w-full bg-canvas">
+          {!loaded && (
+            <div
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-canvas"
+              role="status"
+              aria-live="polite"
+              aria-label="Loading workspace preview"
+            >
+              <span
+                className="size-8 animate-spin rounded-full border-2 border-line border-t-ink-muted"
+                aria-hidden
+              />
+              <p className="text-[13px] font-medium text-ink-muted">Loading workspace…</p>
+              <div className="mt-2 grid w-[min(100%,20rem)] grid-cols-3 gap-2 px-6 opacity-60" aria-hidden>
+                <div className="col-span-1 h-10 rounded-lg bg-raised" />
+                <div className="col-span-1 h-10 rounded-lg bg-raised" />
+                <div className="col-span-1 h-10 rounded-lg bg-raised" />
+                <div className="col-span-3 h-12 rounded-lg bg-raised" />
+                <div className="col-span-1 h-16 rounded-lg bg-raised" />
+                <div className="col-span-1 h-16 rounded-lg bg-raised" />
+                <div className="col-span-1 h-16 rounded-lg bg-raised" />
+              </div>
+            </div>
+          )}
           <iframe
             title="Chestha workspace"
             src={src}
             className="absolute inset-0 h-full w-full border-0"
-            loading="lazy"
+            loading="eager"
             referrerPolicy="same-origin"
+            onLoad={() => setLoaded(true)}
           />
         </div>
       </div>

@@ -138,7 +138,7 @@ apps/extension/src/manifest.json against the table above.]`
 ### Question metadata and curated lists
 
 Bundled question data — titles, slugs, difficulty and topic tags — is derived from
-publicly available datasets that were MIT-licensed when retrieved. Provenance is
+publicly available datasets that were MIT- or ISC-licensed when retrieved. Provenance is
 recorded in each pack's `provenance` field and in
 `packages/core/src/dsa/sources.js`, and `tools/build-dsa-pack.mjs` regenerates it.
 

@@ -74,7 +74,7 @@ went into the archive after the fact.
 | Command | What it does |
 | --- | --- |
 | `npm run backgrounds` | Rewrites `apps/web/public/backgrounds/catalog.json` from whatever image files are in that folder. A browser cannot list a directory, so the Settings picker needs an index. `npm run build` does this for you; run it alone after dropping an image in during a `dev` session. |
-| `npm run dsa-pack` | Rebuilds the bundled DSA question packs in `apps/web/public/dsa-packs/` from public, permissively-licensed datasets. **This is the only thing in the repository that makes a network request, and it is a development tool — the app itself never does.** Only facts are bundled (title, slug, difficulty, topic tags, question id); problem statements are LeetCode's copyrighted text and are never included. Re-check the source licences before refreshing; they are named at the top of `tools/build-dsa-pack.mjs`. |
+| `npm run dsa-pack` | Rebuilds the bundled DSA question packs in `apps/web/public/dsa-packs/` from public, permissively-licensed datasets (Blind 75, Grind 75, Grind 169, NeetCode 150/250, LeetCode 75, Top Interview 150, plus a full metadata index). **This is the only thing in the repository that makes a network request, and it is a development tool — the app itself never does.** Only facts are bundled (title, slug, difficulty, topic tags, question id); problem statements are LeetCode's copyrighted text and are never included. Re-check the source licences before refreshing; they are named at the top of `tools/build-dsa-pack.mjs`. |
 
 ## Decisions worth knowing before reading the code
 

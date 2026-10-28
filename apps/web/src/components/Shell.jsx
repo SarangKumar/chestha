@@ -29,7 +29,6 @@ const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const embed = isEmbedPreview();
-  const showSiteChrome = !isExtensionRuntime() && !embed;
   const { state, today, actions } = useWorkspace();
   const sidebarOpen = state.settings.sidebarOpen;
 
@@ -80,16 +79,6 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
               <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>
               <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
             </div>
-
-            {showSiteChrome && (
-              <button
-                type="button"
-                onClick={() => onNavigate('about')}
-                className="hidden h-9 items-center rounded-control px-2.5 text-xs font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink sm:inline-flex"
-              >
-                About
-              </button>
-            )}
 
             <button
               type="button"
