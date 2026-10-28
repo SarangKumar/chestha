@@ -130,7 +130,7 @@ const provenance = {
 };
 
 const pack = (id, name, description, questions, packLists, packMemberships) => ({
-  format: 'kalpvan.dsa.pack',
+  format: 'chestha.dsa.pack',
   version: 1,
   id, name, description,
   generatedAt: fetchedAt,

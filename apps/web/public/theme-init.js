@@ -10,7 +10,7 @@
  * the document renders.
  */
 try {
-  var stored = localStorage.getItem('kalpvan.theme');
+  var stored = localStorage.getItem('chestha.theme');
   var dark = stored === 'dark'
     || ((!stored || stored === 'system')
       && window.matchMedia('(prefers-color-scheme: dark)').matches);

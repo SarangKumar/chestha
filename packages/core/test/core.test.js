@@ -110,8 +110,8 @@ test('import refuses bad input with a specific reason and changes nothing', asyn
   const before = structuredClone(store.getState());
 
   const cases = ['', 'not json at all', '[]', '{"format":"other","version":1,"data":{}}',
-    '{"format":"kalpvan.workspace","data":{}}',
-    '{"format":"kalpvan.workspace","version":99,"data":{}}'];
+    '{"format":"chestha.workspace","data":{}}',
+    '{"format":"chestha.workspace","version":99,"data":{}}'];
   for (const input of cases) {
     const result = parseImport(input);
     assert.equal(result.ok, false, `should refuse: ${input}`);
@@ -137,6 +137,17 @@ test('corrupt stored data degrades per area without losing the rest', async () =
 test('todayISO returns a local calendar date', () => {
   assert.match(todayISO(), /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(todayISO(new Date(2026, 9, 22, 23, 50)), '2026-10-22', 'late evening is still the local day');
+});
+
+test('parseImport still accepts legacy kalpvan.workspace exports', () => {
+  const payload = {
+    format: 'kalpvan.workspace',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { tasks: [], notes: { text: '' } },
+  };
+  const result = parseImport(JSON.stringify(payload));
+  assert.equal(result.ok, true);
 });
 
 test('parseImport still accepts legacy vistaar.workspace exports', () => {

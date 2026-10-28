@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatDueDate, isCompleted, matchesQuery, sortTasks } from '@kalpvan/core';
+import { formatDueDate, isCompleted, matchesQuery, sortTasks } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Dialog, TextInput, cx } from './ui.jsx';
 

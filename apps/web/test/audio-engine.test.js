@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SOUNDS } from '@kalpvan/core';
+import { SOUNDS } from '@chestha/core';
 
 /**
  * A minimal stand-in for Web Audio, enough to exercise the engine's voice

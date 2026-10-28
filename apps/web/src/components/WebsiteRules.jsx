@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { shadowedRules } from '@kalpvan/core';
+import { shadowedRules } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { trackingAvailable } from '../grove/trackerBridge.js';
 import { Button, Dialog, IconButton, Panel, TextInput, cx } from './ui.jsx';

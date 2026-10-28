@@ -1,4 +1,4 @@
-# Kalpvan
+# Chestha
 
 A local-first personal productivity workspace — tasks, a calendar, ambient sound, a
 scratchpad dashboard and a DSA practice tracker, in one tab. No account, no backend,
@@ -44,7 +44,7 @@ Run `npm install` once first. Everything below is run from the repository root.
 | `npm run build:extension` | Runs `build`, then copies `apps/web/dist` plus `apps/extension/src` (the manifest and service worker) into `apps/extension/dist`. Prints how to load it unpacked. Chrome does not notice the rebuild by itself — press the reload icon on the extension's card afterwards. |
 | `npm run extension` | An alias for `build:extension`. |
 | `npm run watch:extension` | Vite's own watch mode plus the extension assembly, so `apps/extension/dist` is re-made after every change. Still needs the reload press in Chrome for manifest or worker changes; a page-only change just needs Cmd/Ctrl+R on the New Tab page. |
-| `npm run pack:extension` | Builds the extension, then writes `release/kalpvan-<version>.zip` ready to upload to the Chrome Web Store. See below. |
+| `npm run pack:extension` | Builds the extension, then writes `release/chestha-<version>.zip` ready to upload to the Chrome Web Store. See below. |
 
 #### What `pack:extension` strips, and why
 
@@ -67,7 +67,7 @@ which the sized icons supersede and nothing references.
 Pass `--keep-media` (`node tools/pack-extension.mjs --keep-media`) to include the
 media anyway. Only do that if you hold redistribution rights for every file.
 
-The pack script strips staging after writing `release/kalpvan-<version>.zip`; open that zip to see exactly what
+The pack script strips staging after writing `release/chestha-<version>.zip`; open that zip to see exactly what
 went into the archive after the fact.
 
 ### Occasional, run by hand

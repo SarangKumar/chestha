@@ -1,4 +1,4 @@
-import { completedLocalDay, formatDueDate } from '@kalpvan/core';
+import { completedLocalDay, formatDueDate } from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Badge, IconButton, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';

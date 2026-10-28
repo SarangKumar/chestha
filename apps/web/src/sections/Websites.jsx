@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { formatDate, formatTrackedDuration, websiteTimeByDay } from '@kalpvan/core';
+import { formatDate, formatTrackedDuration, websiteTimeByDay } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { WebsiteRules } from '../components/WebsiteRules.jsx';
 import { LineChart, MultiLineChart, colorForSeries } from '../components/LineChart.jsx';

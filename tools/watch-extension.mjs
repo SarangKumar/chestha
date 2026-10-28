@@ -26,7 +26,7 @@ function start() {
 
   const vite = spawn(
     'npm',
-    ['run', 'build', '--workspace', '@kalpvan/web', '--', '--watch'],
+    ['run', 'build', '--workspace', '@chestha/web', '--', '--watch'],
     { cwd: root, stdio: 'inherit' },
   );
 

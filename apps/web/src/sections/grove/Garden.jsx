@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { catalogueItem, formatLongDate, todayISO } from '@kalpvan/core';
+import { catalogueItem, formatLongDate, todayISO } from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, EmptyState, Panel, cx } from '../../components/ui.jsx';
 import { Plant, STAGE_LABELS } from '../../grove/plants.jsx';

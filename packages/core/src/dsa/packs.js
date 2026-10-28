@@ -1,9 +1,9 @@
 import { DIFFICULTIES, normalizeTopics } from './questions.js';
 import { createList, diffCuratedMemberships } from './lists.js';
 
-export const PACK_FORMAT = 'kalpvan.dsa.pack';
-/** Older packs used the pre-rename product slug. Still accepted on import. */
-export const LEGACY_PACK_FORMATS = Object.freeze(['vistaar.dsa.pack']);
+export const PACK_FORMAT = 'chestha.dsa.pack';
+/** Older packs used pre-rename product slugs. Still accepted on import. */
+export const LEGACY_PACK_FORMATS = Object.freeze(['kalpvan.dsa.pack', 'vistaar.dsa.pack']);
 export const PACK_VERSION = 1;
 
 function isKnownPackFormat(format) {
@@ -35,15 +35,15 @@ export function parsePack(text) {
     return {
       ok: false,
       error: parsed.format
-        ? `That file reports its format as "${String(parsed.format).slice(0, 40)}", not a Kalpvan DSA pack.`
-        : 'That file is missing its format marker, so it is not a Kalpvan DSA pack.',
+        ? `That file reports its format as "${String(parsed.format).slice(0, 40)}", not a Chestha DSA pack.`
+        : 'That file is missing its format marker, so it is not a Chestha DSA pack.',
     };
   }
   if (!Number.isInteger(parsed.version)) {
     return { ok: false, error: 'That pack has no version number, so it cannot be read safely.' };
   }
   if (parsed.version > PACK_VERSION) {
-    return { ok: false, error: `That pack needs a newer version of Kalpvan (pack format ${parsed.version}, this build reads ${PACK_VERSION}).` };
+    return { ok: false, error: `That pack needs a newer version of Chestha (pack format ${parsed.version}, this build reads ${PACK_VERSION}).` };
   }
   if (!Array.isArray(parsed.questions)) {
     return { ok: false, error: 'That pack has no question list.' };

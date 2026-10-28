@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SOUNDS, coerceAudioManifest } from '@kalpvan/core';
+import { SOUNDS, coerceAudioManifest } from '@chestha/core';
 
 /**
  * The sound catalogue: built-ins plus any files listed in the user's audio

@@ -1,7 +1,7 @@
 import {
   EVERY_DAY, WEEKDAYS_ONLY, WEEKEND_ONLY, WEEKDAY_INITIALS, WEEKDAY_LABELS,
   createRecurrence, describeRecurrence, normalizeWeekdays,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { Select, cx } from './ui.jsx';
 
 /**

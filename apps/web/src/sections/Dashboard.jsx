@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   addItem, allowedPresets, defaultWidgetsFor, layoutHeight, moveItem, newId,
   presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useGridMetrics } from '../app/useColumns.js';
 import { useGridDrag } from '../app/useGridDrag.js';

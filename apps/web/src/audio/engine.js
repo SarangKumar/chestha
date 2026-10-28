@@ -1,4 +1,4 @@
-import { mixGain } from '@kalpvan/core';
+import { mixGain } from '@chestha/core';
 
 /**
  * One AudioContext for the whole application, living outside React so that

@@ -74,7 +74,7 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
   }
 
   const version = JSON.parse(readFileSync(`${EXTENSION_DIST}/manifest.json`, 'utf8')).version;
-  const stage = `${OUT_DIR}/kalpvan-${version}`;
+  const stage = `${OUT_DIR}/chestha-${version}`;
   const zip = `${stage}.zip`;
   const before = totalBytes(EXTENSION_DIST);
 
@@ -147,7 +147,7 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
   };
 
   if (!quiet) {
-    console.log(`Kalpvan ${version} packed for the Chrome Web Store.\n`);
+    console.log(`Chestha ${version} packed for the Chrome Web Store.\n`);
     if (dropped.length > 0) {
       console.log('Stripped:');
       for (const line of dropped) console.log(`  - ${line}`);

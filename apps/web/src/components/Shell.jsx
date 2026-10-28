@@ -1,4 +1,4 @@
-import { formatLongDate } from '@kalpvan/core';
+import { formatLongDate } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { NavRail } from './NavRail.jsx';
 import { RightSidebar } from './RightSidebar.jsx';
@@ -6,6 +6,8 @@ import { Notices, ExportReminder } from './Notices.jsx';
 import { Toasts } from './Toasts.jsx';
 import { IconButton, cx } from './ui.jsx';
 import { Icon } from './icons.jsx';
+import { SiteFooter } from './SiteFooter.jsx';
+import { isExtensionRuntime } from '../app/platform.js';
 
 const TITLES = {
   dashboard: 'Dashboard',
@@ -22,6 +24,8 @@ const TITLES = {
 // The dashboard is a workspace and uses the whole shell. Widget size is fixed by
 // the grid's own cell cap, not by narrowing the page.
 const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
+
+const showSiteChrome = !isExtensionRuntime();
 
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const { state, today, actions } = useWorkspace();
@@ -66,6 +70,16 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
             <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
           </div>
 
+          {showSiteChrome && (
+            <button
+              type="button"
+              onClick={() => onNavigate('about')}
+              className="hidden h-9 items-center rounded-control px-2.5 text-xs font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink sm:inline-flex"
+            >
+              About
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onPalette}
@@ -100,7 +114,10 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           className={cx(
             // Dashboard/settings stay edge-to-edge from 1024px: lighter horizontal
             // padding so ~16 columns still fit beside the nav rail.
-            'w-full pb-24 pt-6 sm:pb-12 sm:pt-8',
+            // Website footer clears the mobile nav; extension keeps the old
+            // main padding so the dense New Tab still sits above the bar.
+            'w-full pt-6 sm:pt-8',
+            showSiteChrome ? 'pb-6 sm:pb-8' : 'pb-24 sm:pb-12',
             FULL_WIDTH_SECTIONS.has(section)
               ? 'max-w-none px-3 sm:px-4'
               : 'mx-auto max-w-5xl px-4 sm:px-6',
@@ -112,6 +129,8 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           </div>
           {children}
         </main>
+
+        {showSiteChrome && <SiteFooter onNavigate={onNavigate} />}
       </div>
 
       <Toasts />

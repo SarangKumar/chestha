@@ -3,7 +3,7 @@ import {
   FIXED_SEQUENCES, SHORTCUT_ACTIONS, comboFromEvent, findConflicts, formatCombo,
   isCustomised, resetAllShortcuts, resetShortcut, resolveShortcuts, setShortcut,
   shortcutAction, validateCombo,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Badge, Button, Dialog, cx } from './ui.jsx';
 import { IS_APPLE } from '../app/shortcuts.js';

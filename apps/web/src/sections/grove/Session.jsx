@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   eligibleMinutes, isComplete, isPaused, pickForDay, remainingMs, selectToday,
   sessionProgress, sortTasks, stageForProgress, todayISO,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, Panel, Select, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';

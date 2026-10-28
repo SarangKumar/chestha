@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATALOGUE_KINDS, itemsOfKind, unlockState } from '@kalpvan/core';
+import { CATALOGUE_KINDS, itemsOfKind, unlockState } from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Button, Panel, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';

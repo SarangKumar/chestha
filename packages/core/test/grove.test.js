@@ -227,7 +227,7 @@ test('Grove data round-trips, and older backups still import', async () => {
 
   // A pre-Grove backup must still import, with the new areas defaulted.
   const v2 = {
-    format: 'kalpvan.workspace', version: 2, exportedAt: new Date().toISOString(),
+    format: 'chestha.workspace', version: 2, exportedAt: new Date().toISOString(),
     data: { tasks: [], tags: [], notes: { text: 'old' }, dashboard: { widgets: [] }, sound: {}, settings: {} },
   };
   const legacy = parseImport(JSON.stringify(v2));

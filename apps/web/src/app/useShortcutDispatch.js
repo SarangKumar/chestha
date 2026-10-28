@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { comboFromEvent, resolveShortcuts } from '@kalpvan/core';
+import { comboFromEvent, resolveShortcuts } from '@chestha/core';
 import { IS_APPLE } from './shortcuts.js';
 
 const TYPING_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);

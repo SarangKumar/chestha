@@ -3,7 +3,7 @@ import {
   INTAKE_LABELS, STATUS_LABELS, createList, createMembership, createQuestion,
   hasMembership, listFrequency, membershipsOfList, planIntake, questionState, questionUrl,
   removeList, removeMembership, sheetShortLabel,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import {
   Badge, Button, CardTitle, Dialog, EmptyState, Field, IconButton, Panel, Select, TextArea,

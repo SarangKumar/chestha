@@ -1,20 +1,25 @@
-import { HIDEABLE_SECTIONS } from '@kalpvan/core';
+import { HIDEABLE_SECTIONS } from '@chestha/core';
 import { Panel, SectionHeader } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
+import { SITE_SOCIALS } from '../siteLinks.js';
+import { isExtensionRuntime } from '../app/platform.js';
 
 /**
- * Not in the navigation rail on purpose: nobody needs it twice a day. It is
- * reachable from the command palette and from a deep link to `#/about`, which is
- * enough for a page whose job is to answer "what is this and where is my data".
+ * About answers "what is this and where is my data". It stays out of the nav
+ * rail on purpose. On the website it is linked from the header and the site
+ * footer; in the extension New Tab it remains reachable from the command
+ * palette and `#/about`.
  *
  * Everything stated here is checked against the code. An About page that
  * overclaims on privacy is worse than none at all.
  */
 export function About({ onNavigate }) {
+  const onWebsite = !isExtensionRuntime();
+
   return (
     <div className="space-y-4">
       <SectionHeader
-        title="About Kalpvan"
+        title="About Chestha"
         description="A local-first personal workspace: tasks, a calendar, ambient sound, a dashboard you arrange yourself, and a tracker for data-structures practice."
       />
 
@@ -59,6 +64,27 @@ export function About({ onNavigate }) {
       </Panel>
 
       <Panel className="p-5">
+        <h2 className="text-card font-semibold text-ink">Made by</h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+          Chestha is built by Sarang Kumar. Links open in a new tab.
+        </p>
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+          {SITE_SOCIALS.map((item) => (
+            <li key={item.id}>
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-ink"
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      <Panel className="p-5">
         <h2 className="text-card font-semibold text-ink">Credits</h2>
         <ul className="mt-2 space-y-2 text-sm leading-relaxed text-ink-muted">
           <li>
@@ -90,6 +116,12 @@ export function About({ onNavigate }) {
           </button>
           , which is also where you hide any of the {HIDEABLE_SECTIONS.length} main sections you
           do not use.
+          {onWebsite && (
+            <>
+              {' '}
+              On this website, About is also linked from the top bar and the footer.
+            </>
+          )}
         </p>
       </Panel>
     </div>

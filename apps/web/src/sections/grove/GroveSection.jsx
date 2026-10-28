@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { availableSeeds, levelFromXp, todayISO, xpOnDay } from '@kalpvan/core';
+import { availableSeeds, levelFromXp, todayISO, xpOnDay } from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Meter, Panel, cx } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';

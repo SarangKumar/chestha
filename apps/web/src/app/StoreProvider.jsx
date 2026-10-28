@@ -10,12 +10,12 @@ import {
   clearWebsiteTime, defaultGroveFocus, defaultGroveGarden, defaultLedger,
   describeDomain, unlockItem,
   ROLLUP_AFTER_DAYS, addDays, reconcileLifetime, rollupLedger,
-} from '@kalpvan/core';
+} from '@chestha/core';
 import { clearTrackerState } from '../grove/trackerBridge.js';
 import { useToday } from './useToday.js';
 
 const StoreContext = createContext(null);
-const THEME_MIRROR_KEY = 'kalpvan.theme';
+const THEME_MIRROR_KEY = 'chestha.theme';
 
 // The store lives outside React so it is created exactly once.
 const store = createStore();

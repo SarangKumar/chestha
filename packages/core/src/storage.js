@@ -2,7 +2,7 @@
 // If IndexedDB is unavailable (private window, blocked site data, enterprise
 // policy) we fall back to memory and say so, rather than pretending to save.
 
-const DB_NAME = 'kalpvan';
+const DB_NAME = 'chestha';
 const DB_VERSION = 1;
 const STORE = 'kv';
 

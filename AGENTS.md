@@ -1,4 +1,4 @@
-# Kalpvan — agent guide
+# Chestha — agent guide
 
 A local-first personal productivity workspace. No account, no backend, no telemetry.
 This file is the canonical guide for any agent working in this repo; `CLAUDE.md`

@@ -1,5 +1,5 @@
 {
-  "name": "kalpvan",
+  "name": "chestha",
   "private": true,
   "version": "0.1.1",
   "type": "module",
@@ -8,9 +8,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @kalpvan/web",
-    "build": "node tools/build-backgrounds.mjs && npm run build --workspace @kalpvan/web",
-    "preview": "npm run preview --workspace @kalpvan/web",
+    "dev": "npm run dev --workspace @chestha/web",
+    "build": "node tools/build-backgrounds.mjs && npm run build --workspace @chestha/web",
+    "preview": "npm run preview --workspace @chestha/web",
     "test": "node --test packages/core/test apps/web/test",
     "build:extension": "npm run build && node tools/build-extension.mjs",
     "extension": "npm run build:extension",
