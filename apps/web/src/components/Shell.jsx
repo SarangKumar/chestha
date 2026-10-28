@@ -6,7 +6,6 @@ import { Notices, ExportReminder } from './Notices.jsx';
 import { Toasts } from './Toasts.jsx';
 import { IconButton, cx } from './ui.jsx';
 import { Icon } from './icons.jsx';
-import { SiteFooter } from './SiteFooter.jsx';
 import { isEmbedPreview, isExtensionRuntime } from '../app/platform.js';
 
 const TITLES = {
@@ -20,6 +19,7 @@ const TITLES = {
   settings: 'Settings',
   about: 'About',
   changelog: 'Changelog',
+  guide: 'Guide',
   home: 'Home',
 };
 
@@ -70,10 +70,9 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
 
       {/* No right-hand padding: the today panel is an overlay, so the page keeps
           its full width whether or not it is open. */}
-      {/* min-h-dvh + flex-col + flex-1 main pins the website footer to the
-          viewport bottom when a section is short. Extension never mounts
-          SiteFooter (showSiteChrome is false). min-w-0 stops the dashboard
-          grid from forcing horizontal scroll at the corners. */}
+      {/* Website workspace has no site footer (marketing pages own that).
+          Extension clears the mobile nav with extra bottom padding. min-w-0
+          stops the dashboard grid from forcing horizontal scroll at corners. */}
       <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', !embed && 'sm:pl-16')}>
         {!embed && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
@@ -127,16 +126,15 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           className={cx(
             // Dashboard/settings stay edge-to-edge from 1024px: lighter horizontal
             // padding so ~16 columns still fit beside the nav rail.
-            // Website footer clears the mobile nav; extension keeps the old
-            // main padding so the dense New Tab still sits above the bar.
-            // flex-1 grows so SiteFooter (mt-auto) sits at the viewport bottom.
             // Embed: minimal padding so re-anchored corner widgets hug the frame.
+            // Extension keeps bottom padding for the mobile nav bar.
+            // Website workspace: no SiteFooter — normal bottom padding only.
             'min-w-0 flex-1 w-full',
             embed
               ? 'p-1.5 sm:p-2'
               : cx(
                 'pt-6 sm:pt-8',
-                showSiteChrome ? 'pb-6 sm:pb-8' : 'pb-24 sm:pb-12',
+                isExtensionRuntime() ? 'pb-24 sm:pb-12' : 'pb-6 sm:pb-8',
                 FULL_WIDTH_SECTIONS.has(section)
                   ? 'max-w-none px-2 sm:px-3'
                   : 'mx-auto max-w-6xl px-4 sm:px-6',
@@ -152,7 +150,6 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
           {children}
         </main>
 
-        {showSiteChrome && <SiteFooter onNavigate={onNavigate} />}
       </div>
 
       <Toasts />

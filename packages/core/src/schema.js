@@ -44,74 +44,108 @@ export const WIDGET_PRESENTATIONS = ['card', 'transparent', 'inset'];
 export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 
 /**
- * The shipped arrangement, described by where each widget is anchored rather
- * than by fixed coordinates.
+ * The shipped arrangement, described by horizontal + vertical anchors rather
+ * than fixed coordinates.
  *
- * The number of columns on screen depends on the window, so a layout written as
- * absolute x positions only looks right at one width — it bunched into the left
- * third of a large monitor. Anchoring says what was actually meant: weather in
- * the top-right corner, clock and search centred, scratchpad and shortcuts in
- * the bottom corners. Every widget is `pinned` so compaction cannot collapse
- * the open mid-board; "Tidy up" releases those anchors.
+ * Columns and rows both depend on the window. Anchoring states intent: weather
+ * top-right, clock + search centred as a stack (horizontally and vertically),
+ * scratchpad bottom-left, shortcuts bottom-right. Every widget is `pinned` so
+ * compaction cannot collapse the open mid-board; "Tidy up" releases those.
  *
- * `offset` shifts a widget inward from its anchor, in columns.
+ * `offset` shifts a widget inward from its horizontal anchor, in columns.
+ * `vOffset` shifts inward from its vertical anchor, in rows.
  */
 /**
- * Default dashboard — sparse corners + centre stack (glass / transparent):
- * weather top-right, clock and search centred upper-middle, scratchpad
- * bottom-left, shortcuts bottom-right. Open mid-board; no Focus Garden or
- * intention on the shipped board (add those from the widget picker).
+ * Default dashboard — sparse corners + centre stack (glass / transparent).
+ * No Focus Garden or intention on the shipped board (add those from the picker).
  */
 const DEFAULT_SKETCH = [
-  { id: 'w_weather', type: 'weather', anchor: 'right', offset: 0, y: 0, w: 3, h: 2,
+  { id: 'w_weather', type: 'weather', anchor: 'right', vAnchor: 'top', offset: 0, vOffset: 0, w: 3, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_clock', type: 'clock', anchor: 'center', offset: 0, y: 2, w: 8, h: 2,
+  { id: 'w_clock', type: 'clock', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 8, h: 2,
     config: { showSeconds: false, presentation: 'transparent' } },
-  { id: 'w_search', type: 'search', anchor: 'center', offset: 0, y: 4, w: 10, h: 2,
+  { id: 'w_search', type: 'search', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 10, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_notes', type: 'notes', anchor: 'left', offset: 0, y: 15, w: 5, h: 3,
+  { id: 'w_notes', type: 'notes', anchor: 'left', vAnchor: 'bottom', offset: 0, vOffset: 0, w: 5, h: 3,
     config: { presentation: 'transparent' } },
-  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', offset: 0, y: 16, w: 4, h: 2,
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', vAnchor: 'bottom', offset: 0, vOffset: 0, w: 4, h: 2,
     config: { presentation: 'transparent' } },
 ];
 
 /**
- * The width the stored default is resolved at.
+ * The width / height the stored default is resolved at.
  *
- * Only as many fixed-size columns as fit are on screen — enough for the default at a 1024px window.
- * A default resolved against the whole canvas would not fit a laptop, and a
- * layout that does not fit has its editing paused to protect it, so the app
- * would open in a guarded state on an ordinary screen. Restoring the default
- * from the dashboard re-resolves it against the real width, so it reaches the
- * corners of whatever screen you are actually on.
+ * Only as many fixed-size columns as fit are on screen — enough for the default
+ * at a 1024px window. Restoring the default re-resolves against the live grid
+ * so corners and the centre stack reach whatever screen you are on.
  */
 const DEFAULT_COLUMNS = 16;
 
+/** Row count used when the viewport has not been measured yet. Tall enough that
+ *  the centred clock+search stack does not collide with bottom-corner widgets. */
+const DEFAULT_ROWS = 14;
+
+/** Floor for vertical resolution — below this the centre stack and bottom
+ *  corners cannot coexist without overlap on the search/notes columns. */
+const MIN_DEFAULT_ROWS = 10;
+
+function clampDefaultColumns(columns) {
+  return Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+}
+
+function clampDefaultRows(rows) {
+  return Math.max(MIN_DEFAULT_ROWS, Math.round(rows) || DEFAULT_ROWS);
+}
+
 /**
- * The default arrangement resolved against a given number of columns.
+ * The default arrangement resolved against a given grid size.
  *
  * Everything is anchored (`pinned`), because the positions are deliberate and
  * compaction would otherwise collapse the whole thing into the first column on
  * the very first render.
  */
-export function defaultWidgetsFor(columns = DEFAULT_COLUMNS) {
+export function defaultWidgetsFor(columns = DEFAULT_COLUMNS, rows = DEFAULT_ROWS) {
   // The widest widget is 10 columns (search), so below that nothing can be placed as
   // drawn; above BASE_COLUMNS is off the canonical grid.
-  const cols = Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  const cols = clampDefaultColumns(columns);
+  const rowCount = clampDefaultRows(rows);
 
-  return DEFAULT_SKETCH.map(({ anchor, offset, config, ...widget }) => {
+  // Clock + search form one vertically centred stack (order in DEFAULT_SKETCH).
+  const middle = DEFAULT_SKETCH.filter((s) => s.vAnchor === 'middle');
+  const stackH = middle.reduce((sum, s) => sum + s.h, 0);
+  let stackY = Math.max(0, Math.round((rowCount - stackH) / 2));
+  const middleY = new Map();
+  for (const s of middle) {
+    middleY.set(s.id, stackY);
+    stackY += s.h;
+  }
+  const stackEnd = middle.reduce((max, s) => Math.max(max, (middleY.get(s.id) ?? 0) + s.h), 0);
+
+  return DEFAULT_SKETCH.map(({ anchor, vAnchor, offset = 0, vOffset = 0, config, ...widget }) => {
     const x = anchor === 'right'
       ? Math.max(0, cols - widget.w - offset)
       : anchor === 'center'
         ? Math.max(0, Math.round((cols - widget.w) / 2) + offset)
         : Math.min(offset, Math.max(0, cols - widget.w));
-    return { ...widget, x, pinned: true, config: { ...(config ?? {}) } };
+
+    let y;
+    if (vAnchor === 'top') {
+      y = Math.max(0, vOffset);
+    } else if (vAnchor === 'bottom') {
+      // Hug the bottom of the live grid, but never climb into the centre stack
+      // (search overlaps notes/shortcuts in x on typical widths).
+      y = Math.max(stackEnd, rowCount - widget.h - vOffset);
+    } else {
+      y = middleY.get(widget.id) ?? Math.max(0, Math.round((rowCount - widget.h) / 2));
+    }
+
+    return { ...widget, x, y, pinned: true, config: { ...(config ?? {}) } };
   });
 }
 
 /**
  * True when `widgets` is still the shipped corner sketch (same ids, types,
- * sizes, rows, and pinned anchors) resolved for some column count — not a
+ * sizes, and pinned anchors) resolved for some column/row count — not a
  * user-custom arrangement. Config (location, links, …) may differ.
  */
 export function isShippedDefaultLayout(widgets) {
@@ -119,15 +153,18 @@ export function isShippedDefaultLayout(widgets) {
   const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
   for (const sketch of DEFAULT_SKETCH) {
     const w = byId[sketch.id];
-    if (!w || w.type !== sketch.type || w.w !== sketch.w || w.h !== sketch.h || w.y !== sketch.y) {
+    if (!w || w.type !== sketch.type || w.w !== sketch.w || w.h !== sketch.h) {
       return false;
     }
     if (!w.pinned) return false;
   }
   const weather = byId.w_weather;
-  if (!weather) return false;
-  const resolvedAt = weather.x + weather.w;
-  const expected = defaultWidgetsFor(resolvedAt);
+  const notes = byId.w_notes;
+  if (!weather || !notes) return false;
+  const resolvedCols = weather.x + weather.w;
+  // Bottom-anchored notes sit on the last row of the resolved grid.
+  const resolvedRows = notes.y + notes.h;
+  const expected = defaultWidgetsFor(resolvedCols, resolvedRows);
   return expected.every((e) => {
     const w = byId[e.id];
     return w && w.x === e.x && w.y === e.y && w.w === e.w && w.h === e.h;
@@ -135,25 +172,27 @@ export function isShippedDefaultLayout(widgets) {
 }
 
 /**
- * The stored default is written at DEFAULT_COLUMNS so a laptop can open it.
- * On a wider New Tab the same absolute x values leave a dead band on the right.
- * When the layout is still that untouched sketch and the live column count
- * differs, re-resolve so weather / shortcuts hug the real right edge.
+ * The stored default is written at DEFAULT_COLUMNS × DEFAULT_ROWS. When the
+ * layout is still that untouched sketch and the live grid differs, re-resolve
+ * so corners hug the edges and the clock/search stack stays centred.
  */
-export function shouldReanchorDefault(widgets, columns) {
+export function shouldReanchorDefault(widgets, columns, rows = DEFAULT_ROWS) {
   if (!isShippedDefaultLayout(widgets)) return false;
-  const cols = Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  const cols = clampDefaultColumns(columns);
+  const rowCount = clampDefaultRows(rows);
   const weather = widgets.find((w) => w.id === 'w_weather');
-  return Boolean(weather) && weather.x + weather.w !== cols;
+  const notes = widgets.find((w) => w.id === 'w_notes');
+  if (!weather || !notes) return false;
+  return weather.x + weather.w !== cols || notes.y + notes.h !== rowCount;
 }
 
 /**
- * Resolve the shipped sketch for `columns`, copying each widget's existing
- * `config` so a re-anchor does not wipe weather location, shortcuts, etc.
+ * Resolve the shipped sketch for `columns` × `rows`, copying each widget's
+ * existing `config` so a re-anchor does not wipe weather location, shortcuts, etc.
  */
-export function reanchorDefaultWidgets(widgets, columns) {
+export function reanchorDefaultWidgets(widgets, columns, rows = DEFAULT_ROWS) {
   const byId = Object.fromEntries((widgets ?? []).map((w) => [w.id, w]));
-  return defaultWidgetsFor(columns).map((next) => {
+  return defaultWidgetsFor(columns, rows).map((next) => {
     const prev = byId[next.id];
     return prev?.config ? { ...next, config: { ...next.config, ...prev.config } } : next;
   });
@@ -161,7 +200,7 @@ export function reanchorDefaultWidgets(widgets, columns) {
 
 export const DEFAULT_DASHBOARD = {
   version: 3,
-  widgets: defaultWidgetsFor(DEFAULT_COLUMNS),
+  widgets: defaultWidgetsFor(DEFAULT_COLUMNS, DEFAULT_ROWS),
 };
 
 export const DEFAULT_SETTINGS = {

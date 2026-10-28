@@ -37,6 +37,13 @@ export function MarketingFooter({ onNavigate }) {
           >
             Changelog
           </button>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('guide')}
+            className="inline-flex min-h-8 items-center transition-colors duration-150 hover:text-foreground"
+          >
+            Guide
+          </button>
           {SITE_SOCIALS.map((item) => (
             <a
               key={item.id}

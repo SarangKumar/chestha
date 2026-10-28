@@ -28,6 +28,14 @@ export function SiteFooter({ onNavigate }) {
           >
             Changelog
           </button>
+          {' · '}
+          <button
+            type="button"
+            onClick={() => onNavigate?.('guide')}
+            className="font-medium text-ink-muted underline decoration-line-strong underline-offset-2 transition-colors duration-150 hover:text-ink hover:decoration-ink"
+          >
+            Guide
+          </button>
         </p>
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {SITE_SOCIALS.map((item) => (

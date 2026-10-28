@@ -19,6 +19,7 @@ import { Websites } from './sections/Websites.jsx';
 import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
 import { Changelog } from './sections/Changelog.jsx';
+import { Guide } from './sections/Guide.jsx';
 import { Landing } from './site/Landing.jsx';
 import { MarketingHeader } from './site/MarketingHeader.jsx';
 import { MarketingFooter } from './site/MarketingFooter.jsx';
@@ -119,6 +120,12 @@ function Workspace() {
       group: 'Navigate',
       keywords: 'version privacy credits licence license help what is this',
       run: () => go('about'),
+    }, {
+      id: 'go-guide',
+      label: 'Guide — pages and widgets',
+      group: 'Navigate',
+      keywords: 'map sitemap widgets sections whats in documentation help',
+      run: () => go('guide'),
     }] : []),
   ], [state.settings, actions, go, openCapture]);
 
@@ -147,7 +154,7 @@ function Workspace() {
   // Website marketing surfaces — never shown in the extension New Tab.
   // About lives only on the site (marketing chrome). Changelog uses the same
   // chrome on the website; the extension still opens #/changelog in the Shell.
-  if (!isExtensionRuntime() && (section === 'home' || section === 'about' || section === 'changelog')) {
+  if (!isExtensionRuntime() && (section === 'home' || section === 'about' || section === 'changelog' || section === 'guide')) {
     if (section === 'home') {
       return <Landing onNavigate={go} />;
     }
@@ -157,6 +164,7 @@ function Workspace() {
         <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
           {section === 'about' && <About onNavigate={go} />}
           {section === 'changelog' && <Changelog />}
+          {section === 'guide' && <Guide onNavigate={go} />}
         </main>
         <MarketingFooter onNavigate={go} />
       </div>

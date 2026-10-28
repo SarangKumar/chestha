@@ -1,0 +1,5 @@
+# Chestha — https://chestha.vercel.app/
+User-agent: *
+Allow: /
+
+Sitemap: https://chestha.vercel.app/sitemap.xml

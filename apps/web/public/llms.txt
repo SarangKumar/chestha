@@ -1,0 +1,34 @@
+# Chestha
+
+> Local-first personal workspace in the browser. Tasks, a calendar, a focus garden (Grove), DSA practice, ambient sound, and an optional Chrome New Tab. No account. Data stays on this device in IndexedDB.
+
+Chestha is a Vite + React SPA. Primary navigation uses hash routes (`#/…`). The same build ships as the website and as a Chrome extension New Tab page (separate origins — export/import to move data).
+
+## Public site
+
+- [Home](https://chestha.vercel.app/): Marketing landing — product overview, Add to Chrome, Buy me a coffee.
+- [Guide](https://chestha.vercel.app/#/guide): Map of every page/section and every dashboard widget, with short plain-language descriptions.
+- [About](https://chestha.vercel.app/#/about): Privacy notes, where data lives, maker links. Website-only (not hosted in the extension New Tab).
+- [Changelog](https://chestha.vercel.app/#/changelog): Release notes with a version picker.
+- [Workspace](https://chestha.vercel.app/#/dashboard): The live dashboard / New Tab workspace (widgets you arrange yourself).
+
+## App sections (workspace)
+
+- Tasks — today, upcoming, overdue, undated, completed.
+- Calendar — date-only due dates; tasks are the single source of truth.
+- DSA — curated packs + personal lists, revision ladder, daily targets.
+- Grove — focus sessions that grow a garden and earn XP.
+- Productive time — domain-only website time tracking (extension).
+- Sounds — synthesised ambient mixes in the browser.
+- Settings — theme, background, shortcuts, export/import, hide sections.
+
+## Install & source
+
+- Chrome Web Store: https://chromewebstore.google.com/detail/jenaklcokocgpgibjnildfgpaakhcfgd?utm_source=item-share-cb
+- GitHub: https://github.com/SarangKumar/chestha
+- Buy me a coffee: https://buymeacoffee.com/sarangkumar
+
+## Optional
+
+- [robots.txt](https://chestha.vercel.app/robots.txt)
+- [sitemap.xml](https://chestha.vercel.app/sitemap.xml)

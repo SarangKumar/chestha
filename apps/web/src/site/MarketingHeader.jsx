@@ -18,6 +18,7 @@ const NAV = [
   { id: 'workspace', label: 'Workspace', section: 'dashboard' },
   { id: 'about', label: 'About', section: 'about' },
   { id: 'changelog', label: 'Changelog', section: 'changelog' },
+  { id: 'guide', label: 'Guide', section: 'guide' },
 ];
 
 function MenuIcon() {

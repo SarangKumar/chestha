@@ -107,16 +107,16 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const stored = state.dashboard.widgets;
 
   /**
-   * The shipped default is stored at a laptop column count. Once the grid is
-   * measured, re-resolve that untouched sketch so corner widgets hug the real
-   * edges of this New Tab / window — otherwise they sit in a left band with a
-   * dead gutter on the right. Custom layouts are left alone.
+   * The shipped default is stored at a laptop grid size. Once columns and
+   * viewport rows are measured, re-resolve that untouched sketch so corners
+   * hug the edges and the clock/search stack stays centred — otherwise widgets
+   * sit in a left/upper band. Custom layouts are left alone.
    */
   useEffect(() => {
-    if (!status.ready || columns < 8) return;
-    if (!shouldReanchorDefault(stored, columns)) return;
-    actions.setDashboard(() => reanchorDefaultWidgets(stored, columns));
-  }, [status.ready, columns, stored, actions]);
+    if (!status.ready || columns < 8 || viewportRows < 8) return;
+    if (!shouldReanchorDefault(stored, columns, viewportRows)) return;
+    actions.setDashboard(() => reanchorDefaultWidgets(stored, columns, viewportRows));
+  }, [status.ready, columns, viewportRows, stored, actions]);
 
   // Unknown types (from a newer build or an import) are skipped visibly.
   const { known, unknownTypes } = useMemo(() => {
@@ -318,7 +318,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
               size="sm"
               onClick={() => {
                 const before = stored;
-                commit(defaultWidgetsFor(columns));
+                commit(defaultWidgetsFor(columns, Math.max(viewportRows, 14)));
                 notify('Default layout restored', {
                   actionLabel: 'Undo',
                   onAction: () => commit(before),
@@ -617,7 +617,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
                 // Resolved against the columns actually on screen, so the
                 // default reaches the corners of this window rather than the
                 // laptop width the stored copy is written for.
-                commit(defaultWidgetsFor(columns));
+                commit(defaultWidgetsFor(columns, Math.max(viewportRows, 14)));
                 setResetting(false);
                 notify('Default layout restored', { actionLabel: 'Undo', onAction: () => commit(previous) });
               }}

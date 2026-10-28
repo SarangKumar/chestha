@@ -394,42 +394,49 @@ test('the default layout is anchored, so its spacing survives compaction', () =>
   assert.ok(widest > 8, 'while still using the width it has');
 });
 
-test('the default layout reaches the corners of whatever width it is resolved at', () => {
-  // Written as fixed coordinates it only looked right at one width, bunching
-  // into the left third of a large monitor. Anchors state the intent instead.
+test('the default layout reaches the corners and centres the clock/search stack', () => {
+  // Written as fixed coordinates it only looked right at one size. Anchors
+  // state the intent: corners + a horizontally and vertically centred stack.
   for (const columns of [16, 21, 28, 43, BASE_COLUMNS]) {
-    const widgets = defaultWidgetsFor(columns);
-    assert.ok(isValidLayout(widgets, columns), `valid at ${columns} columns`);
-    assert.ok(widgets.every((w) => w.pinned), 'and still anchored');
+    for (const rows of [12, 14, 18]) {
+      const widgets = defaultWidgetsFor(columns, rows);
+      assert.ok(isValidLayout(widgets, columns), `valid at ${columns}×${rows}`);
+      assert.ok(widgets.every((w) => w.pinned), 'and still anchored');
 
-    const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
-    // Weather top-right, scratchpad bottom-left, shortcuts bottom-right.
-    assert.equal(byId.w_weather.x + byId.w_weather.w, columns, `weather hugs the right edge at ${columns}`);
-    assert.equal(byId.w_weather.y, 0, 'weather at the top');
-    assert.equal(byId.w_weather.config?.presentation, 'transparent', 'weather is glass');
-    assert.equal(byId.w_shortcuts.x + byId.w_shortcuts.w, columns, 'shortcuts hug the right edge');
-    assert.equal(byId.w_shortcuts.config?.presentation, 'transparent', 'shortcuts are glass');
-    assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
-    assert.equal(byId.w_notes.config?.presentation, 'transparent', 'scratchpad is glass');
+      const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
+      // Weather top-right, scratchpad bottom-left, shortcuts bottom-right.
+      assert.equal(byId.w_weather.x + byId.w_weather.w, columns, `weather hugs the right edge at ${columns}`);
+      assert.equal(byId.w_weather.y, 0, 'weather at the top');
+      assert.equal(byId.w_weather.config?.presentation, 'transparent', 'weather is glass');
+      assert.equal(byId.w_shortcuts.x + byId.w_shortcuts.w, columns, 'shortcuts hug the right edge');
+      assert.equal(byId.w_shortcuts.config?.presentation, 'transparent', 'shortcuts are glass');
+      assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
+      assert.equal(byId.w_notes.config?.presentation, 'transparent', 'scratchpad is glass');
+      assert.equal(byId.w_notes.y + byId.w_notes.h, rows, `scratchpad hugs the bottom at ${rows} rows`);
+      assert.equal(byId.w_shortcuts.y + byId.w_shortcuts.h, rows, `shortcuts hug the bottom at ${rows} rows`);
 
-    // Clock and search share a centre line; mid-board stays open below them.
-    const clockMid = byId.w_clock.x + byId.w_clock.w / 2;
-    const searchMid = byId.w_search.x + byId.w_search.w / 2;
-    assert.equal(clockMid, searchMid, 'the clock sits over the search box');
-    assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
-    assert.ok(byId.w_search.y > byId.w_clock.y, 'search sits under the clock');
-    assert.ok(byId.w_notes.y > byId.w_search.y + byId.w_search.h, 'scratchpad leaves open mid-board');
-    assert.equal(byId.w_clock.w, 8, 'clock is two squares wider than the first cut');
-    assert.equal(byId.w_search.w, 10, 'search is two squares wider than the first cut');
-    assert.equal(byId.w_notes.w, 5, 'scratchpad is one square wider');
-    assert.equal(byId.w_notes.y, 15, 'scratchpad is five squares lower');
-    assert.equal(byId.w_shortcuts.y, 16, 'shortcuts are six squares lower');
+      // Clock and search share a centre line horizontally and sit as a stack
+      // centred vertically in the live row count.
+      const clockMid = byId.w_clock.x + byId.w_clock.w / 2;
+      const searchMid = byId.w_search.x + byId.w_search.w / 2;
+      assert.equal(clockMid, searchMid, 'the clock sits over the search box');
+      assert.ok(Math.abs(clockMid - columns / 2) <= 0.5, `centred at ${columns} columns`);
+      assert.equal(byId.w_search.y, byId.w_clock.y + byId.w_clock.h, 'search sits under the clock');
+      const stackH = byId.w_clock.h + byId.w_search.h;
+      const stackMid = byId.w_clock.y + stackH / 2;
+      assert.ok(Math.abs(stackMid - rows / 2) <= 0.5, `stack centred vertically at ${rows} rows`);
+      assert.ok(byId.w_notes.y >= byId.w_search.y + byId.w_search.h, 'scratchpad below the stack');
 
-    assert.equal(byId.w_clock.config?.showSeconds, false, 'clock matches the digital HH:MM look');
-    assert.equal(byId.w_clock.config?.presentation, 'transparent', 'clock is glass');
-    assert.equal(byId.w_search.config?.presentation, 'transparent', 'search is glass');
-    assert.equal(byId.w_inspiration, undefined, 'intention is not on the default board');
-    assert.equal(byId.w_grove, undefined, 'Focus Garden is not on the default board');
+      assert.equal(byId.w_clock.w, 8, 'clock width');
+      assert.equal(byId.w_search.w, 10, 'search width');
+      assert.equal(byId.w_notes.w, 5, 'scratchpad width');
+
+      assert.equal(byId.w_clock.config?.showSeconds, false, 'clock matches the digital HH:MM look');
+      assert.equal(byId.w_clock.config?.presentation, 'transparent', 'clock is glass');
+      assert.equal(byId.w_search.config?.presentation, 'transparent', 'search is glass');
+      assert.equal(byId.w_inspiration, undefined, 'intention is not on the default board');
+      assert.equal(byId.w_grove, undefined, 'Focus Garden is not on the default board');
+    }
   }
 
   // Nothing is placed off the grid, however absurd the column count.
@@ -445,26 +452,28 @@ test('the default layout reaches the corners of whatever width it is resolved at
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'inspiration'), 'intention is off the default');
 });
 
-test('untouched default sketch re-anchors when the live column count differs', () => {
-  const at16 = defaultWidgetsFor(16);
+test('untouched default sketch re-anchors when the live grid differs', () => {
+  const at16 = defaultWidgetsFor(16, 14);
   assert.equal(isShippedDefaultLayout(at16), true);
-  assert.equal(shouldReanchorDefault(at16, 16), false, 'already resolved for 16');
-  assert.equal(shouldReanchorDefault(at16, 28), true, 'needs re-anchor on a wider grid');
+  assert.equal(shouldReanchorDefault(at16, 16, 14), false, 'already resolved for 16×14');
+  assert.equal(shouldReanchorDefault(at16, 28, 14), true, 'needs re-anchor on a wider grid');
+  assert.equal(shouldReanchorDefault(at16, 16, 18), true, 'needs re-anchor on a taller grid');
 
-  const at28 = defaultWidgetsFor(28);
+  const at28 = defaultWidgetsFor(28, 18);
   assert.equal(isShippedDefaultLayout(at28), true);
-  assert.equal(shouldReanchorDefault(at28, 28), false);
+  assert.equal(shouldReanchorDefault(at28, 28, 18), false);
 
   // A moved widget is no longer the shipped sketch.
   const moved = at16.map((w) => (w.id === 'w_weather' ? { ...w, x: w.x - 1 } : w));
   assert.equal(isShippedDefaultLayout(moved), false);
-  assert.equal(shouldReanchorDefault(moved, 28), false);
+  assert.equal(shouldReanchorDefault(moved, 28, 14), false);
 
   const withPlace = at16.map((w) => (
     w.id === 'w_weather' ? { ...w, config: { ...w.config, place: 'Bengaluru' } } : w
   ));
-  const reanchored = reanchorDefaultWidgets(withPlace, 28);
+  const reanchored = reanchorDefaultWidgets(withPlace, 28, 18);
   assert.equal(reanchored.find((w) => w.id === 'w_weather').x + 3, 28, 'weather hugs 28');
+  assert.equal(reanchored.find((w) => w.id === 'w_notes').y + 3, 18, 'notes hugs 18 rows');
   assert.equal(reanchored.find((w) => w.id === 'w_weather').config.place, 'Bengaluru', 'keeps config');
 });
 
