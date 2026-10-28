@@ -98,7 +98,7 @@ Chrome requires a **hosted** privacy policy URL (https).
 2. Paste that URL into the Store’s Privacy policy field.
 3. Keep it consistent with this file and `TERMS.md`.
 
-Draft source in-repo: `/Users/sarangkumar/01-projects/01-active/vistaar-2/TERMS.md` (draft, not legal advice — have it reviewed before relying on it as published terms).
+Draft source in-repo: `/Users/sarangkumar/01-projects/01-active/chestha/TERMS.md` (draft, not legal advice — have it reviewed before relying on it as published terms).
 
 Placeholders to replace before hosting: `[LEGAL NAME / ENTITY]`, `[SUPPORT EMAIL]`, `[DATE ON PUBLICATION]`, `[JURISDICTION]`, `[REPOSITORY OR ISSUE TRACKER URL]`.
 

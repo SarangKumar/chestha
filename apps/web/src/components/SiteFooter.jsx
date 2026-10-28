@@ -1,13 +1,16 @@
 import { SITE_SOCIALS } from '../siteLinks.js';
+import { BuyMeCoffeeButton } from './BuyMeCoffeeButton.jsx';
 
 /**
- * Website-only footer: About + maker socials. Not mounted in the extension New
- * Tab, where a marketing strip would clutter every new tab.
+ * Website-only footer: About, Changelog, maker socials, Buy me a coffee button.
+ * Not mounted in the extension New Tab (Shell gates on showSiteChrome).
+ * Shell flex-column + mt-auto pins this to the bottom of the viewport when the
+ * section is short.
  */
 export function SiteFooter({ onNavigate }) {
   return (
-    <footer className="mt-auto border-t border-line px-4 py-6 pb-28 sm:px-6 sm:pb-6">
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="mt-auto shrink-0 border-t border-line px-4 py-6 pb-28 sm:px-6 sm:pb-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-meta leading-relaxed text-ink-faint">
           Chestha · local-first ·{' '}
           <button
@@ -16,6 +19,14 @@ export function SiteFooter({ onNavigate }) {
             className="font-medium text-ink-muted underline decoration-line-strong underline-offset-2 transition-colors duration-150 hover:text-ink hover:decoration-ink"
           >
             About
+          </button>
+          {' · '}
+          <button
+            type="button"
+            onClick={() => onNavigate?.('changelog')}
+            className="font-medium text-ink-muted underline decoration-line-strong underline-offset-2 transition-colors duration-150 hover:text-ink hover:decoration-ink"
+          >
+            Changelog
           </button>
         </p>
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -31,6 +42,9 @@ export function SiteFooter({ onNavigate }) {
               </a>
             </li>
           ))}
+          <li>
+            <BuyMeCoffeeButton size="xs" variant="outline" />
+          </li>
         </ul>
       </div>
     </footer>

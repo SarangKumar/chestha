@@ -45,7 +45,9 @@ export function useGridMetrics() {
       const width = host.getBoundingClientRect().width;
       if (!width) return;
       const columns = columnsForWidth(width);
-      const cell = cellForWidth(width, columns);
+      // Floor to hundredths so sub-pixel CSS track rounding cannot push the
+      // fixed-track grid wider than the host (corner horizontal scroll).
+      const cell = Math.floor(cellForWidth(width, columns) * 100) / 100;
       setMetrics((previous) => (
         previous.columns === columns && previous.cell === cell ? previous : { columns, cell }
       ));

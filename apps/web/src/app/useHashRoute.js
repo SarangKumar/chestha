@@ -1,17 +1,46 @@
 import { useCallback, useEffect, useState } from 'react';
+import { isEmbedPreview, isExtensionRuntime } from './platform.js';
 
 /**
- * Routable sections. `about` is last and is deliberately absent from the
- * navigation rail — it is reached from the command palette or a direct link, so
- * it needs a route without taking up a permanent slot.
+ * Routable sections. `home` is the website marketing landing and is absent
+ * from the nav rail. `about` and `changelog` are also rail-absent — palette / footer.
  */
-export const SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds', 'settings', 'about'];
+export const SECTIONS = [
+  'home',
+  'dashboard',
+  'tasks',
+  'calendar',
+  'dsa',
+  'grove',
+  'websites',
+  'sounds',
+  'settings',
+  'about',
+  'changelog',
+];
+
+/** App shell sections (everything except the marketing landing). */
+export const APP_SECTIONS = SECTIONS.filter((section) => section !== 'home');
+
+function defaultSection() {
+  // Extension New Tab and the landing product-preview iframe always open the
+  // dense workspace — never the marketing page (which would nest another iframe).
+  if (isExtensionRuntime() || isEmbedPreview()) return 'dashboard';
+  return 'home';
+}
 
 function read() {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [section, param] = raw.split('/');
+  if (!section) {
+    return { section: defaultSection(), param: null };
+  }
+  // Extension / embed must never land on marketing.
+  if ((isExtensionRuntime() || isEmbedPreview()) && section === 'home') {
+    return { section: 'dashboard', param: null };
+  }
   return {
-    section: SECTIONS.includes(section) ? section : 'dashboard',
+    section: SECTIONS.includes(section) ? section : defaultSection(),
     param: param ? decodeURIComponent(param) : null,
   };
 }

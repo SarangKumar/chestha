@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   addItem, allowedPresets, defaultWidgetsFor, layoutHeight, moveItem, newId,
-  presetKeyFor, projectToColumns, removeItem, resizeItem, tidy,
+  presetKeyFor, projectToColumns, reanchorDefaultWidgets, removeItem, resizeItem,
+  shouldReanchorDefault, tidy,
 } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useGridMetrics } from '../app/useColumns.js';
@@ -103,6 +104,18 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   }, [cell, editing]);
 
   const stored = state.dashboard.widgets;
+
+  /**
+   * The shipped default is stored at a laptop column count. Once the grid is
+   * measured, re-resolve that untouched sketch so corner widgets hug the real
+   * edges of this New Tab / window — otherwise they sit in a left band with a
+   * dead gutter on the right. Custom layouts are left alone.
+   */
+  useEffect(() => {
+    if (!status.ready || columns < 8) return;
+    if (!shouldReanchorDefault(stored, columns)) return;
+    actions.setDashboard(() => reanchorDefaultWidgets(stored, columns));
+  }, [status.ready, columns, stored, actions]);
 
   // Unknown types (from a newer build or an import) are skipped visibly.
   const { known, unknownTypes } = useMemo(() => {
@@ -211,7 +224,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const guideRows = Math.max(rows, viewportRows || 1);
 
   return (
-    <div ref={measureRef} className="w-full">
+    <div ref={measureRef} className="w-full min-w-0 max-w-full overflow-x-hidden">
       <h1 className="sr-only">Dashboard</h1>
 
       {/*
@@ -339,10 +352,13 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         <div
           ref={editScrollRef}
           className={cx(
-            'bg-transparent',
+            // Always clip X so sub-pixel grid tracks / right-edge widgets cannot
+            // create a horizontal scrollbar at the corners (landing preview +
+            // extension New Tab share this surface).
+            'max-w-full overflow-x-hidden bg-transparent',
             // Above sticky header (z-20): edit chrome sits in this surface, so the
             // whole band must stack higher or pill backgrounds paint under the header.
-            canEdit && 'relative z-[25] overflow-x-hidden overflow-y-auto scrollbar-thin',
+            canEdit && 'relative z-[25] overflow-y-auto scrollbar-thin',
           )}
           style={canEdit && viewportHeight > 0 ? {
             maxHeight: viewportHeight,
@@ -361,7 +377,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
           onPointerMove={canEdit ? move : undefined}
           onPointerUp={canEdit ? end : undefined}
           onPointerCancel={canEdit ? end : undefined}
-          className="relative grid touch-pan-y"
+          className="relative grid max-w-full touch-pan-y"
           style={{
             // Fixed square tracks from the measured cell. Using the same pixel
             // size for columns and rows keeps the edit guides square; leftover

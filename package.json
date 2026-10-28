@@ -13,7 +13,6 @@
     "preview": "npm run preview --workspace @chestha/web",
     "test": "node --test packages/core/test apps/web/test",
     "build:extension": "npm run build && node tools/build-extension.mjs",
-    "extension": "npm run build:extension",
     "watch:extension": "node tools/watch-extension.mjs",
     "pack:extension": "npm run build:extension && node tools/pack-extension.mjs",
     "backgrounds": "node tools/build-backgrounds.mjs",

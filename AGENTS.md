@@ -22,12 +22,19 @@ points here.
 
 ```bash
 npm install
-npm run dev     # web app on http://localhost:5173
-npm run build   # production build — also the only "does it compile" check
-npm test        # core logic, node:test, no framework
+npm run dev               # web app on http://localhost:5173
+npm run build             # production build — also the only "does it compile" check
+npm test                  # core + web logic, node:test, no framework
+npm run preview           # serve the built apps/web/dist
+npm run build:extension   # build, then assemble apps/extension/dist (load unpacked)
+npm run watch:extension   # rebuild the extension on change
+npm run pack:extension    # write release/chestha-<version>.zip for the Web Store
+npm run backgrounds       # regenerate apps/web/public/backgrounds/catalog.json
+npm run dsa-pack          # rebuild bundled DSA packs (dev tool, uses the network)
 ```
 
-There is **no lint or type-check script**; those four are all that exist. Plain JS
+npm workspaces: `@chestha/web` (apps/web) and `packages/core`. There is **no lint or
+type-check script**; the list above is everything that exists. Plain JS
 throughout — no TypeScript, by the owner's decision.
 
 ## Layout
@@ -35,7 +42,10 @@ throughout — no TypeScript, by the owner's decision.
 ```
 packages/core/     Domain logic, no DOM. Testable without a browser.
 apps/web/          Vite 8 + React 19 + Tailwind 4, plain JSX.
-apps/extension/    Chrome companion — not built yet.
+apps/extension/    MV3 manifest + service worker; the built web app is copied in
+                   beside them to replace the New Tab page.
+tools/             Build, watch, pack, backgrounds and DSA-pack scripts.
+release/           Web Store archives (generated, git-ignored).
 ```
 
 Logic belongs in `packages/core` with a test. Components should read state and
@@ -144,7 +154,7 @@ actually performed — say what was not checked.
 A computed layout audit lives in the session scratchpad pattern: parse the JSX
 class names, resolve breakpoint variants, and sum child minimum widths against the
 real content width (390px viewport gives 358px; 768px gives 656px; desktop caps at
-`max-w-5xl`). That catches overflow arithmetically without a renderer.
+`max-w-6xl`). That catches overflow arithmetically without a renderer.
 
 ## State of the work
 
@@ -170,7 +180,8 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   browser combos and storage validation. `apps/web/src/app/useShortcutDispatch.js`
   is the **only** global key listener in the app — do not add another. Overrides
   persist in the existing `settings` area.
-- **Not built:** the Chrome extension.
+- **Chrome extension is built**: MV3 New Tab replacement, see `apps/extension/` and
+  `npm run build:extension` / `pack:extension`.
 - **DSA section — foundation only (increment B of F).** Wired in and navigable at
   `#/dsa`. The domain rules live in `packages/core/src/dsa/` with 31 tests. Shipped:
   canonical question records, shared solving history, the revision ladder, daily

@@ -4,7 +4,7 @@ Do this from the Chestha repo root on your Mac. No CloudAgent required.
 
 Working folder for Store assets and copy:
 
-`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/chrome-store/`
+`/Users/sarangkumar/01-projects/01-active/chestha/release/chrome-store/`
 
 ---
 
@@ -21,18 +21,18 @@ Working folder for Store assets and copy:
 ## Build the ZIP
 
 ```bash
-cd /Users/sarangkumar/01-projects/01-active/vistaar-2
+cd /Users/sarangkumar/01-projects/01-active/chestha
 npm test
 npm run pack:extension
 ```
 
 Upload this archive (version follows `package.json`):
 
-`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/chestha-0.1.1.zip`
+`/Users/sarangkumar/01-projects/01-active/chestha/release/chestha-0.1.1.zip`
 
 Staging folder for inspection:
 
-`/Users/sarangkumar/01-projects/01-active/vistaar-2/release/chestha-0.1.1/`
+`/Users/sarangkumar/01-projects/01-active/chestha/release/chestha-0.1.1/`
 
 Default pack strips local media you may not redistribute. Only use `--keep-media` if you hold rights for every file.
 

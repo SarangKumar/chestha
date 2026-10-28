@@ -18,6 +18,9 @@ import { Sounds } from './sections/Sounds.jsx';
 import { Websites } from './sections/Websites.jsx';
 import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
+import { Changelog } from './sections/Changelog.jsx';
+import { Landing } from './site/Landing.jsx';
+import { isExtensionRuntime } from './app/platform.js';
 
 const TASK_VIEWS = ['today', 'upcoming', 'overdue', 'nodate', 'completed', 'all'];
 
@@ -100,6 +103,13 @@ function Workspace() {
       keywords: 'version privacy credits licence license help what is this',
       run: () => go('about'),
     },
+    {
+      id: 'go-changelog',
+      label: 'Changelog',
+      group: 'Navigate',
+      keywords: 'release notes version history whats new',
+      run: () => go('changelog'),
+    },
   ], [state.settings, actions, go, openCapture]);
 
   useGroveDrain();
@@ -123,6 +133,11 @@ function Workspace() {
       navigate: go,
     },
   });
+
+  // Website marketing landing — never shown in the extension New Tab.
+  if (section === 'home' && !isExtensionRuntime()) {
+    return <Landing onNavigate={go} />;
+  }
 
   return (
     <>
@@ -170,6 +185,7 @@ function Workspace() {
         {section === 'sounds' && <Sounds />}
         {section === 'settings' && <Settings />}
         {section === 'about' && <About onNavigate={go} />}
+        {section === 'changelog' && <Changelog />}
       </Shell>
 
       <CommandPalette

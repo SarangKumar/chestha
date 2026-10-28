@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vinyaas.vercel.app/r/schema/components.json",
+  "style": "new-york",
+  "tsx": false,
+  "tailwind": {
+    "css": "src/index.css",
+    "baseColor": "neutral",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components",
+    "ui": "@/components/ui",
+    "utils": "@/lib/utils"
+  },
+  "installedComponents": {
+    "button": {
+      "files": [
+        "src/components/ui/button/index.jsx"
+      ],
+      "installedAt": "2026-10-28"
+    },
+    "separator": {
+      "files": [
+        "src/components/ui/separator/index.jsx"
+      ],
+      "installedAt": "2026-10-28"
+    },
+    "sheet": {
+      "files": [
+        "src/components/ui/sheet/index.jsx",
+        "src/components/ui/sheet/sheet.css"
+      ],
+      "installedAt": "2026-10-28"
+    },
+    "spinner": {
+      "files": [
+        "src/components/ui/spinner/index.jsx"
+      ],
+      "installedAt": "2026-10-28"
+    }
+  }
+}

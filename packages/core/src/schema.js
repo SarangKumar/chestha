@@ -109,6 +109,56 @@ export function defaultWidgetsFor(columns = DEFAULT_COLUMNS) {
   });
 }
 
+/**
+ * True when `widgets` is still the shipped corner sketch (same ids, types,
+ * sizes, rows, and pinned anchors) resolved for some column count — not a
+ * user-custom arrangement. Config (location, links, …) may differ.
+ */
+export function isShippedDefaultLayout(widgets) {
+  if (!Array.isArray(widgets) || widgets.length !== DEFAULT_SKETCH.length) return false;
+  const byId = Object.fromEntries(widgets.map((w) => [w.id, w]));
+  for (const sketch of DEFAULT_SKETCH) {
+    const w = byId[sketch.id];
+    if (!w || w.type !== sketch.type || w.w !== sketch.w || w.h !== sketch.h || w.y !== sketch.y) {
+      return false;
+    }
+    if (!w.pinned) return false;
+  }
+  const weather = byId.w_weather;
+  if (!weather) return false;
+  const resolvedAt = weather.x + weather.w;
+  const expected = defaultWidgetsFor(resolvedAt);
+  return expected.every((e) => {
+    const w = byId[e.id];
+    return w && w.x === e.x && w.y === e.y && w.w === e.w && w.h === e.h;
+  });
+}
+
+/**
+ * The stored default is written at DEFAULT_COLUMNS so a laptop can open it.
+ * On a wider New Tab the same absolute x values leave a dead band on the right.
+ * When the layout is still that untouched sketch and the live column count
+ * differs, re-resolve so weather / shortcuts hug the real right edge.
+ */
+export function shouldReanchorDefault(widgets, columns) {
+  if (!isShippedDefaultLayout(widgets)) return false;
+  const cols = Math.max(8, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  const weather = widgets.find((w) => w.id === 'w_weather');
+  return Boolean(weather) && weather.x + weather.w !== cols;
+}
+
+/**
+ * Resolve the shipped sketch for `columns`, copying each widget's existing
+ * `config` so a re-anchor does not wipe weather location, shortcuts, etc.
+ */
+export function reanchorDefaultWidgets(widgets, columns) {
+  const byId = Object.fromEntries((widgets ?? []).map((w) => [w.id, w]));
+  return defaultWidgetsFor(columns).map((next) => {
+    const prev = byId[next.id];
+    return prev?.config ? { ...next, config: { ...next.config, ...prev.config } } : next;
+  });
+}
+
 export const DEFAULT_DASHBOARD = {
   version: 3,
   widgets: defaultWidgetsFor(DEFAULT_COLUMNS),

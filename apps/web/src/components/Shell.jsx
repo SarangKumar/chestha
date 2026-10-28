@@ -7,7 +7,7 @@ import { Toasts } from './Toasts.jsx';
 import { IconButton, cx } from './ui.jsx';
 import { Icon } from './icons.jsx';
 import { SiteFooter } from './SiteFooter.jsx';
-import { isExtensionRuntime } from '../app/platform.js';
+import { isEmbedPreview, isExtensionRuntime } from '../app/platform.js';
 
 const TITLES = {
   dashboard: 'Dashboard',
@@ -19,13 +19,15 @@ const TITLES = {
   sounds: 'Sounds',
   settings: 'Settings',
   about: 'About',
+  changelog: 'Changelog',
+  home: 'Home',
 };
 
 // The dashboard is a workspace and uses the whole shell. Widget size is fixed by
 // the grid's own cell cap, not by narrowing the page.
 const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
-const showSiteChrome = !isExtensionRuntime();
+const showSiteChrome = !isExtensionRuntime() && !isEmbedPreview();
 
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const { state, today, actions } = useWorkspace();
@@ -63,8 +65,12 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
 
       {/* No right-hand padding: the today panel is an overlay, so the page keeps
           its full width whether or not it is open. */}
-      <div className={cx('relative z-10', 'sm:pl-16')}>
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
+      {/* min-h-dvh + flex-col + flex-1 main pins the website footer to the
+          viewport bottom when a section is short. Extension never mounts
+          SiteFooter (showSiteChrome is false). min-w-0 stops the dashboard
+          grid from forcing horizontal scroll at the corners. */}
+      <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', 'sm:pl-16')}>
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>
             <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
@@ -116,11 +122,12 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
             // padding so ~16 columns still fit beside the nav rail.
             // Website footer clears the mobile nav; extension keeps the old
             // main padding so the dense New Tab still sits above the bar.
-            'w-full pt-6 sm:pt-8',
+            // flex-1 grows so SiteFooter (mt-auto) sits at the viewport bottom.
+            'min-w-0 flex-1 w-full pt-6 sm:pt-8',
             showSiteChrome ? 'pb-6 sm:pb-8' : 'pb-24 sm:pb-12',
             FULL_WIDTH_SECTIONS.has(section)
-              ? 'max-w-none px-3 sm:px-4'
-              : 'mx-auto max-w-5xl px-4 sm:px-6',
+              ? 'max-w-none px-2 sm:px-3'
+              : 'mx-auto max-w-6xl px-4 sm:px-6',
           )}
         >
           <div className="mb-6 space-y-2 empty:mb-0">

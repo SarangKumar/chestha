@@ -2,6 +2,7 @@ import { HIDEABLE_SECTIONS } from '@chestha/core';
 import { Panel, SectionHeader } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { SITE_SOCIALS } from '../siteLinks.js';
+import { BuyMeCoffeeButton } from '../components/BuyMeCoffeeButton.jsx';
 import { isExtensionRuntime } from '../app/platform.js';
 
 /**
@@ -68,7 +69,7 @@ export function About({ onNavigate }) {
         <p className="mt-2 text-sm leading-relaxed text-ink-muted">
           Chestha is built by Sarang Kumar. Links open in a new tab.
         </p>
-        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+        <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           {SITE_SOCIALS.map((item) => (
             <li key={item.id}>
               <a
@@ -81,6 +82,9 @@ export function About({ onNavigate }) {
               </a>
             </li>
           ))}
+          <li>
+            <BuyMeCoffeeButton size="sm" variant="outline" />
+          </li>
         </ul>
       </Panel>
 

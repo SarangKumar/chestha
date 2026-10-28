@@ -7,6 +7,9 @@ import {
   projectToColumns, removeItem, resizeItem, tidy, columnsForWidth, cellForWidth,
   CELL_PX, SIZE_PRESETS, presetByKey, scaleLayout, LEGACY_BASE_COLUMNS, V3_COLUMNS,
   defaultWidgetsFor,
+  isShippedDefaultLayout,
+  reanchorDefaultWidgets,
+  shouldReanchorDefault,
 } from '../src/index.js';
 
 const at = (id, x, y, w = 1, h = 1) => createPlacement({ id, type: 't', x, y, w, h });
@@ -436,6 +439,29 @@ test('the default layout reaches the corners of whatever width it is resolved at
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'dsaToday'));
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'grove'), 'Focus Garden is off the default');
   assert.ok(!defaultWidgetsFor(24).some((w) => w.type === 'inspiration'), 'intention is off the default');
+});
+
+test('untouched default sketch re-anchors when the live column count differs', () => {
+  const at16 = defaultWidgetsFor(16);
+  assert.equal(isShippedDefaultLayout(at16), true);
+  assert.equal(shouldReanchorDefault(at16, 16), false, 'already resolved for 16');
+  assert.equal(shouldReanchorDefault(at16, 28), true, 'needs re-anchor on a wider grid');
+
+  const at28 = defaultWidgetsFor(28);
+  assert.equal(isShippedDefaultLayout(at28), true);
+  assert.equal(shouldReanchorDefault(at28, 28), false);
+
+  // A moved widget is no longer the shipped sketch.
+  const moved = at16.map((w) => (w.id === 'w_weather' ? { ...w, x: w.x - 1 } : w));
+  assert.equal(isShippedDefaultLayout(moved), false);
+  assert.equal(shouldReanchorDefault(moved, 28), false);
+
+  const withPlace = at16.map((w) => (
+    w.id === 'w_weather' ? { ...w, config: { ...w.config, place: 'Bengaluru' } } : w
+  ));
+  const reanchored = reanchorDefaultWidgets(withPlace, 28);
+  assert.equal(reanchored.find((w) => w.id === 'w_weather').x + 3, 28, 'weather hugs 28');
+  assert.equal(reanchored.find((w) => w.id === 'w_weather').config.place, 'Bengaluru', 'keeps config');
 });
 
 // ─── Size presets offered per widget ─────────────────────────────────────────
