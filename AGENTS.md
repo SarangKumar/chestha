@@ -1,52 +1,111 @@
 # Chestha — agent guide
 
-A local-first personal productivity workspace. No account, no backend, no telemetry.
-This file is the canonical guide for any agent working in this repo; `CLAUDE.md`
-points here.
+A local-first personal productivity workspace, plus a community side where people
+write about how they work. This file is the canonical guide for any agent working
+in this repo; `CLAUDE.md` points here.
+
+**The product changed shape in v0.2.** It was account-free and backend-free by
+design. It now has accounts, a MongoDB database and a Next.js server, because the
+community features and cross-device sync cannot exist without them. Rules 2 and 3
+below used to say the opposite; the owner reversed them deliberately. Anything
+written before that still carrying "no backend, ever" is stale — this file wins.
 
 ## Hard rules
 
-1. **Never commit.** Leave all work uncommitted for manual review. This directory
-   is not currently a git repository.
-2. **No backend, no account, no cloud sync, no analytics, no telemetry.** These are
-   settled product decisions, not defaults. Core functionality must not depend on
-   an external service.
-3. **No new runtime dependencies.** The app ships React and nothing else. If one
-   seems genuinely necessary, benchmark first and ask before adding it.
-4. **Never promise durability.** Browser storage can be cleared or evicted. Product
-   copy says so plainly; do not add language implying permanence or security.
-5. **Don't invent requirements.** When a behaviour is ambiguous, flag it rather than
-   silently picking. Several open decisions are recorded below.
+1. **Never commit.** Leave all work uncommitted for manual review.
+2. **The workspace still works with no account.** Accounts unlock the community
+   and cross-device sync; they are not a condition of using tasks, the calendar,
+   the Grove or DSA. The extension in particular must keep working offline and
+   signed out. Do not put a login wall in front of the workspace.
+3. **Ask before adding a runtime dependency.** The list is no longer "React and
+   nothing else", but it is still short and deliberate: React, Next, NextAuth and
+   the Prisma client. Password hashing uses `node:crypto` scrypt rather than
+   bcrypt or argon2 precisely to avoid a native module — see
+   `packages/db/src/password.js`.
+4. **Never promise durability of browser storage.** It can be cleared or evicted.
+   Product copy says so plainly. Sync makes a server copy possible; it does not
+   make the local copy permanent, and the copy is only as good as the last sync.
+5. **Don't invent requirements.** When a behaviour is ambiguous, flag it rather
+   than silently picking. Several open decisions are recorded below.
+6. **Secrets stay in the environment.** `apps/site/.env.example` documents every
+   variable. Never commit a real `DATABASE_URL` or `AUTH_SECRET`.
 
 ## Commands
 
 ```bash
-npm install
-npm run dev               # web app on http://localhost:5173
-npm run build             # production build — also the only "does it compile" check
-npm test                  # core + web logic, node:test, no framework
+npm install               # also runs `prisma generate` via postinstall
+cp apps/site/.env.example apps/site/.env   # then fill DATABASE_URL and AUTH_SECRET
+
+npm run dev               # the site (Next.js) on http://localhost:3000
+npm run dev:extension     # the Vite workspace on http://localhost:5173
+npm run build             # production build of the site — the compile check for it
+npm run build:web         # production build of the Vite app (what the extension ships)
+npm test                  # core + db + web logic, node:test, no framework
 npm run preview           # serve the built apps/web/dist
-npm run build:extension   # build, then assemble apps/extension/dist (load unpacked)
+
+npm run db:generate       # regenerate the Prisma client after a schema change
+npm run db:push           # push the schema to MongoDB (no migration files on Mongo)
+npm run db:seed           # upsert the curated categories; idempotent
+npm run db:studio         # browse the database
+
+npm run build:extension   # build:web, then assemble apps/extension/dist (load unpacked)
 npm run watch:extension   # rebuild the extension on change
 npm run pack:extension    # write release/chestha-<version>.zip for the Web Store
 npm run backgrounds       # regenerate apps/web/public/backgrounds/catalog.json
 npm run dsa-pack          # rebuild bundled DSA packs (dev tool, uses the network)
 ```
 
-npm workspaces: `@chestha/web` (apps/web) and `packages/core`. There is **no lint or
-type-check script**; the list above is everything that exists. Plain JS
-throughout — no TypeScript, by the owner's decision.
+`npm run build` is now the **site** build; the Vite build moved to `build:web`,
+and `build:extension` depends on that rather than on `build`. Both are worth
+running: they compile different trees and neither covers the other.
+
+npm workspaces: `@chestha/site` (apps/site), `@chestha/web` (apps/web),
+`packages/core`, `packages/db`, `packages/ui`. There is **no lint or type-check
+script**; the list above is everything that exists. Plain JS throughout — no
+TypeScript, by the owner's decision, including the Prisma and NextAuth wiring.
+
+### Two version traps, both already sprung
+
+**Prisma is pinned to 6.x on purpose — do not "upgrade" it.** Prisma 7 removed
+`url` from the datasource and requires a driver adapter at runtime, and there is
+no MongoDB driver adapter. Under 7 this schema still generates but cannot
+connect to Mongo at all except through paid Accelerate. The pin is recorded in
+`packages/db/prisma/schema.prisma` too. `@auth/prisma-adapter` declares
+`@prisma/client` as a peer with an open range, so `apps/site` pins it as well —
+without that, npm resolves a second, newer client and generates against one copy
+while the app imports another.
+
+**The Prisma CLI lives in the root `devDependencies`, not in `packages/db`.**
+Nested in a workspace, npm silently dropped several of its transitive
+dependencies (`fast-check`, `empathic`, `pathe`) and `prisma generate` died on a
+missing module. Hoisted to the root it resolves flat and needs no workarounds.
 
 ## Layout
 
 ```
-packages/core/     Domain logic, no DOM. Testable without a browser.
-apps/web/          Vite 8 + React 19 + Tailwind 4, plain JSX.
-apps/extension/    MV3 manifest + service worker; the built web app is copied in
-                   beside them to replace the New Tab page.
+packages/core/     Domain logic, no DOM, no Node built-ins. Testable without a
+                   browser, and imported by both apps.
+packages/db/       Prisma schema, the client singleton, and scrypt password
+                   hashing. Server-only — `password.js` is a separate entry
+                   point so `node:crypto` can never reach a browser bundle.
+packages/ui/       The design tokens, shared so the site and the extension
+                   cannot drift into two palettes.
+apps/site/         Next.js 16 App Router + Tailwind 4, plain JSX. The website,
+                   accounts, posts and profiles.
+apps/web/          Vite 8 + React 19 + Tailwind 4, plain JSX. The workspace, and
+                   what the extension ships.
+apps/extension/    MV3 manifest + service worker; the built Vite app is copied
+                   in beside them to replace the New Tab page.
 tools/             Build, watch, pack, backgrounds and DSA-pack scripts.
 release/           Web Store archives (generated, git-ignored).
 ```
+
+**Why two apps rather than one.** The extension New Tab page has to be a static
+client bundle: MV3 cannot run a server, and its `script-src 'self'` CSP forbids
+the inline script Next's runtime emits. So the Vite build stays, trimmed to that
+job, and the Next app owns everything that needs a server. The design tokens and
+all domain logic are shared through `packages/`, which is what keeps them from
+becoming two products.
 
 Logic belongs in `packages/core` with a test. Components should read state and
 render; they should not own rules.
@@ -111,6 +170,81 @@ header in normal use and regain a dashed outline in edit mode so they stay dragg
 **Export carries a format version.** `transfer.js` refuses newer formats with a
 specific reason. Import is all-or-nothing and snapshots the prior state first.
 
+**Accounts are email and password, with the OAuth seam left open.**
+`apps/site/auth.js` is the whole of it. Three choices there are load-bearing.
+The Prisma adapter is installed even though credentials do not use it, because
+it is what writes the `Account` row a provider needs — so adding Google or
+GitHub is one entry in `providers` and no schema change. Its `createUser` is
+wrapped, because `handle` is required and unique and no provider supplies one:
+without that wrapping an OAuth sign-up fails at the insert, before any callback
+could redirect anywhere. The wrapper assigns a provisional handle and sets
+`handleChosen: false`, which is what routes the user to `/onboarding/username`
+to pick their own. And sessions are JWTs,
+not database rows, because NextAuth does not support database sessions with the
+Credentials provider and the strategy cannot vary per provider. The `Session`
+table is therefore empty by design. There is **no email verification step**, by
+product decision; `emailVerified` is only ever set by a provider that vouches
+for the address.
+
+**Passwords use `node:crypto` scrypt, not bcrypt or argon2.** Memory-hard, in
+the standard library, no native build step. The stored string carries its own
+parameters (`scrypt$N$r$p$salt$hash`), so cost can be raised later without
+invalidating existing hashes — `needsRehash` reports which are behind and the
+sign-in path upgrades them in place, at the one moment the plaintext is known to
+be correct. `verifyPassword` returns false rather than throwing for a missing or
+malformed hash, because an OAuth-created account has no password and sign-in
+must not distinguish that from a wrong one.
+
+**Credential failures say one thing.** "No account with that email" turns a
+sign-in form into a way to discover who has an account. Every failure — unknown
+email, no password set, wrong password — returns the same message. The same
+reasoning applies to posts: a post that does not exist and someone else's draft
+give the same answer, so post ids cannot be enumerated.
+
+**Usernames are route segments.** `/user/<handle>` shares a namespace with the
+site's own pages, so `RESERVED_USERNAMES` in `packages/core/src/account/username.js`
+refuses anything that would shadow a route or let an account look official.
+`handle` is the canonical lowercase key and the unique index; `displayUsername`
+keeps the casing the user typed. Add a top-level route, add its segment to that
+list in the same change.
+
+**One function decides what is public.** `buildProfileCard` filters to published
+posts and omits the email itself, rather than trusting each page to pass a
+pre-filtered list. The profile card is the one place where getting visibility
+wrong leaks a draft publicly, so that reasoning lives in exactly one place.
+
+**A post's status is stored; its visibility is derived.** Unlike the DSA
+statuses, nothing in a post record implies whether its author *wants* it public,
+so `status` is authorial intent and is stored. `draft` and `unpublished` are
+deliberately distinct: both are invisible, but an unpublished post has been
+public before, so its slug is already in other people's hands and stays frozen,
+and `firstPublishedAt` survives so re-publishing does not reset its date.
+Status moves only through `applyTransition`, never through an edit — which is
+why `applyPostEdit` ignores a `status` key.
+
+**Workspace sync is per-area, with revisions rather than clocks.** It is built
+on the fact that storage is already per-area, so each area syncs independently
+and a conflict in `settings` cannot endanger `tasks`. Each area carries a
+server-assigned integer `rev`; a push on the current revision is a
+fast-forward, anything else is a real concurrent edit. Device clocks disagree,
+and a skewed clock silently discards real work, which is why revisions decide
+*whether* to merge even though timestamps decide *what wins* inside one.
+
+`AREA_MERGE` in `packages/core/src/sync/areas.js` gives every area a strategy
+chosen by the shape of what it stores, not by its name — only `tasks` is a bare
+id-keyed list, `tags` is plain strings, and the other record collections sit
+nested beside derived caches. A test asserts the table covers `AREAS` exactly,
+so adding an area forces that decision rather than defaulting to overwriting
+user data.
+
+Two things there are easy to get wrong. **Deletes need tombstones**: a record
+deleted on one device is merely absent from its list, and merging with a device
+that still has it resurrects it — so the local store has to log
+`{ id, deletedAt }` rather than just splicing the array. And **tie-breaks must
+be commutative**: breaking an equal-timestamp tie by side ("remote wins") is
+not, so two devices merging the same pair in opposite positions would each keep
+a different record and never converge. Ties are broken on content instead.
+
 ## Design system
 
 Monochrome, dark-first, with a light counterpart (theme choice is an existing
@@ -158,6 +292,21 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
 
 ## State of the work
 
+- **Accounts, posts and profiles — foundation (pass 1 of 2).** Shipped: the
+  Next.js app, the Prisma schema, email/password sign-up and sign-in, the public
+  profile at `/user/<handle>` with its share button and OG image, the feed and
+  post pages, and the whole domain layer with 63 tests
+  (`packages/core/src/{account,posts,sync}`, `packages/db/src/password.js`).
+  **Not yet built:** the post editor, the draft/publish/unpublish controls, an
+  author's own post list, bookmarks, upvotes, follows, and the sync transport.
+  The data access for posts (`apps/site/lib/posts.js`) is written and ready for
+  that UI.
+- **Verification status for pass 1.** `npm test`, `npm run build` and
+  `npm run build:web` all pass. **Nothing has been exercised against a real
+  MongoDB** — there was no database in the environment — so every query in
+  `apps/site/lib/` is unproven at runtime, and no page has been rendered in a
+  browser. Sign-up, sign-in and the profile page need a human with a
+  `DATABASE_URL` before they can be called working.
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),
   settings with export/import/reset, command palette, quick capture.
@@ -201,8 +350,28 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
 
 ## Open decisions — do not quietly resolve these
 
+- **The sync transport does not exist yet.** `planSync` and `mergeArea` decide
+  what *should* happen and are tested; nothing calls them. The API routes, the
+  client scheduler and the tombstone log in the local store are the next pass.
+  Until that lands, `WorkspaceArea` is never written.
+- **`notes` merges last-write-wins.** It is a single text blob, and merging two
+  edits of one document needs a text-level three-way diff. The loser is handed
+  back rather than dropped, which is the honest interim answer, not a good one.
+- **`grove.time.days` merges last-write-wins per day.** If the same day was
+  tracked on two devices at once, neither summing (double-counts the overlap)
+  nor picking one (loses the other) is correct without per-session detail.
+  Picking one is the lesser harm for now.
+- **The seed category list is a product decision** that has not been reviewed.
+  `SEED_CATEGORIES` only bootstraps an empty database; categories are rows and
+  editable without a deploy.
+- **Post bodies are authored as Markdown but rendered as plain paragraphs.**
+  Rendering untrusted Markdown as HTML needs a sanitiser, and that is a
+  dependency decision for the editor pass. Do not render it as HTML before then.
+- **`Bookmark`, `Upvote` and `Follow` exist in the schema with no UI.** They are
+  there so the feed can grow into them without a migration; nothing reads them.
 - Multi-tab behaviour (two tabs writing at once) is unresolved; the intended
-  direction is a soft single-tab model.
+  direction is a soft single-tab model. Sync makes this sharper, not softer —
+  two tabs are two writers against the same local store.
 - Recurring tasks are deliberately deferred.
 - Keyboard shortcuts are fixed, not rebindable, on purpose.
 - No PWA/service worker, to avoid cache-staleness bugs during development.

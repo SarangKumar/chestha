@@ -61,3 +61,12 @@ desktop.ini
 *.log
 npm-debug.log*
 yarn-error.log*
+
+# Next.js (apps/site)
+.next/
+next-env.d.ts
+.vercel/
+
+# Prisma — the client is generated into node_modules by `npm run db:generate`,
+# which the root postinstall also runs, so a clone never needs it committed.
+packages/db/generated/

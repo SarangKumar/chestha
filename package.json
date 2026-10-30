@@ -8,14 +8,25 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @chestha/web",
-    "build": "node tools/build-backgrounds.mjs && npm run build --workspace @chestha/web",
+    "dev": "npm run dev --workspace @chestha/site",
+    "dev:extension": "npm run dev --workspace @chestha/web",
+    "build": "npm run build --workspace @chestha/site",
+    "build:web": "node tools/build-backgrounds.mjs && npm run build --workspace @chestha/web",
+    "start": "npm run start --workspace @chestha/site",
+    "test": "node --test packages/core/test packages/db/test apps/web/test",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:push": "prisma db push --schema packages/db/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema packages/db/prisma/schema.prisma",
+    "db:seed": "node packages/db/src/seed.js",
+    "postinstall": "prisma generate --schema packages/db/prisma/schema.prisma",
     "preview": "npm run preview --workspace @chestha/web",
-    "test": "node --test packages/core/test apps/web/test",
-    "build:extension": "npm run build && node tools/build-extension.mjs",
+    "build:extension": "npm run build:web && node tools/build-extension.mjs",
     "watch:extension": "node tools/watch-extension.mjs",
     "pack:extension": "npm run build:extension && node tools/pack-extension.mjs",
     "backgrounds": "node tools/build-backgrounds.mjs",
     "dsa-pack": "node tools/build-dsa-pack.mjs"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
   }
 }

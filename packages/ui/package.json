@@ -1,0 +1,9 @@
+{
+  "name": "@chestha/ui",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./src/tokens.css"
+  }
+}

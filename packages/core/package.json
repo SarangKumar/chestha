@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./account": "./src/account/index.js",
+    "./posts": "./src/posts/index.js",
+    "./sync": "./src/sync/index.js"
   }
 }

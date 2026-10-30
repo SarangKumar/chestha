@@ -1,0 +1,271 @@
+// Chestha's database schema.
+//
+// MongoDB via Prisma. Two shapes live here and they are deliberately different:
+//
+//   * The community side (users, posts, categories, bookmarks) is relational
+//     and queried by the server, so it is modelled properly with indexes.
+//   * The workspace side (WorkspaceArea) is one document per user per storage
+//     area, holding the same validated blob the browser already keeps in
+//     IndexedDB. It is *not* decomposed into tables: `packages/core` is the
+//     single authority on that data's shape, and splitting it across
+//     collections would create a second, drifting definition of it.
+//
+// The NextAuth models (Account, Session, VerificationToken) match what
+// @auth/prisma-adapter expects. They are present even though sign-in uses
+// credentials with a JWT session, because they are what lets Google or GitHub
+// be added later without a migration.
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Pinned to Prisma 6, deliberately. Prisma 7 removed `url` from the datasource
+// and requires a driver adapter at runtime — and there is no MongoDB driver
+// adapter, so under 7 this schema generates but cannot connect to Mongo at all
+// except through paid Accelerate. Revisit when `@prisma/adapter-mongodb` ships.
+
+// ─── Accounts ────────────────────────────────────────────────────────────────
+
+model User {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Email is the login key, so it is unique and stored lowercase by
+  // `normalizeEmail`. There is no verification step by product decision;
+  // `emailVerified` exists because the adapter writes it for OAuth sign-ins.
+  email         String    @unique
+  emailVerified DateTime?
+
+  // Null for an account created through an OAuth provider — such a user has no
+  // password, and `verifyPassword` treats that as failed credentials rather
+  // than as an error that would reveal the account exists.
+  passwordHash String?
+
+  // `handle` is the lowercase form and the unique key; it is what appears in
+  // /user/<handle>. `displayUsername` keeps the casing the user typed, so the
+  // profile can show "Sarang" while the URL stays canonical.
+  handle          String  @unique
+  displayUsername String?
+
+  // Whether the user picked their own handle. An OAuth provider supplies no
+  // username, but `handle` is required and unique, so the adapter assigns a
+  // provisional one at sign-up; this flag is what sends that user to
+  // /onboarding/username instead of leaving them with a generated handle they
+  // never chose. Credentials registration sets it true, because the sign-up
+  // form asks for one.
+  handleChosen Boolean @default(false)
+
+  name  String?
+  image String?
+  bio   String?
+  // Validated by `normalizeProfileLink` before storage: these render as hrefs.
+  links String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts  Account[]
+  sessions  Session[]
+  posts     Post[]
+  bookmarks Bookmark[]
+  upvotes   Upvote[]
+  areas     WorkspaceArea[]
+  following Follow[]        @relation("follower")
+  followers Follow[]        @relation("following")
+
+  @@map("users")
+}
+
+/// OAuth provider links. Unused until a provider is added, and the reason
+/// adding one needs no schema change.
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Database sessions. Credentials sign-in uses a JWT session instead — NextAuth
+/// does not support database sessions for credentials — so this stays empty
+/// until a provider that uses it is enabled.
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Posts ───────────────────────────────────────────────────────────────────
+
+enum PostStatus {
+  draft
+  published
+  unpublished
+}
+
+model Post {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Unique across all posts and frozen once the post has ever been published,
+  // because the slug is the shared URL. `canChangeSlug` enforces that.
+  slug String @unique
+
+  title    String
+  body     String
+  excerpt  String?
+  coverUrl String?
+
+  // Category slugs, not relations. A post carries at most three, validated
+  // against the Category collection by `normalizeCategories`, and storing the
+  // slugs directly means a feed query needs no join. Tags are free-form.
+  categories String[] @default([])
+  tags       String[] @default([])
+
+  status PostStatus @default(draft)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // `publishedAt` moves every time a post is re-published; `firstPublishedAt`
+  // is written once and is the post's canonical date. Keeping both is what
+  // makes unpublish-then-republish non-destructive.
+  publishedAt      DateTime?
+  firstPublishedAt DateTime?
+  unpublishedAt    DateTime?
+
+  authorId String @db.ObjectId
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  bookmarks Bookmark[]
+  upvotes   Upvote[]
+
+  // The feed: published posts, newest first.
+  @@index([status, publishedAt])
+  // An author's own list, which includes their drafts.
+  @@index([authorId, status, updatedAt])
+  @@index([categories])
+  @@index([tags])
+  @@map("posts")
+}
+
+/// Curated, editable without a deploy. `SEED_CATEGORIES` in packages/core only
+/// bootstraps an empty database.
+model Category {
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  slug  String  @unique
+  name  String
+  blurb String?
+  order Int     @default(0)
+
+  @@map("categories")
+}
+
+model Bookmark {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  postId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // One bookmark per person per post; the database refuses a double-tap
+  // rather than relying on the UI to prevent one.
+  @@unique([userId, postId])
+  @@index([userId, createdAt])
+  @@map("bookmarks")
+}
+
+model Upvote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  postId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("upvotes")
+}
+
+model Follow {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  followerId  String   @db.ObjectId
+  followingId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// ─── Workspace sync ──────────────────────────────────────────────────────────
+
+/// One document per user per storage area, mirroring the per-area model the
+/// browser already uses. `rev` is a server-assigned integer: a client sends the
+/// revision it last saw, and a mismatch means a concurrent edit that
+/// `mergeArea` has to reconcile. Revisions rather than timestamps, because
+/// device clocks disagree and a skewed clock silently discards real work.
+model WorkspaceArea {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+
+  /// One of `AREAS` from packages/core.
+  area String
+
+  /// Incremented by the server on every accepted write. Never set by a client.
+  rev Int @default(0)
+
+  /// The validated area blob, exactly as `coerceArea` produces it.
+  data Json
+
+  /// Deletions, as `{ id, deletedAt }`. Without these a record deleted on one
+  /// device is merely absent from its list, and merging with a device that
+  /// still has it resurrects it.
+  tombstones Json?
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, area])
+  @@map("workspace_areas")
+}

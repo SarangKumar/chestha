@@ -1,0 +1,20 @@
+{
+  "name": "@chestha/db",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./password.js": "./src/password.js"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "push": "prisma db push",
+    "studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  },
+  "devDependencies": {}
+}

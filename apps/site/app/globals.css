@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Tailwind 4 scans the files it is pointed at. The shared packages live
+   outside this app's directory, so they have to be declared explicitly or
+   their class names would be dropped from the build. */
+@source "../app";
+@source "../components";
+@source "../../../packages/ui/src";
+
+/* The design system — the same file apps/web imports, so the website and the
+   extension cannot drift into two palettes. */
+@import "../../../packages/ui/src/tokens.css";
