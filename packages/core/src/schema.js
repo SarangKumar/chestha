@@ -62,9 +62,9 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 const DEFAULT_SKETCH = [
   { id: 'w_weather', type: 'weather', anchor: 'right', vAnchor: 'top', offset: 0, vOffset: 0, w: 3, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_clock', type: 'clock', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 8, h: 2,
+  { id: 'w_clock', type: 'clock', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 9, h: 2,
     config: { showSeconds: false, presentation: 'transparent' } },
-  { id: 'w_search', type: 'search', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 10, h: 2,
+  { id: 'w_search', type: 'search', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 11, h: 2,
     config: { presentation: 'transparent' } },
   { id: 'w_notes', type: 'notes', anchor: 'left', vAnchor: 'bottom', offset: 0, vOffset: 0, w: 5, h: 3,
     config: { presentation: 'transparent' } },
@@ -90,7 +90,7 @@ const DEFAULT_ROWS = 14;
 const MIN_DEFAULT_ROWS = 10;
 
 function clampDefaultColumns(columns) {
-  return Math.max(10, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
+  return Math.max(11, Math.min(BASE_COLUMNS, Math.round(columns) || DEFAULT_COLUMNS));
 }
 
 function clampDefaultRows(rows) {
@@ -105,7 +105,7 @@ function clampDefaultRows(rows) {
  * the very first render.
  */
 export function defaultWidgetsFor(columns = DEFAULT_COLUMNS, rows = DEFAULT_ROWS) {
-  // The widest widget is 10 columns (search), so below that nothing can be placed as
+  // The widest widget is 11 columns (search), so below that nothing can be placed as
   // drawn; above BASE_COLUMNS is off the canonical grid.
   const cols = clampDefaultColumns(columns);
   const rowCount = clampDefaultRows(rows);

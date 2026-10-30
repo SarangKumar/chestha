@@ -5,7 +5,6 @@
 export const SITE_SOCIALS = [
   { id: 'github', label: 'GitHub', href: 'https://github.com/SarangKumar' },
   { id: 'portfolio', label: 'Portfolio', href: 'https://sarangkumar.vercel.app/' },
-  { id: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/in/sarangkumar4' },
 ];
 
 /** Chrome Web Store listing for Add to Chrome CTAs. */

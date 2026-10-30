@@ -427,8 +427,8 @@ test('the default layout reaches the corners and centres the clock/search stack'
       assert.ok(Math.abs(stackMid - rows / 2) <= 0.5, `stack centred vertically at ${rows} rows`);
       assert.ok(byId.w_notes.y >= byId.w_search.y + byId.w_search.h, 'scratchpad below the stack');
 
-      assert.equal(byId.w_clock.w, 8, 'clock width');
-      assert.equal(byId.w_search.w, 10, 'search width');
+      assert.equal(byId.w_clock.w, 9, 'clock width');
+      assert.equal(byId.w_search.w, 11, 'search width');
       assert.equal(byId.w_notes.w, 5, 'scratchpad width');
 
       assert.equal(byId.w_clock.config?.showSeconds, false, 'clock matches the digital HH:MM look');

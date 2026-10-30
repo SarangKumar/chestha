@@ -53,9 +53,9 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
         </div>
       )}
 
-      {/* Embed preview is a framed product shot — no rail, header, or footer so
-          the default dashboard can hug the iframe corners. */}
-      {!embed && <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />}
+      {/* Embed (landing preview) keeps the left page rail so the shot looks like
+          a real workspace; marketing header/footer and the today sidebar stay off. */}
+      <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />
 
       {!embed && (
         <RightSidebar
@@ -72,7 +72,7 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
       {/* Website workspace has no site footer (marketing pages own that).
           Extension clears the mobile nav with extra bottom padding. min-w-0
           stops the dashboard grid from forcing horizontal scroll at corners. */}
-      <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', !embed && 'sm:pl-16')}>
+      <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', 'sm:pl-16')}>
         {!embed && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
             <div className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
             // padding so ~16 columns still fit beside the nav rail.
             // Embed: minimal padding so re-anchored corner widgets hug the frame.
             // Extension keeps bottom padding for the mobile nav bar.
-            // Website workspace: no SiteFooter — normal bottom padding only.
+            // Website workspace: no site footer — normal bottom padding only.
             'min-w-0 flex-1 w-full',
             embed
               ? 'p-1.5 sm:p-2'

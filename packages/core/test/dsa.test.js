@@ -464,6 +464,7 @@ test('the bundled curated pack parses and matches its documented list sizes', ()
   ]));
   assert.deepEqual(sizes, {
     'blind-75': 75,
+    'neetcode-75': 75,
     'neetcode-150': 150,
     'neetcode-250': 250,
     'leetcode-75': 75,
@@ -484,12 +485,12 @@ test('applying the pack builds one record per question despite list overlap', ()
   const { pack } = parsePack(readFileSync(PACK_PATH, 'utf8'));
   const { library, added, listsAdded } = applyPack(emptyLibrary(), pack);
 
-  assert.equal(listsAdded, 7);
+  assert.equal(listsAdded, 8);
   assert.equal(added, library.questions.length);
   assert.equal(new Set(library.questions.map((q) => q.slug)).size, library.questions.length, 'no duplicates');
   // Far more memberships than questions: the lists heavily overlap.
   assert.ok(library.curatedMemberships.length > library.questions.length);
-  assert.equal(library.curatedMemberships.length, 944);
+  assert.equal(library.curatedMemberships.length, 1019);
 
   const twoSum = library.questions.find((q) => q.slug === 'two-sum');
   assert.ok(twoSum, 'Two Sum is present');

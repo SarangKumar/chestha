@@ -10,21 +10,23 @@
  *     disagrees, so a silently truncated source cannot ship.
  *
  * Question metadata and Blind/NeetCode/LeetCode-official memberships were
- * MIT-licensed when fetched. Grind 75/169 memberships come from an ISC-licensed
- * published template (jrddp/leet-cli), ordered as on techinterviewhandbook.org/grind75.
+ * MIT-licensed when fetched. NeetCode 75 is the Blind 75 set ordered as in
+ * NeetCode 150 (same MIT sheets). Grind 75/169 memberships come from an
+ * ISC-licensed published template (jrddp/leet-cli), ordered as on
+ * techinterviewhandbook.org/grind75.
  * The metadata dataset's README states its author scraped LeetCode — we consume
  * published datasets rather than scraping, and record that here so provenance
  * is visible rather than buried.
  *
- * What is NOT bundled: NeetCode 75 and the Striver sheets, because no source was
- * found that publishes their membership with a usable licence and a verifiable
- * size. They remain ingestible via a user-supplied pack.
+ * What is NOT bundled: the Striver sheets, because no source was found that
+ * publishes their membership with a usable licence and a verifiable size.
+ * They remain ingestible via a user-supplied pack.
  */
 export const SOURCES = [
   { id: 'blind-75', name: 'Blind 75', family: 'blind', expected: 75, bundled: true, licence: 'MIT (membership source)', note: 'Bundled. 75 of 75 verified against the documented total.' },
   { id: 'grind-75', name: 'Grind 75', family: 'blind', expected: 75, bundled: true, licence: 'ISC (membership source)', note: 'Bundled. First 75 of the Grind 75 pool (techinterviewhandbook.org/grind75), from a published ISC template.' },
   { id: 'grind-169', name: 'Grind 169', family: 'blind', expected: 169, bundled: true, licence: 'ISC (membership source)', note: 'Bundled. Full Grind 75 pool (169). Shares the blind family with Blind 75 / Grind 75.' },
-  { id: 'neetcode-75', name: 'NeetCode 75', family: 'neetcode', expected: 75, bundled: false, licence: 'unverified', note: 'Not bundled — no source found that publishes its membership separately from NeetCode 150.' },
+  { id: 'neetcode-75', name: 'NeetCode 75', family: 'neetcode', expected: 75, bundled: true, licence: 'MIT (membership source)', note: 'Bundled. Blind 75 ∩ NeetCode 150 in NeetCode 150 order (75 of 75). Shares the neetcode family with NeetCode 150/250.' },
   { id: 'neetcode-150', name: 'NeetCode 150', family: 'neetcode', expected: 150, bundled: true, licence: 'MIT (membership source)', note: 'Bundled. 150 of 150 verified. Extends Blind 75, so it shares its family weighting.' },
   { id: 'neetcode-250', name: 'NeetCode 250', family: 'neetcode', expected: 250, bundled: true, licence: 'MIT (membership source)', note: 'Bundled. 250 of 250 verified. Extends NeetCode 150.' },
   { id: 'leetcode-75', name: 'LeetCode 75', family: 'leetcode-official', expected: 75, bundled: true, licence: 'MIT (membership source)', note: 'Bundled. 75 of 75 verified.' },
@@ -47,7 +49,7 @@ export const BUNDLED_PACKS = [
     id: 'curated-core',
     name: 'Curated interview lists',
     url: '/dsa-packs/curated-core.json',
-    description: 'Blind 75, Grind 75, Grind 169, NeetCode 150/250, LeetCode 75 and Top Interview 150 — curated memberships with shared question metadata.',
+    description: 'Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75 and Top Interview 150 — curated memberships with shared question metadata.',
   },
   {
     id: 'leetcode-index',

@@ -19,6 +19,10 @@
  *     Grind 75 pool (169). Grind 75 is the first 75 in that order; Grind 169 is
  *     the full list. Origin list: techinterviewhandbook.org/grind75. We do not
  *     scrape LeetCode HTML.
+ *   - NeetCode 75 membership: derived from the same MIT sheets — the Blind 75
+ *     set ordered as in NeetCode 150 (Blind 75 ∩ NeetCode 150). That intersection
+ *     is exactly 75 and matches NeetCode's presentation of the set; we do not
+ *     scrape LeetCode or neetcode.io.
  *
  * Only facts are bundled: title, slug, difficulty, topic tags, question id.
  * Problem statements are never included — those are LeetCode's copyrighted text.
@@ -133,6 +137,43 @@ for (const spec of LISTS) {
   console.log(`  ${spec.name}: ${ids.length} verified`);
 }
 
+console.log('deriving NeetCode 75 (Blind 75 ∩ NeetCode 150, NeetCode 150 order)…');
+{
+  const blindSheet = sheets['Blind 75'];
+  const n150Sheet = sheets['Neetcode 150'];
+  if (!blindSheet || !n150Sheet) {
+    problems.push('NeetCode 75: Blind 75 or Neetcode 150 absent from the source');
+  } else {
+    const blindIds = new Set(Object.values(blindSheet).flat().map(String));
+    const n150Ids = [...new Set(Object.values(n150Sheet).flat().map(String))];
+    const nc75Ids = n150Ids.filter((id) => blindIds.has(id));
+    if (nc75Ids.length !== 75) {
+      problems.push(`NeetCode 75: ${nc75Ids.length} entries, expected 75`);
+    } else if (blindIds.size !== 75 || ![...blindIds].every((id) => nc75Ids.includes(id))) {
+      problems.push('NeetCode 75: intersection does not equal Blind 75');
+    } else {
+      const missing = nc75Ids.filter((id) => !byId.has(id));
+      if (missing.length) {
+        problems.push(`NeetCode 75: ${missing.length} ids could not be matched to a slug`);
+      } else {
+        lists.push({
+          id: 'neetcode-75',
+          name: 'NeetCode 75',
+          family: 'neetcode',
+          source: 'neetcode-75',
+          sourceVersion: fetchedAt.slice(0, 10),
+        });
+        nc75Ids.forEach((id, order) => {
+          const slug = byId.get(id).slug;
+          usedSlugs.add(slug);
+          memberships.push({ listId: 'neetcode-75', slug, order });
+        });
+        console.log(`  NeetCode 75: ${nc75Ids.length} verified`);
+      }
+    }
+  }
+}
+
 console.log('fetching Grind 75 / 169 membership…');
 const grindRaw = await (await fetch(GRIND_URL)).json();
 if (!Array.isArray(grindRaw)) {
@@ -198,6 +239,12 @@ const provenance = {
     fetchedAt,
     note: 'Ordered Grind 75 pool (169). Grind 75 = first 75; Grind 169 = full list. Origin: techinterviewhandbook.org/grind75. Not scraped from LeetCode.',
   },
+  neetcode75: {
+    source: SHEETS_URL,
+    licence: 'MIT',
+    fetchedAt,
+    note: 'Blind 75 ∩ NeetCode 150 in NeetCode 150 order (75). Same MIT sheets as Blind / NeetCode lists; not scraped from LeetCode or neetcode.io.',
+  },
 };
 
 const pack = (id, name, description, questions, packLists, packMemberships) => ({
@@ -220,7 +267,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 writeFileSync(new URL('curated-core.json', OUT_DIR), JSON.stringify(
   pack('curated-core', 'Curated interview lists',
-    'Blind 75, Grind 75, Grind 169, NeetCode 150/250, LeetCode 75 and Top Interview 150, with the metadata for every question they contain.',
+    'Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75 and Top Interview 150, with the metadata for every question they contain.',
     curatedQuestions, lists, memberships),
 ));
 

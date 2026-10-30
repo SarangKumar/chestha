@@ -42,7 +42,7 @@ export const GUIDE_PAGES = [
     route: '#/dsa',
     where: 'Website & extension',
     blurb:
-      'Practice tracker: curated packs, personal lists, revision ladder, and daily new/revise targets. The curated-core pack draws from Blind 75, Grind 75, Grind 169, NeetCode 150, NeetCode 250, LeetCode 75, and LeetCode Top Interview 150. Question metadata only — statements stay on LeetCode.',
+      'Practice tracker: curated packs, personal lists, revision ladder, and daily new/revise targets. The curated-core pack draws from Blind 75, Grind 75, Grind 169, NeetCode 75, NeetCode 150, NeetCode 250, LeetCode 75, and LeetCode Top Interview 150. Question metadata only — statements stay on LeetCode.',
   },
   {
     id: 'grove',
