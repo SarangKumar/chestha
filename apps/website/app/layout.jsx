@@ -26,10 +26,10 @@ export const viewport = {
  * The class has to be on `<html>` *as the document parses*, or a dark-mode
  * visitor sees a white flash. That rules out doing it in React, so it is a
  * blocking inline script — the one place in this app where that is the right
- * trade. (apps/web keeps the same code in a separate file instead, because
+ * trade. (apps/extension keeps the same code in a separate file instead, because
  * MV3's `script-src 'self'` blocks an inline script outright.)
  *
- * The key and the three-way logic match `apps/web/public/theme-init.js`
+ * The key and the three-way logic match `apps/extension/public/theme-init.js`
  * exactly, including the `system` value, so the site and the extension behave
  * identically. The stored value itself does not carry across: they are
  * separate origins, so each remembers its own choice.

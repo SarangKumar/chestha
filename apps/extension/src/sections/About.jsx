@@ -82,7 +82,7 @@ export function About({ onNavigate }) {
             </li>
           ))}
           <li>
-            <BuyMeCoffeeButton size="sm" variant="outline" />
+            <BuyMeCoffeeButton size="sm" variant="default" />
           </li>
         </ul>
       </Panel>

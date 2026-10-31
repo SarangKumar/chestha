@@ -262,7 +262,7 @@ function StylingFields({ settings, actions, backgroundImages }) {
 
       <Field
         label="Background"
-        hint="Patterns are generated from your theme — no files, no requests. Images come from apps/web/public/backgrounds; run `npm run backgrounds` after adding one."
+        hint="Patterns are generated from your theme — no files, no requests. Images come from apps/extension/public/backgrounds; run `npm run backgrounds` after adding one."
       >
         {(id) => (
           <div className="space-y-2">

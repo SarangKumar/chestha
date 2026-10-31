@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 // One version number, read from the root package.json at build time, so the
 // site and the extension manifest cannot drift apart — the same reason
-// apps/web/vite.config.js does this.
+// apps/extension/vite.config.js does this.
 const { version } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 
 /** @type {import('next').NextConfig} */

@@ -106,7 +106,7 @@ Place finished graphics beside this file under `release/chrome-store/`.
 | `promo-marquee-1400x560.png` | Optional (needed to be featured in marquee) | **1400 × 560** | PNG or JPEG | Marquee promo. Fill the region; defined edges; works at half size. |
 | `icon-512-source.png` | Source only (not uploaded as-is) | **512 × 512** | PNG | Master mark. **Already present** — use to derive promo art / padded 128 icon if needed. |
 
-Also required inside the extension ZIP (from `npm run pack:extension`): the packaged `icons` / action icons from the build (including a 128px icon in the ZIP). The Store listing “store icon” upload is separate from, but should match, that mark.
+Also required inside the extension ZIP (from `npm run pack:work`): the packaged `icons` / action icons from the build (including a 128px icon in the ZIP). The Store listing “store icon” upload is separate from, but should match, that mark.
 
 YouTube video: optional; leave blank until you have a short walkthrough.
 
@@ -125,4 +125,4 @@ YouTube video: optional; leave blank until you have a short walkthrough.
 ## Version shown to reviewers
 
 - Manifest version: **0.1.1**
-- Package: `release/chestha-0.1.1.zip` via `npm run pack:extension` from the repo root
+- Package: `release/chestha-0.1.1.zip` via `npm run pack:work` from the repo root

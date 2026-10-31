@@ -4,11 +4,10 @@ node_modules/
 .pnpm-store/
 
 # ── Build output ─────────────────────────────────────────────────────────────
-# Every one of these is reproducible from source: `npm run build` for the web
-# app, `build:extension` for the unpacked extension, `pack:extension` for the
-# Web Store archive and its staging copy.
+# Every one of these is reproducible from source: `npm run build` for the
+# website, `build:extension` for the extension's Vite output, `work` for the
+# unpacked extension, `pack:work` for the Web Store archive and its staging copy.
 dist/
-apps/web/dist/
 apps/extension/dist/
 release/
 *.zip
@@ -16,19 +15,19 @@ release/
 node_modules/.vite/
 
 # ── Generated manifests ──────────────────────────────────────────────────────
-# Written by tools/build-backgrounds.mjs from whatever is in the folder, so the
+# Written by scripts/build-backgrounds.mjs from whatever is in the folder, so the
 # checked-in copy would go stale the moment someone adds a file.
-apps/web/public/backgrounds/manifest.json
+apps/extension/public/backgrounds/manifest.json
 
 # ── The author's own media ───────────────────────────────────────────────────
 # Wallpaper and audio are personal and licensed to whoever added them, not to
 # the repository. The READMEs in these folders explain how to add your own; the
 # app runs with the folders empty.
-apps/web/public/backgrounds/*
-!apps/web/public/backgrounds/README.md
-apps/web/public/audio/*
-!apps/web/public/audio/README.md
-!apps/web/public/audio/manifest.json
+apps/extension/public/backgrounds/*
+!apps/extension/public/backgrounds/README.md
+apps/extension/public/audio/*
+!apps/extension/public/audio/README.md
+!apps/extension/public/audio/manifest.json
 
 # ── Local configuration and secrets ──────────────────────────────────────────
 *.local
@@ -62,7 +61,7 @@ desktop.ini
 npm-debug.log*
 yarn-error.log*
 
-# Next.js (apps/site)
+# Next.js (apps/website)
 .next/
 next-env.d.ts
 .vercel/

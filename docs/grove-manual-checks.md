@@ -5,7 +5,7 @@ that Chrome fires the events the tracker expects, or that anything renders.** Th
 covers what only a person at a browser can establish.
 
 Run the whole list before calling the Grove done, and after any change to
-`apps/extension/src/tracker.js`, `apps/web/src/grove/useGroveDrain.js`, or the manifest.
+`scripts/extension/tracker.js`, `apps/extension/src/grove/useGroveDrain.js`, or the manifest.
 Record the date and the Chrome version at the bottom.
 
 ## Setup
@@ -14,7 +14,7 @@ Record the date and the Chrome version at the bottom.
 npm run build:extension
 ```
 
-1. `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`.
+1. `chrome://extensions` → Developer mode → **Load unpacked** → `dist/extension`.
 2. Chrome will ask to confirm the new permissions (`idle`, `alarms`, `storage`). Accept.
 3. Open a new tab — the workspace is the new-tab page.
 4. Settings → **Productive time** → tick "Count time on the sites I list", add

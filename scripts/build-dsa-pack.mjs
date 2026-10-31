@@ -1,6 +1,6 @@
 /**
  * Builds the bundled DSA question packs from public, permissively licensed
- * sources. Run with `node tools/build-dsa-pack.mjs`.
+ * sources. Run with `node scripts/build-dsa-pack.mjs`.
  *
  * This is a development tool, not application code: the app itself never makes
  * an external request. Keeping it in the repo makes the bundled data auditable
@@ -32,7 +32,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 const METADATA_URL = 'https://huggingface.co/datasets/kaysss/leetcode-problem-set/resolve/main/data.csv';
 const SHEETS_URL = 'https://raw.githubusercontent.com/leetnotion/vscode-leetnotion/HEAD/data/sheets.json';
 const GRIND_URL = 'https://raw.githubusercontent.com/jrddp/leet-cli/main/data/grind75_template.json';
-const OUT_DIR = new URL('../apps/web/public/dsa-packs/', import.meta.url);
+const OUT_DIR = new URL('../apps/extension/public/dsa-packs/', import.meta.url);
 
 /** Lists we ship from leetnotion sheets.json. A list whose fetched size
  *  disagrees with its documented total is rejected rather than shipped. */

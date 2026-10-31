@@ -15,20 +15,20 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
-export const WEB_DIST = `${root}apps/web/dist`;
-export const EXTENSION_SRC = `${root}apps/extension/src`;
-export const EXTENSION_DIST = `${root}apps/extension/dist`;
+export const APP_DIST = `${root}apps/extension/dist`;
+export const EXTENSION_SRC = `${root}scripts/extension`;
+export const EXTENSION_DIST = `${root}dist/extension`;
 
 /** @returns {boolean} whether the extension was written */
 export function assembleExtension({ quiet = false } = {}) {
-  if (!existsSync(WEB_DIST)) {
-    if (!quiet) console.error('apps/web/dist is missing — run `npm run build` first.');
+  if (!existsSync(APP_DIST)) {
+    if (!quiet) console.error('apps/extension/dist is missing — run `npm run build:extension` first.');
     return false;
   }
 
   rmSync(EXTENSION_DIST, { recursive: true, force: true });
   mkdirSync(EXTENSION_DIST, { recursive: true });
-  cpSync(WEB_DIST, EXTENSION_DIST, { recursive: true });
+  cpSync(APP_DIST, EXTENSION_DIST, { recursive: true });
   cpSync(EXTENSION_SRC, EXTENSION_DIST, { recursive: true });
   return true;
 }
@@ -56,7 +56,7 @@ Its data lives on the chrome-extension:// origin, separate from the dev server's
 // Only act when invoked directly, so importing this does not rebuild anything.
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
   if (!assembleExtension()) process.exit(1);
-  console.log(`Unpacked extension written to apps/extension/dist\n\n${LOAD_INSTRUCTIONS}\n
+  console.log(`Unpacked extension written to dist/extension\n\n${LOAD_INSTRUCTIONS}\n
 Re-run \`npm run build:extension\` after changes, then press the reload icon on
-the extension card — or use \`npm run watch:extension\` to rebuild automatically.`);
+the extension card — or use \`npm run watch:work\` to rebuild automatically.`);
 }

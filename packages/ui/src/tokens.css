@@ -1,7 +1,7 @@
 /* ───────────────────────────────────────────────────────────────────────────
    Chestha's design system — the single source of the semantic tokens.
-   Shared by the Next.js site (apps/site) and the Vite extension build
-   (apps/web), so the product and the website cannot drift into two palettes.
+   Shared by the Next.js site (apps/website) and the Vite extension build
+   (apps/extension), so the product and the website cannot drift into two palettes.
 
    This file deliberately does NOT `@import "tailwindcss"`. Each app imports
    Tailwind itself and declares its own `@source` paths, then imports this;

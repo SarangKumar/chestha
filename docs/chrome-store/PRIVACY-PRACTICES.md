@@ -1,7 +1,7 @@
 # Chrome Web Store — Privacy practices (Chestha v0.1.1)
 
 Answers for the Developer Dashboard **Privacy practices** / data-safety tab.
-Align with `TERMS.md` and `apps/extension/src/manifest.json`. Re-verify against the shipped ZIP before submit.
+Align with `TERMS.md` and `scripts/extension/manifest.json`. Re-verify against the shipped ZIP before submit.
 
 ---
 

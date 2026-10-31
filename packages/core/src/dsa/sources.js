@@ -2,7 +2,7 @@
  * A manifest of the curated lists this feature knows about, and whether their
  * data actually ships with the app.
  *
- * What IS bundled (see tools/build-dsa-pack.mjs, which regenerates it):
+ * What IS bundled (see scripts/build-dsa-pack.mjs, which regenerates it):
  *   - Question facts only: title, slug, difficulty, topic tags, question id.
  *     Problem statements are never bundled; those are LeetCode's copyrighted text.
  *   - Membership for lists whose fetched size matches the total each is
@@ -43,7 +43,7 @@ export function bundledSources() {
   return SOURCES.filter((s) => s.bundled);
 }
 
-/** The packs shipped in apps/web/public/dsa-packs/, offered in the library. */
+/** The packs shipped in apps/extension/public/dsa-packs/, offered in the library. */
 export const BUNDLED_PACKS = [
   {
     id: 'curated-core',

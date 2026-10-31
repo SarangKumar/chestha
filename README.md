@@ -11,12 +11,20 @@ Runs as a web app, or as a Chrome extension that replaces the New Tab page.
 
 ```
 packages/core/     Domain logic with no DOM: dates, task rules, recurrence,
-                   the layout engine, storage, export/import, DSA scheduling
-apps/web/          The web application (Vite + React + Tailwind, plain JSX)
-apps/extension/    The MV3 manifest and service worker; the built web app is
-                   copied in beside them, so it is the same app from a
-                   chrome-extension:// origin
-tools/             Development scripts — see Commands
+                   the layout engine, storage, export/import, DSA scheduling,
+                   and the account, post and sync rules
+packages/db/       Prisma schema, the client, and password hashing (server-only)
+packages/ui/       The design tokens, shared by both apps
+apps/website/      The website (Next.js + React + Tailwind, plain JSX):
+                   accounts, posts, profiles
+apps/extension/    The workspace application (Vite + React + Tailwind, plain
+                   JSX) — the app the extension ships
+scripts/           Development scripts — see Commands. `scripts/extension/`
+                   holds the MV3 shell (manifest, service worker, tracker),
+                   which is copied verbatim rather than bundled
+dist/extension/    The assembled unpacked extension (generated, git-ignored):
+                   the built app plus the MV3 shell, so it is the same app
+                   from a chrome-extension:// origin
 release/           Web Store archives (generated, git-ignored)
 ```
 
@@ -32,23 +40,37 @@ Run `npm install` once first. Everything below is run from the repository root.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Vite dev server for the web app on <http://localhost:5173>, with hot reload. The ordinary way to work on the UI. |
-| `npm test` | The whole suite — `packages/core/test` and `apps/web/test` — via `node --test`. No test framework and no browser; pure logic only. Run it before calling anything done. |
-| `npm run build` | Production build. Regenerates the background manifest first (see `backgrounds`), then builds the web app into `apps/web/dist`. |
-| `npm run preview` | Serves the already-built `apps/web/dist` locally. Use it to check the production bundle, not for development — it does not rebuild. |
+| `npm run dev` | Next.js dev server for the **website** on <http://localhost:3000> — accounts, posts and profiles. Needs `apps/website/.env`. |
+| `npm run dev:extension` | Vite dev server for the **extension app** (the workspace) on <http://localhost:5173>, with hot reload. The ordinary way to work on the workspace UI. |
+| `npm test` | The whole suite — `packages/core/test`, `packages/db/test` and `apps/extension/test` — via `node --test`. No test framework and no browser; pure logic only. Run it before calling anything done. |
+| `npm run build` | Production build of the website. |
+| `npm run build:extension` | Production build of the extension app. Regenerates the background catalogue first (see `backgrounds`), then builds into `apps/extension/dist`. |
+| `npm run preview` | Serves the already-built `apps/extension/dist` locally. Use it to check the production bundle, not for development — it does not rebuild. |
+
+Both builds are worth running: they compile different trees and neither covers
+the other.
+
+### The database
+
+| Script | What it does |
+| --- | --- |
+| `npm run db:generate` | Regenerates the Prisma client. Also runs automatically on `npm install`. |
+| `npm run db:push` | Pushes the schema to MongoDB. There are no migration files — the Mongo connector does not use them. |
+| `npm run db:seed` | Upserts the curated categories. Idempotent, and it will not resurrect a category you deleted. |
+| `npm run db:studio` | Opens Prisma Studio to browse the data. |
 
 ### The Chrome extension
 
 | Command | What it does |
 | --- | --- |
-| `npm run build:extension` | Runs `build`, then copies `apps/web/dist` plus `apps/extension/src` (the manifest and service worker) into `apps/extension/dist`. Prints how to load it unpacked. Chrome does not notice the rebuild by itself — press the reload icon on the extension's card afterwards. |
-| `npm run watch:extension` | Vite's own watch mode plus the extension assembly, so `apps/extension/dist` is re-made after every change. Still needs the reload press in Chrome for manifest or worker changes; a page-only change just needs Cmd/Ctrl+R on the New Tab page. |
-| `npm run pack:extension` | Builds the extension, then writes `release/chestha-<version>.zip` ready to upload to the Chrome Web Store. See below. |
+| `npm run work` | Runs `build:extension`, then copies `apps/extension/dist` plus `scripts/extension` (the manifest, service worker and tracker) into `dist/extension`. Prints how to load it unpacked. Chrome does not notice the rebuild by itself — press the reload icon on the extension's card afterwards. |
+| `npm run watch:work` | Vite's own watch mode plus the extension assembly, so `dist/extension` is re-made after every change. Still needs the reload press in Chrome for manifest or worker changes; a page-only change just needs Cmd/Ctrl+R on the New Tab page. |
+| `npm run pack:work` | Builds the extension, then writes `release/chestha-<version>.zip` ready to upload to the Chrome Web Store. See below. |
 
-#### What `pack:extension` strips, and why
+#### What `pack:work` strips, and why
 
 The unpacked build is a development artefact: it carries whatever wallpaper and audio
-you dropped into `apps/web/public`, plus the READMEs explaining how to add more. The
+you dropped into `apps/extension/public`, plus the READMEs explaining how to add more. The
 packing step removes them by default, for two reasons.
 
 - **Licence.** Media you may use locally is not automatically media you may
@@ -63,7 +85,7 @@ empty lists — the app fetches them on load, and an empty list is a state it al
 handles while a 404 is not. Also dropped: the two folder READMEs, and `icon.png`,
 which the sized icons supersede and nothing references.
 
-Pass `--keep-media` (`node tools/pack-extension.mjs --keep-media`) to include the
+Pass `--keep-media` (`node scripts/pack-extension.mjs --keep-media`) to include the
 media anyway. Only do that if you hold redistribution rights for every file.
 
 The pack script strips staging after writing `release/chestha-<version>.zip`; open that zip to see exactly what
@@ -73,8 +95,8 @@ went into the archive after the fact.
 
 | Command | What it does |
 | --- | --- |
-| `npm run backgrounds` | Rewrites `apps/web/public/backgrounds/catalog.json` from whatever image files are in that folder. A browser cannot list a directory, so the Settings picker needs an index. `npm run build` does this for you; run it alone after dropping an image in during a `dev` session. |
-| `npm run dsa-pack` | Rebuilds the bundled DSA question packs in `apps/web/public/dsa-packs/` from public, permissively-licensed datasets (Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75, Top Interview 150, plus a full metadata index). **This is the only thing in the repository that makes a network request, and it is a development tool — the app itself never does.** Only facts are bundled (title, slug, difficulty, topic tags, question id); problem statements are LeetCode's copyrighted text and are never included. Re-check the source licences before refreshing; they are named at the top of `tools/build-dsa-pack.mjs`. |
+| `npm run backgrounds` | Rewrites `apps/extension/public/backgrounds/catalog.json` from whatever image files are in that folder. A browser cannot list a directory, so the Settings picker needs an index. `npm run build:extension` does this for you; run it alone after dropping an image in during a `dev:extension` session. |
+| `npm run dsa-pack` | Rebuilds the bundled DSA question packs in `apps/extension/public/dsa-packs/` from public, permissively-licensed datasets (Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75, Top Interview 150, plus a full metadata index). **This is the only thing in the repository that makes a network request, and it is a development tool — the app itself never does.** Only facts are bundled (title, slug, difficulty, topic tags, question id); problem statements are LeetCode's copyrighted text and are never included. Re-check the source licences before refreshing; they are named at the top of `scripts/build-dsa-pack.mjs`. |
 
 ## Decisions worth knowing before reading the code
 

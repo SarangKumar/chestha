@@ -13,11 +13,12 @@ The rules most easily got wrong, repeated here:
   of tasks, calendar, Grove or DSA, and the extension stays account-free.
 - **Ask before adding a runtime dependency.** Still a short, deliberate list.
 - **Plain JS, not TypeScript**, including the Prisma and NextAuth wiring.
-  `npm test`, `npm run build` (the site) and `npm run build:web` (the Vite app)
+  `npm test`, `npm run build` (the website) and `npm run build:extension`
+  (the extension app)
   are the only checks that exist — there is no lint or type-check script. Run
   both builds; neither covers the other.
 - **Secrets stay in the environment.** Never commit a real `DATABASE_URL` or
-  `AUTH_SECRET`; `apps/site/.env.example` documents them.
+  `AUTH_SECRET`; `apps/website/.env.example` documents them.
 - **Dates are date-only local calendar strings**; completion timestamps are instants.
   Don't conflate them.
 - **Only semantic design tokens**, one radius scale, monochrome accent, hue only
@@ -25,6 +26,6 @@ The rules most easily got wrong, repeated here:
   shared by both apps — don't fork them.
 - **No browser automation exists here**, and there is no database in this
   environment either. Building successfully is not visual verification, and
-  nothing in `apps/site/lib/` has been run against a real MongoDB — say what you
+  nothing in `apps/website/lib/` has been run against a real MongoDB — say what you
   could not check.
 - **The DSA section is paused** and its two core files are intentionally unwired.

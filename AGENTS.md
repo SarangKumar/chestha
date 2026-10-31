@@ -27,39 +27,40 @@ written before that still carrying "no backend, ever" is stale — this file win
    make the local copy permanent, and the copy is only as good as the last sync.
 5. **Don't invent requirements.** When a behaviour is ambiguous, flag it rather
    than silently picking. Several open decisions are recorded below.
-6. **Secrets stay in the environment.** `apps/site/.env.example` documents every
+6. **Secrets stay in the environment.** `apps/website/.env.example` documents every
    variable. Never commit a real `DATABASE_URL` or `AUTH_SECRET`.
 
 ## Commands
 
 ```bash
 npm install               # also runs `prisma generate` via postinstall
-cp apps/site/.env.example apps/site/.env   # then fill DATABASE_URL and AUTH_SECRET
+cp apps/website/.env.example apps/website/.env   # then fill DATABASE_URL and AUTH_SECRET
 
-npm run dev               # the site (Next.js) on http://localhost:3000
-npm run dev:extension     # the Vite workspace on http://localhost:5173
-npm run build             # production build of the site — the compile check for it
-npm run build:web         # production build of the Vite app (what the extension ships)
-npm test                  # core + db + web logic, node:test, no framework
-npm run preview           # serve the built apps/web/dist
+npm run dev               # the website (Next.js) on http://localhost:3000
+npm run dev:extension     # the extension app (Vite) on http://localhost:5173
+npm run build             # production build of the website — its compile check
+npm run build:extension   # production build of the extension app (Vite)
+npm test                  # core + db + extension logic, node:test, no framework
+npm run preview           # serve the built apps/extension/dist
 
 npm run db:generate       # regenerate the Prisma client after a schema change
 npm run db:push           # push the schema to MongoDB (no migration files on Mongo)
 npm run db:seed           # upsert the curated categories; idempotent
 npm run db:studio         # browse the database
 
-npm run build:extension   # build:web, then assemble apps/extension/dist (load unpacked)
-npm run watch:extension   # rebuild the extension on change
-npm run pack:extension    # write release/chestha-<version>.zip for the Web Store
-npm run backgrounds       # regenerate apps/web/public/backgrounds/catalog.json
+npm run work              # build:extension, then assemble dist/extension (load unpacked)
+npm run watch:work        # rebuild the unpacked extension on change
+npm run pack:work         # write release/chestha-<version>.zip for the Web Store
+npm run backgrounds       # regenerate apps/extension/public/backgrounds/catalog.json
 npm run dsa-pack          # rebuild bundled DSA packs (dev tool, uses the network)
 ```
 
-`npm run build` is now the **site** build; the Vite build moved to `build:web`,
-and `build:extension` depends on that rather than on `build`. Both are worth
-running: they compile different trees and neither covers the other.
+`npm run build` is the **website** build; the extension app's build is
+`build:extension`. Both are worth running: they compile different trees and
+neither covers the other. The three `*:work` scripts are the extension
+*packaging* steps — `work` assembles the unpacked folder, `pack:work` zips it.
 
-npm workspaces: `@chestha/site` (apps/site), `@chestha/web` (apps/web),
+npm workspaces: `@chestha/website` (apps/website), `@chestha/extension` (apps/extension),
 `packages/core`, `packages/db`, `packages/ui`. There is **no lint or type-check
 script**; the list above is everything that exists. Plain JS throughout — no
 TypeScript, by the owner's decision, including the Prisma and NextAuth wiring.
@@ -71,7 +72,7 @@ TypeScript, by the owner's decision, including the Prisma and NextAuth wiring.
 no MongoDB driver adapter. Under 7 this schema still generates but cannot
 connect to Mongo at all except through paid Accelerate. The pin is recorded in
 `packages/db/prisma/schema.prisma` too. `@auth/prisma-adapter` declares
-`@prisma/client` as a peer with an open range, so `apps/site` pins it as well —
+`@prisma/client` as a peer with an open range, so `apps/website` pins it as well —
 without that, npm resolves a second, newer client and generates against one copy
 while the app imports another.
 
@@ -90,20 +91,28 @@ packages/db/       Prisma schema, the client singleton, and scrypt password
                    point so `node:crypto` can never reach a browser bundle.
 packages/ui/       The design tokens, shared so the site and the extension
                    cannot drift into two palettes.
-apps/site/         Next.js 16 App Router + Tailwind 4, plain JSX. The website,
+apps/website/      Next.js 16 App Router + Tailwind 4, plain JSX. The website,
                    accounts, posts and profiles.
-apps/web/          Vite 8 + React 19 + Tailwind 4, plain JSX. The workspace, and
-                   what the extension ships.
-apps/extension/    MV3 manifest + service worker; the built Vite app is copied
-                   in beside them to replace the New Tab page.
-tools/             Build, watch, pack, backgrounds and DSA-pack scripts.
+apps/extension/    Vite 8 + React 19 + Tailwind 4, plain JSX. The workspace —
+                   the app the extension ships as its New Tab page.
+scripts/           Build, watch, pack, backgrounds and DSA-pack scripts, plus
+                   `extension/` holding the MV3 shell: manifest.json, the
+                   background service worker and the tracker content script.
+                   They live here, not in apps/extension, because they are a
+                   different runtime and must be copied verbatim rather than
+                   bundled by Vite.
+dist/extension/    The assembled unpacked extension (generated, git-ignored):
+                   the Vite build plus the MV3 shell. It is at the root rather
+                   than under apps/extension/ so build output is not nested
+                   inside build output.
 release/           Web Store archives (generated, git-ignored).
 ```
 
 **Why two apps rather than one.** The extension New Tab page has to be a static
 client bundle: MV3 cannot run a server, and its `script-src 'self'` CSP forbids
-the inline script Next's runtime emits. So the Vite build stays, trimmed to that
-job, and the Next app owns everything that needs a server. The design tokens and
+the inline script Next's runtime emits. So the Vite app stays, owning the
+workspace, and the Next app owns everything that needs a server. `apps/` holds
+exactly those two; nothing else belongs there. The design tokens and
 all domain logic are shared through `packages/`, which is what keeps them from
 becoming two products.
 
@@ -171,7 +180,7 @@ header in normal use and regain a dashed outline in edit mode so they stay dragg
 specific reason. Import is all-or-nothing and snapshots the prior state first.
 
 **Accounts are email and password, with the OAuth seam left open.**
-`apps/site/auth.js` is the whole of it. Three choices there are load-bearing.
+`apps/website/auth.js` is the whole of it. Three choices there are load-bearing.
 The Prisma adapter is installed even though credentials do not use it, because
 it is what writes the `Account` row a provider needs — so adding Google or
 GitHub is one entry in `providers` and no schema change. Its `createUser` is
@@ -253,7 +262,7 @@ feature — do not remove it).
 - **Only semantic tokens.** Components never use raw palette classes. Surfaces:
   `canvas → surface → raised → overlay`, plus `inset` for input wells and `hover`
   for interactive states. Ink: `ink`, `ink-muted`, `ink-faint`. All defined in
-  `apps/web/src/index.css` and mapped through `@theme inline`.
+  `apps/extension/src/index.css` and mapped through `@theme inline`.
 - **Accent is monochrome** — near-white on dark, near-black on light. The solid
   accent button pairs with `text-on-accent`.
 - **Hue only where it means something**: `danger`, `warn`, `ok`. Never decoration,
@@ -299,12 +308,12 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   (`packages/core/src/{account,posts,sync}`, `packages/db/src/password.js`).
   **Not yet built:** the post editor, the draft/publish/unpublish controls, an
   author's own post list, bookmarks, upvotes, follows, and the sync transport.
-  The data access for posts (`apps/site/lib/posts.js`) is written and ready for
+  The data access for posts (`apps/website/lib/posts.js`) is written and ready for
   that UI.
 - **Verification status for pass 1.** `npm test`, `npm run build` and
-  `npm run build:web` all pass. **Nothing has been exercised against a real
+  `npm run build:extension` all pass. **Nothing has been exercised against a real
   MongoDB** — there was no database in the environment — so every query in
-  `apps/site/lib/` is unproven at runtime, and no page has been rendered in a
+  `apps/website/lib/` is unproven at runtime, and no page has been rendered in a
   browser. Sign-up, sign-in and the profile page need a human with a
   `DATABASE_URL` before they can be called working.
 - **Built:** dashboard with widget customization, tasks (five standing views,
@@ -312,11 +321,11 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   settings with export/import/reset, command palette, quick capture.
 - **Sounds are built**: 14 synthesised in the browser across 6 groups
   (`packages/core/src/sound.js` holds the catalogue and preset rules;
-  `apps/web/src/audio/engine.js` is the Web Audio engine). Each sound is a stack of
+  `apps/extension/src/audio/engine.js` is the Web Audio engine). Each sound is a stack of
   layers — shaped noise or tones, optional filters, LFOs and scheduled grain
   bursts, which is what gives fire its crackle and thunder its rumble. No audio
   files, no licence to verify, works offline. Users can add their own recordings by
-  dropping files in `apps/web/public/audio/` and listing them in `catalog.json`;
+  dropping files in `apps/extension/public/audio/` and listing them in `catalog.json`;
   the manifest rejects absolute paths, `..` and remote URLs, so it cannot make the
   app fetch from elsewhere. **Pixabay cannot be downloaded from automatically** —
   it returns 403 to automated requests, like LeetCode. The engine is a module singleton so navigation
@@ -326,19 +335,19 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   silent.
 - **Keyboard shortcuts are customisable.** `packages/core/src/shortcuts.js` is the
   single registry: actions, defaults, combo parsing, conflict detection, reserved
-  browser combos and storage validation. `apps/web/src/app/useShortcutDispatch.js`
+  browser combos and storage validation. `apps/extension/src/app/useShortcutDispatch.js`
   is the **only** global key listener in the app — do not add another. Overrides
   persist in the existing `settings` area.
 - **Chrome extension is built**: MV3 New Tab replacement, see `apps/extension/` and
-  `npm run build:extension` / `pack:extension`.
+  `npm run build:extension` / `pack:work`.
 - **DSA section — foundation only (increment B of F).** Wired in and navigable at
   `#/dsa`. The domain rules live in `packages/core/src/dsa/` with 31 tests. Shipped:
   canonical question records, shared solving history, the revision ladder, daily
   target counting, weak-topic rules, four storage areas, version-2 export. Not yet
   built: search/filters/sorting, URL-based adding, the data-pack importer, curated
   and personal list pages, solving and revision UI, analytics.
-- **Bundled question data.** Two packs ship in `apps/web/public/dsa-packs/`,
-  regenerated by `node tools/build-dsa-pack.mjs`: `curated-core.json` (Blind 75, Grind 75,
+- **Bundled question data.** Two packs ship in `apps/extension/public/dsa-packs/`,
+  regenerated by `node scripts/build-dsa-pack.mjs`: `curated-core.json` (Blind 75, Grind 75,
   Grind 169, NeetCode 75/150/250, LeetCode 75, Top Interview 150) and
   `leetcode-index.json` (full public problem metadata only). Both
   upstream sources were MIT- or ISC-licensed when fetched; the generator refuses to emit a

@@ -28,8 +28,8 @@ function sourcesUnder(dir) {
 
 const GROVE_SOURCES = [
   ...sourcesUnder('packages/core/src/grove'),
-  ...sourcesUnder('apps/web/src/grove'),
-  ...sourcesUnder('apps/extension/src'),
+  ...sourcesUnder('apps/extension/src/grove'),
+  ...sourcesUnder('scripts/extension'),
 ];
 
 test('the Grove and the tracker never contact the network', () => {
@@ -43,7 +43,7 @@ test('the Grove and the tracker never contact the network', () => {
 });
 
 test('the extension asks for no access to any website', () => {
-  const manifest = JSON.parse(readFileSync(`${root}apps/extension/src/manifest.json`, 'utf8'));
+  const manifest = JSON.parse(readFileSync(`${root}scripts/extension/manifest.json`, 'utf8'));
 
   assert.deepEqual(manifest.permissions.sort(), ['alarms', 'idle', 'storage', 'tabs']);
   assert.equal(manifest.host_permissions, undefined, 'no host permissions, ever');
@@ -56,7 +56,7 @@ test('the extension asks for no access to any website', () => {
 });
 
 test('the tracker reads a tab’s host and nothing else about it', () => {
-  const tracker = readFileSync(`${root}apps/extension/src/tracker.js`, 'utf8');
+  const tracker = readFileSync(`${root}scripts/extension/tracker.js`, 'utf8');
 
   // It may read tab.url, because a host has to come from somewhere; everything else a
   // Tab offers about the page is off limits.

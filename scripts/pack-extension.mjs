@@ -1,7 +1,7 @@
 /**
  * Packs the built extension into a .zip for the Chrome Web Store.
  *
- * The unpacked build in `apps/extension/dist` is a development artefact: it
+ * The unpacked build in `dist/extension` is a development artefact: it
  * carries the author's own wallpaper and audio, plus the READMEs that explain
  * how to add more. None of that belongs in an upload. Two reasons:
  *
@@ -69,7 +69,7 @@ function isManifestPath(rel) {
 
 export function packExtension({ keepMedia = false, quiet = false } = {}) {
   if (!existsSync(EXTENSION_DIST)) {
-    if (!quiet) console.error('apps/extension/dist is missing — run `npm run build:extension` first.');
+    if (!quiet) console.error('dist/extension is missing — run `npm run work` first.');
     return null;
   }
 

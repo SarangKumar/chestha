@@ -1,7 +1,7 @@
 /**
  * Rebuilds the unpacked extension whenever the app changes.
  *
- * Vite's own `--watch` rebuilds `apps/web/dist`, but the extension also needs the
+ * Vite's own `--watch` rebuilds `apps/extension/dist`, but the extension also needs the
  * manifest and background worker copied alongside it — so this watches the build
  * output and re-assembles after each one.
  *
@@ -13,12 +13,12 @@ import { spawn } from 'node:child_process';
 import { watch } from 'node:fs';
 import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { assembleExtension, EXTENSION_DIST, LOAD_INSTRUCTIONS, WEB_DIST } from './build-extension.mjs';
+import { assembleExtension, EXTENSION_DIST, LOAD_INSTRUCTIONS, APP_DIST } from './build-extension.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
 // The picker reads a generated index, so refresh it before the first build.
-spawn(process.execPath, [`${root}tools/build-backgrounds.mjs`], { stdio: 'inherit' })
+spawn(process.execPath, [`${root}scripts/build-backgrounds.mjs`], { stdio: 'inherit' })
   .on('close', start);
 
 function start() {
@@ -26,7 +26,7 @@ function start() {
 
   const vite = spawn(
     'npm',
-    ['run', 'build', '--workspace', '@chestha/web', '--', '--watch'],
+    ['run', 'build', '--workspace', '@chestha/extension', '--', '--watch'],
     { cwd: root, stdio: 'inherit' },
   );
 
@@ -44,8 +44,8 @@ function start() {
     }, 400);
   };
 
-  if (!existsSync(WEB_DIST)) mkdirSync(WEB_DIST, { recursive: true });
-  const watcher = watch(WEB_DIST, { recursive: true }, schedule);
+  if (!existsSync(APP_DIST)) mkdirSync(APP_DIST, { recursive: true });
+  const watcher = watch(APP_DIST, { recursive: true }, schedule);
   schedule();
 
   console.log(`${LOAD_INSTRUCTIONS}\n\nWatching for changes. Ctrl+C to stop.`);

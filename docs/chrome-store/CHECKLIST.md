@@ -13,7 +13,7 @@ Working folder for Store assets and copy:
 1. [ ] Replace placeholders in published privacy policy: `[LEGAL NAME / ENTITY]`, `[SUPPORT EMAIL]`, `[DATE]`, `[JURISDICTION]`, repo/support URL.
 2. [ ] Host the privacy policy (body in `PRIVACY-PRACTICES.md`) at an `https://` URL.
 3. [ ] Fill Homepage URL and Support email (see `LISTING.md` placeholders).
-4. [ ] Confirm `apps/extension/src/manifest.json` still lists only `tabs`, `idle`, `alarms`, `storage` and description matches the product.
+4. [ ] Confirm `scripts/extension/manifest.json` still lists only `tabs`, `idle`, `alarms`, `storage` and description matches the product.
 5. [ ] Re-skim `TERMS.md` §2–§3 against the built extension (network panel + permissions).
 
 ---
@@ -23,7 +23,7 @@ Working folder for Store assets and copy:
 ```bash
 cd /Users/sarangkumar/01-projects/01-active/chestha
 npm test
-npm run pack:extension
+npm run pack:work
 ```
 
 Upload this archive (version follows `package.json`):

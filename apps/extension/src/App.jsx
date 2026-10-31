@@ -5,6 +5,7 @@ import { useGroveDrain } from './grove/useGroveDrain.js';
 import { useGroveMaintenance } from './grove/useGroveMaintenance.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
 import { useHashRoute } from './app/useHashRoute.js';
+import { useEmbedReady } from './app/useEmbedReady.js';
 import { Shell } from './components/Shell.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
 import { QuickCapture } from './components/QuickCapture.jsx';
@@ -39,6 +40,11 @@ export default function App() {
 function Workspace() {
   const { state, status, actions, today } = useWorkspace();
   const [route, navigate] = useHashRoute();
+
+  // When this document is the landing page's preview iframe, tell the parent
+  // once the workspace is painted, so its placeholder does not vanish early.
+  useEmbedReady(status.ready);
+
   const [overlay, setOverlay] = useState(null); // 'palette' | 'capture' | null
   const [editor, setEditor] = useState(null); // { taskId } | { defaultDue }
   const [taskView, setTaskView] = useState('today');

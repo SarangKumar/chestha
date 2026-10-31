@@ -448,7 +448,7 @@ test('daily targets are configurable and clamped to a sane range', async () => {
 import { applyPack, parsePack } from '../src/index.js';
 import { readFileSync } from 'node:fs';
 
-const PACK_PATH = new URL('../../../apps/web/public/dsa-packs/curated-core.json', import.meta.url);
+const PACK_PATH = new URL('../../../apps/extension/public/dsa-packs/curated-core.json', import.meta.url);
 
 const emptyLibrary = () => ({ questions: [], curatedLists: [], curatedMemberships: [] });
 

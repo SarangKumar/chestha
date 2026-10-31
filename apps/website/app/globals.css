@@ -7,6 +7,6 @@
 @source "../components";
 @source "../../../packages/ui/src";
 
-/* The design system — the same file apps/web imports, so the website and the
+/* The design system — the same file apps/extension imports, so the website and the
    extension cannot drift into two palettes. */
 @import "../../../packages/ui/src/tokens.css";

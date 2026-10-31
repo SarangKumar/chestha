@@ -27,7 +27,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* The marketing landing still lives in apps/web (src/site/Landing.jsx)
+      {/* The marketing landing still lives in apps/extension (src/site/Landing.jsx)
           and has not been ported yet — this is a placeholder so the route
           tree is navigable. */}
     </div>

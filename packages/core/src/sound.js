@@ -16,7 +16,7 @@ import { newId } from './ids.js';
  * their pulse.
  *
  * `builtin: true` marks a synthesised sound. A user-supplied file dropped into
- * apps/web/public/audio/ appears alongside these with `file` set instead; see
+ * apps/extension/public/audio/ appears alongside these with `file` set instead; see
  * the manifest in that folder.
  */
 export const SOUNDS = [
@@ -191,7 +191,7 @@ export function soundById(id, extra = []) {
 }
 
 /**
- * Validates a user-supplied audio manifest (apps/web/public/audio/catalog.json).
+ * Validates a user-supplied audio manifest (apps/extension/public/audio/catalog.json).
  * Files are optional; the built-in set works with none of them present.
  */
 export function coerceAudioManifest(raw) {

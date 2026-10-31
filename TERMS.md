@@ -131,7 +131,7 @@ The data-use disclosures on the Chrome Web Store listing must match this section
 As built, the honest disclosure is: **no data is collected or transmitted.** Website
 activity is processed on your device for a feature you switch on, and is never sent
 anywhere. `[VERIFY BEFORE PUBLISHING: re-read the permissions in
-apps/extension/src/manifest.json against the table above.]`
+scripts/extension/manifest.json against the table above.]`
 
 ## 4. Third-party content and attribution
 
@@ -140,7 +140,7 @@ apps/extension/src/manifest.json against the table above.]`
 Bundled question data — titles, slugs, difficulty and topic tags — is derived from
 publicly available datasets that were MIT- or ISC-licensed when retrieved. Provenance is
 recorded in each pack's `provenance` field and in
-`packages/core/src/dsa/sources.js`, and `tools/build-dsa-pack.mjs` regenerates it.
+`packages/core/src/dsa/sources.js`, and `scripts/build-dsa-pack.mjs` regenerates it.
 
 **We do not reproduce problem statements.** Problem text belongs to the platform
 that publishes it and is never included. The application links to the original
