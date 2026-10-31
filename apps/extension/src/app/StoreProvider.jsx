@@ -246,6 +246,12 @@ function buildActions(store, notify) {
       }));
     },
 
+    setReading(updater) {
+      store.update('reading', (reading) => (
+        typeof updater === 'function' ? updater(reading) : { ...reading, ...updater }
+      ));
+    },
+
     setSound(updater) {
       store.update('sound', (sound) => (typeof updater === 'function' ? updater(sound) : { ...sound, ...updater }));
     },

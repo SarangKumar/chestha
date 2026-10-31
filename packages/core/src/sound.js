@@ -1,185 +1,54 @@
 import { newId } from './ids.js';
 
 /**
- * Every sound here is synthesised in the browser from filtered noise. That means
- * no audio files to download, no licence to verify, no external request, and
- * perfect looping — which is why there are no recorded loops (rain, café, fire)
- * in this set. Those would need licensed assets and a size budget; this does not.
+ * Every sound here is a real recording shipped with the app, served from its own
+ * origin — nothing is fetched from the internet and nothing is synthesised. An
+ * earlier version generated the whole library from filtered noise and tones;
+ * those were accurate as noise but never restful, so they were dropped.
  *
- * `recipe` is consumed by the Web Audio engine in the web app. Keeping the
- * catalogue here lets presets be validated against known ids without a DOM.
- */
-/**
- * Each sound is a stack of layers. A layer is either shaped noise or a tone,
- * optionally filtered, optionally modulated by an LFO, and optionally "grained"
- * — short scheduled bursts, which is what gives fire its crackle and crickets
- * their pulse.
+ * `file` is a plain filename in apps/extension/public/audio/, resolved by the Web
+ * Audio engine in the app and decoded once. Keeping the catalogue here lets
+ * presets be validated against known ids without a DOM.
  *
- * `builtin: true` marks a synthesised sound. A user-supplied file dropped into
- * apps/extension/public/audio/ appears alongside these with `file` set instead; see
- * the manifest in that folder.
+ * `builtin: true` marks a sound that ships with the app. A user-supplied file
+ * dropped into apps/extension/public/audio/ appears alongside these with
+ * `builtin: false`; see the manifest in that folder.
  */
+const CREDIT = 'Mixkit \u2014 Mixkit Free License';
+
+const sound = (id, name, group, description, file) => ({
+  id, name, group, description, file, credit: CREDIT, builtin: true,
+});
+
 export const SOUNDS = [
-  {
-    id: 'brown', name: 'Brown noise', group: 'Noise', builtin: true,
-    description: 'Deep and low, like distant surf.',
-    layers: [{ noise: 'brown', gain: 1 }],
-  },
-  {
-    id: 'pink', name: 'Pink noise', group: 'Noise', builtin: true,
-    description: 'Balanced and even — the usual choice for focus.',
-    layers: [{ noise: 'pink', gain: 1 }],
-  },
-  {
-    id: 'white', name: 'White noise', group: 'Noise', builtin: true,
-    description: 'Bright and flat. Good for masking speech.',
-    layers: [{ noise: 'white', gain: 0.8 }],
-  },
-  {
-    id: 'rain', name: 'Light rain', group: 'Weather', builtin: true,
-    description: 'Steady hiss with scattered droplets.',
-    layers: [
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 2400, q: 0.6 }], gain: 0.5 },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 900 }], gain: 0.45 },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 5200, q: 2.5 }], gain: 0.5,
-        grains: { rate: 22, decay: 0.045, jitter: 0.7 } },
-    ],
-  },
-  {
-    id: 'downpour', name: 'Heavy rain', group: 'Weather', builtin: true,
-    description: 'Dense rainfall with low rumble underneath.',
-    layers: [
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 1800, q: 0.45 }], gain: 0.7 },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 420 }], gain: 0.75 },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 4200, q: 1.8 }], gain: 0.4,
-        grains: { rate: 60, decay: 0.03, jitter: 0.85 } },
-    ],
-  },
-  {
-    id: 'thunder', name: 'Distant storm', group: 'Weather', builtin: true,
-    description: 'Rain with an occasional far-off rumble.',
-    layers: [
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 2000, q: 0.5 }], gain: 0.45 },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 160 }], gain: 1,
-        grains: { rate: 0.09, decay: 2.8, jitter: 0.9, attack: 0.35 } },
-    ],
-  },
-  {
-    id: 'waves', name: 'Ocean waves', group: 'Water', builtin: true,
-    description: 'Slow swell, rising and falling.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 1100 }], gain: 0.9,
-        lfo: { target: 'gain', rate: 0.08, depth: 0.7 } },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 1600, q: 0.8 }], gain: 0.3,
-        lfo: { target: 'gain', rate: 0.08, depth: 0.55, phase: 0.25 } },
-    ],
-  },
-  {
-    id: 'stream', name: 'Stream', group: 'Water', builtin: true,
-    description: 'Water moving quickly over stones.',
-    layers: [
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 1500, q: 0.7 }], gain: 0.55 },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 3400, q: 1.4 }], gain: 0.35,
-        lfo: { target: 'filterFreq', rate: 0.6, depth: 900 } },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 600 }], gain: 0.3 },
-    ],
-  },
-  {
-    id: 'wind', name: 'Wind', group: 'Weather', builtin: true,
-    description: 'Low moving air, filtered and drifting.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 520 }], gain: 1,
-        lfo: { target: 'filterFreq', rate: 0.05, depth: 340 } },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 900, q: 1.2 }], gain: 0.22,
-        lfo: { target: 'gain', rate: 0.07, depth: 0.6 } },
-    ],
-  },
-  {
-    id: 'fire', name: 'Fireplace', group: 'Room', builtin: true,
-    description: 'A low bed of embers with irregular crackle.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 380 }], gain: 0.8 },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 2200, q: 3 }], gain: 0.75,
-        grains: { rate: 7, decay: 0.07, jitter: 0.95 } },
-    ],
-  },
-  {
-    id: 'night', name: 'Summer night', group: 'Outdoors', builtin: true,
-    description: 'Crickets over still air.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 300 }], gain: 0.45 },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 4600, q: 14 }], gain: 0.7,
-        grains: { rate: 5.5, decay: 0.11, jitter: 0.35 } },
-    ],
-  },
-  {
-    id: 'fan', name: 'Room fan', group: 'Room', builtin: true,
-    description: 'Even mechanical airflow.',
-    layers: [
-      { noise: 'pink', filters: [{ type: 'lowpass', freq: 700 }], gain: 0.85,
-        lfo: { target: 'gain', rate: 7.5, depth: 0.1 } },
-      { tone: 108, type: 'sine', gain: 0.1 },
-    ],
-  },
-  {
-    id: 'drone', name: 'Deep drone', group: 'Tonal', builtin: true,
-    description: 'A slow, warm tone that drifts against itself.',
-    layers: [
-      { tone: 56, type: 'sine', gain: 0.32 },
-      { tone: 56.4, type: 'sine', gain: 0.28 },
-      { tone: 112, type: 'sine', gain: 0.12 },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 240 }], gain: 0.3 },
-    ],
-  },
-  {
-    id: 'heartbeat', name: 'Slow pulse', group: 'Tonal', builtin: true,
-    description: 'A resting pulse, around sixty a minute.',
-    layers: [
-      { tone: 44, type: 'sine', gain: 1, grains: { rate: 1, decay: 0.2, jitter: 0, attack: 0.02, double: 0.26 } },
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 180 }], gain: 0.22 },
-    ],
-  },
-  {
-    id: 'cafe', name: 'Café murmur', group: 'Room', builtin: true,
-    description: 'Distant conversation, no words.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 500 }], gain: 0.6,
-        lfo: { target: 'gain', rate: 0.25, depth: 0.5 } },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 900, q: 1.1 }], gain: 0.4,
-        grains: { rate: 2.2, decay: 0.6, jitter: 0.9, attack: 0.18 } },
-      { noise: 'white', filters: [{ type: 'bandpass', freq: 3000, q: 4 }], gain: 0.18,
-        grains: { rate: 0.5, decay: 0.12, jitter: 0.95 } },
-    ],
-  },
-  {
-    id: 'cabin', name: 'Aircraft cabin', group: 'Room', builtin: true,
-    description: 'Even pressurised rumble.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 260 }], gain: 0.95 },
-      { noise: 'pink', filters: [{ type: 'bandpass', freq: 600, q: 0.7 }], gain: 0.3 },
-      { tone: 82, type: 'sine', gain: 0.08 },
-    ],
-  },
-  {
-    id: 'bowl', name: 'Singing bowl', group: 'Tonal', builtin: true,
-    description: 'A struck bowl, left to ring out.',
-    layers: [
-      { tone: 196, type: 'sine', gain: 0.5, grains: { rate: 0.12, decay: 6, jitter: 0.5, attack: 0.08 } },
-      { tone: 392.6, type: 'sine', gain: 0.22, grains: { rate: 0.12, decay: 4.5, jitter: 0.5, attack: 0.1 } },
-      { tone: 589, type: 'sine', gain: 0.1, grains: { rate: 0.12, decay: 3, jitter: 0.5, attack: 0.12 } },
-    ],
-  },
-  {
-    id: 'chimes', name: 'Wind chimes', group: 'Outdoors', builtin: true,
-    description: 'Occasional tuned notes on the breeze.',
-    layers: [
-      { noise: 'brown', filters: [{ type: 'lowpass', freq: 380 }], gain: 0.35,
-        lfo: { target: 'gain', rate: 0.09, depth: 0.6 } },
-      { tone: 523.25, type: 'sine', gain: 0.3, grains: { rate: 0.35, decay: 2.4, jitter: 0.95, attack: 0.01 } },
-      { tone: 659.25, type: 'sine', gain: 0.26, grains: { rate: 0.3, decay: 2.6, jitter: 0.95, attack: 0.01 } },
-      { tone: 783.99, type: 'sine', gain: 0.22, grains: { rate: 0.26, decay: 2.2, jitter: 0.95, attack: 0.01 } },
-    ],
-  },
+  sound('light-rain', 'Light rain', 'Rain & water',
+    'Soft, even rainfall with no thunder.', 'light-rain.m4a'),
+  sound('flowing-water', 'Flowing water', 'Rain & water',
+    'A steady stream moving over its bed.', 'flowing-water.m4a'),
+
+  sound('campfire-crackle', 'Campfire crackle', 'Fire',
+    'Close-up burning wood, all crackle and no wind.', 'campfire-crackle.m4a'),
+  sound('campfire-night-wind', 'Campfire in night wind', 'Fire',
+    'Embers under moving air, recorded outdoors after dark.', 'campfire-night-wind.m4a'),
+
+  sound('summer-crickets', 'Summer crickets', 'Night & wildlife',
+    'A field of crickets on a still summer night.', 'summer-crickets.m4a'),
+  sound('forest-wolves', 'Wolves in the forest', 'Night & wildlife',
+    'Distant howling across dark woodland.', 'forest-wolves.m4a'),
+
+  sound('street-footsteps', 'Street with footsteps', 'City',
+    'Pavement ambience with people walking past.', 'street-footsteps.m4a'),
+  sound('supermarket-murmur', 'Supermarket murmur', 'City',
+    'Indoor crowd noise, conversation with no words.', 'supermarket-murmur.m4a'),
+  sound('church-bell', 'Suburb church bell', 'City',
+    'A bell ringing out over quiet houses.', 'church-bell.m4a'),
+  sound('road-construction', 'Road construction', 'City',
+    'Machinery and a reversing truck alert, from a distance.', 'road-construction.m4a'),
+
+  sound('horror-ambience', 'Uneasy room', 'Eerie',
+    'A long, low horror bed \u2014 tense rather than restful.', 'horror-ambience.m4a'),
+  sound('space-atmosphere', 'Space atmosphere', 'Eerie',
+    'Hollow, airless drift, as from inside a hull.', 'space-atmosphere.m4a'),
 ];
 
 export const SOUND_IDS = SOUNDS.map((s) => s.id);
@@ -213,7 +82,6 @@ export function coerceAudioManifest(raw) {
       credit: String(item.credit ?? '').trim(),
       file,
       builtin: false,
-      layers: [],
     });
   }
   return out;

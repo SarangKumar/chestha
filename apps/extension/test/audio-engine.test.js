@@ -6,6 +6,9 @@ import { SOUNDS } from '@chestha/core';
  * A minimal stand-in for Web Audio, enough to exercise the engine's voice
  * bookkeeping. It records every node it creates so a test can assert that a
  * discarded build was actually released rather than left running.
+ *
+ * Every sound is a file now, so this also stubs `fetch` and `decodeAudioData`;
+ * a test that wants a load to fail replaces `fetch` afterwards.
  */
 function installFakeAudio() {
   const created = [];
@@ -42,21 +45,20 @@ function installFakeAudio() {
     createBiquadFilter() { return node('filter', { type: '', frequency: param(), Q: param() }); }
     createOscillator() { return node('oscillator', { type: 'sine', frequency: param() }); }
     createDynamicsCompressor() { return node('compressor', { threshold: param(), ratio: param() }); }
-    createBuffer(channels, length) { return { getChannelData: () => new Float32Array(length) }; }
+    async decodeAudioData() { return { duration: 60 }; }
     async resume() { this.state = 'running'; }
     async suspend() { this.state = 'suspended'; }
     async close() { this.state = 'closed'; }
   }
 
   globalThis.window = { AudioContext: FakeContext };
+  globalThis.fetch = async () => ({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(8) });
   return { created };
 }
 
 async function loadEngine(t) {
   // Fresh module state per test, so voices do not leak between them.
   const engine = await import(`../src/audio/engine.js?t=${Math.random()}`);
-  // Grain schedulers reschedule themselves indefinitely; without this the test
-  // runner would never exit.
   t.after(() => engine.dispose());
   return engine;
 }
@@ -68,15 +70,15 @@ test('a stop during a voice build discards it instead of resurrecting it', async
   await engine.ensureContext();
 
   // Start a build but do not await it, then stop while it is still in flight.
-  const building = engine.applyMix({ fire: 0.5 }, 1);
+  const building = engine.applyMix({ 'campfire-crackle': 0.5 }, 1);
   engine.stopAll();
   await building;
 
   assert.deepEqual(engine.activeVoiceIds(), [], 'no voice survived the stop');
 
-  // Everything the discarded build created must have been released, or its
-  // grain timers would keep firing and the sound would continue.
-  const sources = created.filter((n) => n.kind === 'source' || n.kind === 'oscillator');
+  // Everything the discarded build created must have been released, or the
+  // looping source would keep playing.
+  const sources = created.filter((n) => n.kind === 'source');
   assert.ok(sources.length > 0, 'the build did create sources');
   assert.ok(sources.every((n) => n.disconnected), 'all sources were disconnected');
 });
@@ -87,7 +89,7 @@ test('switching a sound off mid-build discards that build', async (t) => {
   engine.setCatalogue(SOUNDS);
   await engine.ensureContext();
 
-  const building = engine.applyMix({ rain: 0.5 }, 1);
+  const building = engine.applyMix({ 'light-rain': 0.5 }, 1);
   await engine.applyMix({}, 1);   // user toggled it off before the build landed
   await building;
 
@@ -100,7 +102,7 @@ test('stop clears every voice, including several at once', async (t) => {
   engine.setCatalogue(SOUNDS);
   await engine.ensureContext();
 
-  await engine.applyMix({ rain: 0.5, waves: 0.5, drone: 0.4 }, 1);
+  await engine.applyMix({ 'light-rain': 0.5, 'flowing-water': 0.5, 'space-atmosphere': 0.4 }, 1);
   assert.equal(engine.activeVoiceIds().length, 3, 'three voices playing');
 
   engine.stopAll();
@@ -113,10 +115,10 @@ test('turning one sound off leaves the others running', async (t) => {
   engine.setCatalogue(SOUNDS);
   await engine.ensureContext();
 
-  await engine.applyMix({ rain: 0.5, waves: 0.5 }, 1);
-  await engine.applyMix({ waves: 0.5 }, 1);
+  await engine.applyMix({ 'light-rain': 0.5, 'flowing-water': 0.5 }, 1);
+  await engine.applyMix({ 'flowing-water': 0.5 }, 1);
 
-  assert.deepEqual(engine.activeVoiceIds(), ['waves'], 'only the removed one stopped');
+  assert.deepEqual(engine.activeVoiceIds(), ['flowing-water'], 'only the removed one stopped');
 });
 
 test('a repeated toggle never builds two voices for one sound', async (t) => {
@@ -126,12 +128,12 @@ test('a repeated toggle never builds two voices for one sound', async (t) => {
   await engine.ensureContext();
 
   await Promise.all([
-    engine.applyMix({ fire: 0.5 }, 1),
-    engine.applyMix({ fire: 0.5 }, 1),
-    engine.applyMix({ fire: 0.5 }, 1),
+    engine.applyMix({ 'campfire-crackle': 0.5 }, 1),
+    engine.applyMix({ 'campfire-crackle': 0.5 }, 1),
+    engine.applyMix({ 'campfire-crackle': 0.5 }, 1),
   ]);
 
-  assert.deepEqual(engine.activeVoiceIds(), ['fire'], 'exactly one voice');
+  assert.deepEqual(engine.activeVoiceIds(), ['campfire-crackle'], 'exactly one voice');
 });
 
 test('a sound whose file cannot load is reported, not left half-built', async (t) => {
@@ -140,7 +142,7 @@ test('a sound whose file cannot load is reported, not left half-built', async (t
   const engine = await loadEngine(t);
   engine.setCatalogue([
     ...SOUNDS,
-    { id: 'missing', name: 'Missing', group: 'Your files', description: '', file: 'nope.mp3', builtin: false, layers: [] },
+    { id: 'missing', name: 'Missing', group: 'Your files', description: '', file: 'nope.mp3', builtin: false },
   ]);
   await engine.ensureContext();
 

@@ -69,24 +69,30 @@ the other.
 
 #### What `pack:work` strips, and why
 
-The unpacked build is a development artefact: it carries whatever wallpaper and audio
-you dropped into `apps/extension/public`, plus the READMEs explaining how to add more. The
-packing step removes them by default, for two reasons.
+The unpacked build is a development artefact: it carries whatever wallpaper and extra
+audio you dropped into `apps/extension/public`, plus the READMEs explaining how to add
+more. The packing step removes those by default, for two reasons.
 
 - **Licence.** Media you may use locally is not automatically media you may
   redistribute to every installer. Stripping is the default so shipping someone
   else's file is a deliberate act, not an accident.
-- **Size.** A single bundled recording can be ~25 MB of a ~27 MB build, downloaded by
-  everyone who installs whether or not they open the Sounds page. Stripped, the
-  archive is well under 1 MB.
+- **Size.** A single bundled recording can be tens of megabytes, downloaded by
+  everyone who installs whether or not they open the Sounds page.
+
+The twelve-sound library is the exception and always ships. Those files *are* the
+Sounds page — they are declared in `packages/core/src/sound.js`, licensed for
+redistribution, and about 8.5 MB in total; stripping them would publish an extension
+with an empty library and no way to fill it. The pack script reads its keep list from
+`SOUNDS` and refuses the pack outright if a named file is missing from the build.
 
 The `audio/catalog.json` and `backgrounds/catalog.json` files stay, rewritten with
 empty lists — the app fetches them on load, and an empty list is a state it already
 handles while a 404 is not. Also dropped: the two folder READMEs, and `icon.png`,
 which the sized icons supersede and nothing references.
 
-Pass `--keep-media` (`node scripts/pack-extension.mjs --keep-media`) to include the
-media anyway. Only do that if you hold redistribution rights for every file.
+Pass `--keep-media` (`node scripts/pack-extension.mjs --keep-media`) to include your
+own wallpaper and extra audio as well. Only do that if you hold redistribution rights
+for every one of those files.
 
 The pack script strips staging after writing `release/chestha-<version>.zip`; open that zip to see exactly what
 went into the archive after the fact.
@@ -148,14 +154,23 @@ and 8×4 in another.
 
 ## Privacy
 
-The app makes no network requests, with two opt-in exceptions, both widgets:
+The app makes no network requests, with three opt-in exceptions:
 
 - **GitHub** reads public activity or repositories from `api.github.com` once you
   enter a username.
 - **Weather** reads a forecast from `open-meteo.com` once you set a location. No key
   and no account; only that place's coordinates are sent, and the browser's
   geolocation prompt is never used.
+- **Read mode** fetches the list of published posts from `chestha.vercel.app` once you
+  switch the start screen from the board to Read. The request carries no account and
+  no cookie, so the server cannot tell who asked; posts are cached locally, so the
+  mode still works offline.
 
-Both are inert until you configure them, both say so in their own edit panel, and
-removing the widget ends the requests. Nothing else in the running app contacts the
-internet. `npm run dsa-pack` does, but it is a build tool you run deliberately.
+All three are inert until you ask for them, each says so where you turn it on, and
+reversing it — removing the widget, or switching back to the board — ends the
+requests. Nothing else in the running app contacts the internet. `npm run dsa-pack`
+does, but it is a build tool you run deliberately.
+
+The workspace itself never needs an account. The website's community side has one,
+but signing in there does not move your workspace off your device, and the extension
+never asks you to.

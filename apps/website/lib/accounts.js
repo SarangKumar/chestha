@@ -1,5 +1,5 @@
 import {
-  normalizeEmail, suggestUsername, validateEmail, validatePassword, validateUsername,
+  normalizeEmail, suggestUsername, validatePassword, validateSignupEmail, validateUsername,
 } from '@chestha/core';
 import { hashPassword, needsRehash, verifyPassword } from '@chestha/db/password.js';
 import { prisma } from '@chestha/db';
@@ -15,7 +15,10 @@ import { prisma } from '@chestha/db';
  * @returns {Promise<{ ok: true, user: object } | { ok: false, field: string, reason: string }>}
  */
 export async function registerUser({ email, password, username, name } = {}) {
-  const emailCheck = validateEmail(email);
+  // `validateSignupEmail`, not `validateEmail`: creating a password account is
+  // restricted to the allowed domains, where signing in is not. See the note on
+  // that function — an OAuth sign-up must not be put through this check.
+  const emailCheck = validateSignupEmail(email);
   if (!emailCheck.ok) return { ok: false, field: 'email', reason: emailCheck.reason };
 
   const usernameCheck = validateUsername(username);

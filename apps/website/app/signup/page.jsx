@@ -2,7 +2,9 @@
 
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN } from '@chestha/core/account';
+import {
+  ALLOWED_SIGNUP_DOMAINS, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
+} from '@chestha/core/account';
 import { Field, SubmitButton } from '@/components/Field';
 import { signUpAction } from './actions';
 
@@ -24,6 +26,10 @@ export default function SignUpPage() {
           type="email"
           autoComplete="email"
           defaultValue={state?.values?.email}
+          // Stated before they type, not only after a rejection. The server
+          // rule is the one that decides; this is the same list, so the two
+          // cannot disagree.
+          hint={`Use a @${ALLOWED_SIGNUP_DOMAINS[0]} address.`}
           error={errorFor('email')}
         />
         <Field

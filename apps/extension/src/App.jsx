@@ -11,6 +11,7 @@ import { CommandPalette } from './components/CommandPalette.jsx';
 import { QuickCapture } from './components/QuickCapture.jsx';
 import { TaskEditor } from './components/TaskEditor.jsx';
 import { Dashboard } from './sections/Dashboard.jsx';
+import { Reading } from './sections/Reading.jsx';
 import { Tasks } from './sections/Tasks.jsx';
 import { Calendar } from './sections/Calendar.jsx';
 import { DsaSection } from './sections/dsa/DsaSection.jsx';
@@ -53,6 +54,7 @@ function Workspace() {
   const [groveTab, setGroveTab] = useState('session');
 
   const { section, param } = route;
+  const startMode = state.settings.startMode ?? 'board';
 
   // A section can carry a parameter, which is what the extension deep-links to.
   useEffect(() => {
@@ -76,6 +78,16 @@ function Workspace() {
   const commands = useMemo(() => [
     { id: 'new-task', label: 'New task', group: 'Actions', shortcut: 'N', keywords: 'add create capture', run: openCapture },
     { id: 'go-dashboard', label: 'Go to dashboard', group: 'Navigate', shortcut: 'G D', run: () => go('dashboard') },
+    {
+      id: 'toggle-start-mode',
+      label: startMode === 'read' ? 'Show the widget board' : 'Show reading on the start screen',
+      group: 'Preferences',
+      keywords: 'read feed posts blog board widgets dashboard start screen new tab',
+      run: () => {
+        actions.setSetting('startMode', startMode === 'read' ? 'board' : 'read');
+        go('dashboard');
+      },
+    },
     { id: 'go-tasks', label: 'Go to tasks', group: 'Navigate', shortcut: 'G T', run: () => go('tasks', 'today') },
     { id: 'go-upcoming', label: 'Go to upcoming tasks', group: 'Navigate', keywords: 'soon', run: () => go('tasks', 'upcoming') },
     { id: 'go-overdue', label: 'Go to overdue tasks', group: 'Navigate', keywords: 'late', run: () => go('tasks', 'overdue') },
@@ -187,7 +199,9 @@ function Workspace() {
         onOpenTask={openTask}
       >
         {section === 'dashboard' && (
-          <Dashboard onOpenTask={openTask} onCapture={openCapture} onNavigate={go} />
+          startMode === 'read'
+            ? <Reading />
+            : <Dashboard onOpenTask={openTask} onCapture={openCapture} onNavigate={go} />
         )}
         {section === 'tasks' && (
           <Tasks

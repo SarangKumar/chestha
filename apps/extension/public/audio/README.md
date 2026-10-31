@@ -1,8 +1,11 @@
-# Your own ambient audio
+# Ambient audio
 
-The built-in sounds are synthesised in the browser and need no files. To add real
-recordings — from Pixabay, Freesound, or anywhere you have the rights to use —
-drop them in this folder and list them in `catalog.json`:
+This folder holds the app's sound library. The twelve sounds that ship with it
+are declared in `packages/core/src/sound.js` and their `.m4a` files sit here;
+`catalog.json` is for recordings *you* add on top of those.
+
+To add one — from Mixkit, Pixabay, Freesound, or anywhere you have the rights to
+use it — drop the file in this folder and list it in `catalog.json`:
 
 ```json
 {
@@ -19,7 +22,8 @@ drop them in this folder and list them in `catalog.json`:
 }
 ```
 
-- `id` must be unique and lowercase; it is what presets store.
+- `id` must be unique and lowercase, and must not collide with a shipped sound;
+  it is what presets store.
 - `file` must be a plain filename in this folder. Absolute paths, parent paths
   (`..`) and remote URLs are rejected, so a manifest cannot make the app fetch
   from somewhere else.
@@ -30,7 +34,10 @@ that fades in or out will audibly restart. Two to five minutes of steady ambienc
 works best; long files cost memory, since each is decoded in full.
 
 Supported formats are whatever the browser decodes — MP3, OGG, WAV, M4A, FLAC.
+The shipped files are AAC in an `.m4a` container, converted from WAV with
+`afconvert -f m4af -d aac -b 112000 -s 3`, which keeps the whole library under
+10 MB.
 
-Nothing in this folder is required. Delete a file and remove its manifest entry
-and the app carries on; a preset naming a missing sound reports the omission
-rather than failing.
+Adding files here is optional — the shipped set works with none of them present.
+Delete one and remove its manifest entry and the app carries on; a preset naming
+a missing sound reports the omission rather than failing.

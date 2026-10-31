@@ -18,8 +18,15 @@ than assumptions. Have a lawyer review it before publishing. Replace every
 Chestha is a personal workspace for tasks, a calendar view, ambient sound, and
 tracking practice of coding-interview questions. It runs entirely in your browser.
 
-There is no account, no sign-in, and no server operated by us that holds your
-content.
+The workspace needs no account and no sign-in, and no server of ours holds what you
+create in it.
+
+The Chestha website additionally offers an optional community side — an account and
+posts you choose to publish — which does run on a server we operate. It is separate
+from the workspace in every sense that matters: the workspace works fully without it,
+signing in never moves your workspace off your device, and the extension never asks
+you to sign in. Where this document says "your content" below, it means what you
+create in the workspace.
 
 ## 2. Your data
 
@@ -78,18 +85,30 @@ describe as focus.
 
 ### Network requests
 
-In normal use the application requests only its own files from its own origin.
-Specifically:
+In normal use the application requests only its own files from its own origin. Every
+exception is something you switch on, and switching it back off ends the requests.
 
 - **Question packs** (`/dsa-packs/*.json`) and **audio files** (`/audio/*`) are
   served from this application, not from a third party.
-- **Ambient sounds are generated in your browser.** No audio is downloaded.
+- **Ambient sounds are bundled with the app.** The audio files ship inside it and
+  play from your device; no audio is downloaded while you use it.
 - Opening a question, a search, or a shortcut **navigates to a third-party site in
   a new tab**. From that point you are on that site and its terms and privacy
   policy apply, not ours.
 - **Site icons in the Shortcuts widget are off by default.** Switching them on
   makes your browser request an icon from each site you have saved, which tells
   those sites when you open your dashboard. This is why it is opt-in.
+- **The GitHub widget** requests public data from `api.github.com`, and only after
+  you enter a username. No token and no account; what is sent is the username you
+  typed.
+- **The Weather widget** requests a forecast from `open-meteo.com`, and only after
+  you set a place. No key and no account; what is sent is that place's coordinates,
+  rounded, and the browser's geolocation prompt is never used.
+- **Read mode** requests the list of published posts from `chestha.vercel.app`, and
+  only after you switch the start screen from your widgets to Read. The request
+  carries no account and no cookie, so we cannot tell who asked. Posts are cached on
+  your device so the mode still works offline, and switching back to the board ends
+  the requests. The start screen shows your widgets until you change it.
 
 `[VERIFY BEFORE PUBLISHING: confirm no dependency has introduced a network call —
 build output and the network panel are the checks.]`
@@ -97,7 +116,8 @@ build output and the network panel are the checks.]`
 ## 3. Browser extension
 
 The extension is the same application, bundled and run from `chrome-extension://`.
-There is no second copy of the interface and nothing is fetched from the network.
+There is no second copy of the interface, and nothing is fetched from the network
+except the opt-in requests listed in §2 — none of which are on by default.
 
 ### Permissions, and why each one is necessary
 

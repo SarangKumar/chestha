@@ -47,7 +47,7 @@ Why install it
 What it does
 • New Tab dashboard — weather, clock, search, intention, scratchpad, shortcuts, Focus Garden, and more on a rearrangeable grid.
 • Tasks & calendar — one task list powers the calendar view, including recurring work, so nothing drifts between places.
-• Ambient sound — focus mixes generated in the browser for the built-in engine.
+• Ambient sound — twelve bundled recordings you can layer into your own focus mixes, played from your device.
 • Productive time (optional) — see time on sites you add rules for; used for insight and Grove XP, never for ads or analytics to us.
 • DSA practice — track what you’ve done and what’s due for review.
 • Settings for appearance, Grove, export/import, and privacy controls that match a local-only product.

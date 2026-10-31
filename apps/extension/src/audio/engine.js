@@ -4,12 +4,11 @@ import { mixGain } from '@chestha/core';
  * One AudioContext for the whole application, living outside React so that
  * navigating between sections cannot create a second one or duplicate a voice.
  *
- * Built-in sounds are synthesised from noise and tones, so they need no files,
- * work offline and cannot 404. A sound may instead name a local `file`, which is
- * fetched from the app's own origin and decoded once.
+ * Every sound names a local `file`, fetched from the app's own origin and
+ * decoded once, so playback works offline and nothing leaves the machine. The
+ * only thing still synthesised here is the end-of-session chime.
  */
 
-const NOISE_SECONDS = 5;
 const RAMP = 0.08; // seconds; avoids clicks on gain changes
 
 let ctx = null;
@@ -20,8 +19,7 @@ let master = null;
  * Stop pressed mid-build from being undone by the build finishing afterwards.
  */
 let epoch = 0;
-const voices = new Map();   // soundId -> { gain, nodes[], timers[] }
-const buffers = new Map();  // noise colour -> AudioBuffer
+const voices = new Map();   // soundId -> { gain, nodes[] }
 const files = new Map();    // url -> Promise<AudioBuffer>
 const listeners = new Set();
 let catalogue = [];
@@ -51,43 +49,6 @@ export function setCatalogue(sounds) {
 
 const findSound = (id) => catalogue.find((s) => s.id === id) ?? null;
 const knownIds = () => catalogue.map((s) => s.id);
-
-/** Noise generators. Pink uses the Paul Kellet approximation; brown is a leaky integrator. */
-function fillNoise(data, colour) {
-  if (colour === 'white') {
-    for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
-    return;
-  }
-  if (colour === 'pink') {
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    for (let i = 0; i < data.length; i += 1) {
-      const w = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + w * 0.0555179;
-      b1 = 0.99332 * b1 + w * 0.0750759;
-      b2 = 0.969 * b2 + w * 0.153852;
-      b3 = 0.8665 * b3 + w * 0.3104856;
-      b4 = 0.55 * b4 + w * 0.5329522;
-      b5 = -0.7616 * b5 - w * 0.016898;
-      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
-      b6 = w * 0.115926;
-    }
-    return;
-  }
-  let last = 0;
-  for (let i = 0; i < data.length; i += 1) {
-    const w = Math.random() * 2 - 1;
-    last = (last + 0.02 * w) / 1.02;
-    data[i] = last * 3.5;
-  }
-}
-
-function noiseBuffer(colour) {
-  if (buffers.has(colour)) return buffers.get(colour);
-  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate);
-  fillNoise(buffer.getChannelData(0), colour);
-  buffers.set(colour, buffer);
-  return buffer;
-}
 
 /** Decodes a local audio file once and caches it. Same origin only. */
 function loadFile(url) {
@@ -127,127 +88,27 @@ export async function ensureContext() {
   return running;
 }
 
-/**
- * Schedules short bursts on a layer's gain. This is what makes fire crackle and
- * thunder rumble — the source runs continuously and the envelope gates it.
- */
-function scheduleGrains(layerGain, grains, layerLevel, timers) {
-  const { rate, decay, jitter = 0.5, attack = 0.004, double = 0 } = grains;
-  layerGain.gain.value = 0;
-
-  const fire = (at, level) => {
-    layerGain.gain.setValueAtTime(0, at);
-    layerGain.gain.linearRampToValueAtTime(level, at + attack);
-    layerGain.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay);
-  };
-
-  const tick = () => {
-    if (!ctx) return;
-    const at = ctx.currentTime + 0.05;
-    const level = layerLevel * (0.55 + Math.random() * 0.45);
-    fire(at, level);
-    if (double > 0) fire(at + double, level * 0.6);
-
-    const base = 1 / rate;
-    const next = base * (1 - jitter / 2 + Math.random() * jitter);
-    timers.push(setTimeout(tick, Math.max(40, next * 1000)));
-  };
-
-  timers.push(setTimeout(tick, Math.random() * (1000 / rate)));
-}
-
-function buildLayer(layer, timers) {
-  const nodes = [];
-  let node;
-
-  if (layer.tone) {
-    const osc = ctx.createOscillator();
-    osc.type = layer.type ?? 'sine';
-    osc.frequency.value = layer.tone;
-    osc.start();
-    nodes.push(osc);
-    node = osc;
-  } else {
-    const source = ctx.createBufferSource();
-    source.buffer = noiseBuffer(layer.noise ?? 'brown');
-    source.loop = true;
-    source.start();
-    nodes.push(source);
-    node = source;
-  }
-
-  let filterForLfo = null;
-  for (const spec of layer.filters ?? []) {
-    const filter = ctx.createBiquadFilter();
-    filter.type = spec.type;
-    filter.frequency.value = spec.freq;
-    if (spec.q) filter.Q.value = spec.q;
-    node.connect(filter);
-    node = filter;
-    nodes.push(filter);
-    if (!filterForLfo) filterForLfo = filter;
-  }
-
-  const gain = ctx.createGain();
-  gain.gain.value = layer.gain ?? 1;
-  node.connect(gain);
-  nodes.push(gain);
-
-  if (layer.grains) scheduleGrains(gain, layer.grains, layer.gain ?? 1, timers);
-
-  if (layer.lfo) {
-    const lfo = ctx.createOscillator();
-    const depth = ctx.createGain();
-    lfo.frequency.value = layer.lfo.rate;
-    if (layer.lfo.target === 'filterFreq' && filterForLfo) {
-      depth.gain.value = layer.lfo.depth;
-      lfo.connect(depth);
-      depth.connect(filterForLfo.frequency);
-    } else {
-      // Modulating gain around its own value, so it dips rather than cutting out.
-      depth.gain.value = (layer.gain ?? 1) * layer.lfo.depth * 0.5;
-      gain.gain.value = (layer.gain ?? 1) * (1 - layer.lfo.depth * 0.5);
-      lfo.connect(depth);
-      depth.connect(gain.gain);
-    }
-    lfo.start(ctx.currentTime + (layer.lfo.phase ?? 0) / Math.max(0.01, layer.lfo.rate));
-    nodes.push(lfo, depth);
-  }
-
-  return { out: gain, nodes };
-}
-
 async function buildVoice(sound) {
-  const timers = [];
   const nodes = [];
   const voiceGain = ctx.createGain();
   voiceGain.gain.value = 0;
   voiceGain.connect(master);
   nodes.push(voiceGain);
 
-  if (sound.file) {
-    const buffer = await loadFile(`/audio/${sound.file}`);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.connect(voiceGain);
-    source.start();
-    nodes.push(source);
-  } else {
-    for (const layer of sound.layers ?? []) {
-      const built = buildLayer(layer, timers);
-      built.out.connect(voiceGain);
-      nodes.push(...built.nodes);
-    }
-  }
+  const buffer = await loadFile(`/audio/${sound.file}`);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.connect(voiceGain);
+  source.start();
+  nodes.push(source);
 
-  return { gain: voiceGain, nodes, timers };
+  return { gain: voiceGain, nodes };
 }
 
-/** Releases a voice's nodes and cancels its grain schedulers. */
+/** Releases a voice's nodes. */
 function teardown(voice) {
   if (!voice) return;
-  for (const timer of voice.timers) clearTimeout(timer);
   for (const node of voice.nodes) {
     try { node.stop?.(); } catch { /* already stopped */ }
     try { node.disconnect(); } catch { /* already disconnected */ }
@@ -312,8 +173,7 @@ function stopVoice(id) {
   const voice = voices.get(id);
   voices.delete(id);
   if (!voice) return;
-  // Silence the grains immediately; the nodes go once the fade has finished.
-  for (const timer of voice.timers) clearTimeout(timer);
+  // Fade out first; the nodes go once the fade has finished.
   const now = ctx.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
   voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
@@ -352,7 +212,7 @@ export async function dispose() {
   if (ctx) {
     try { await ctx.close(); } catch { /* already closed */ }
     ctx = null; master = null;
-    buffers.clear(); files.clear();
+    files.clear();
   }
   setState({ running: false });
 }

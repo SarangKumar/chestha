@@ -57,6 +57,62 @@ export function validateEmail(raw) {
 }
 
 /**
+ * Which domains may register with an email and a password.
+ *
+ * One entry today, and the list is the whole policy — widening it is editing
+ * this array, not finding every place a domain is checked.
+ *
+ * `googlemail.com` is deliberately absent. It is Google's alias domain and
+ * reaches the same inbox, so adding it is defensible; it is left out because
+ * the rule as asked for is gmail.com, and a silent second accepted domain is
+ * worse than a narrow one the owner can widen.
+ */
+export const ALLOWED_SIGNUP_DOMAINS = ['gmail.com'];
+
+/** The part after the `@`, normalised. Empty when there is not exactly one. */
+export function emailDomain(raw) {
+  const parts = normalizeEmail(raw).split('@');
+  return parts.length === 2 ? parts[1] : '';
+}
+
+export function isAllowedSignupDomain(raw) {
+  return ALLOWED_SIGNUP_DOMAINS.includes(emailDomain(raw));
+}
+
+/**
+ * The email rule for **creating an account with a password**, which is a
+ * stricter thing than a valid email address.
+ *
+ * Deliberately separate from `validateEmail`, and the distinction matters for
+ * what comes next:
+ *
+ *  - **Sign-in must never use this.** It would lock out any account whose
+ *    address stopped being allowed, and the whole point of a domain rule is
+ *    that the list can change. `verifyCredentials` only normalises.
+ *  - **An OAuth sign-in must never use this either.** Google hands back the
+ *    account's real address, and a Google Workspace user's is their own
+ *    company domain, not gmail.com. Running Workspace identities through a
+ *    gmail-only check would reject exactly the users Google sign-in is meant
+ *    to let in. Signing in *through Google* is already proof Google owns the
+ *    address, which is what this rule is a proxy for.
+ *
+ * In short: this guards the password sign-up form, and nothing else.
+ */
+export function validateSignupEmail(raw) {
+  const base = validateEmail(raw);
+  if (!base.ok) return base;
+  if (!isAllowedSignupDomain(raw)) {
+    return {
+      ok: false,
+      reason: ALLOWED_SIGNUP_DOMAINS.length === 1
+        ? `Use a @${ALLOWED_SIGNUP_DOMAINS[0]} address to sign up.`
+        : `Sign up with one of: ${ALLOWED_SIGNUP_DOMAINS.map((d) => `@${d}`).join(', ')}.`,
+    };
+  }
+  return { ok: true, reason: null };
+}
+
+/**
  * @param {string} password
  * @param {{ email?: string, username?: string, name?: string }} [context]
  *   Personal strings the password must not simply repeat.

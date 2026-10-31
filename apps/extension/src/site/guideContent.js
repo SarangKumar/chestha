@@ -18,7 +18,7 @@ export const GUIDE_PAGES = [
     route: '#/dashboard',
     where: 'Website & extension',
     blurb:
-      'The board you arrange yourself. Widgets sit on a grid; Reset restores the shipped corner sketch. This is what the Chrome New Tab opens to.',
+      'The board you arrange yourself. Widgets sit on a grid; Reset restores the shipped corner sketch. This is what the Chrome New Tab opens to. A Board / Read switch in the header swaps it for published posts, and remembers which you chose.',
   },
   {
     id: 'tasks',
@@ -42,7 +42,7 @@ export const GUIDE_PAGES = [
     route: '#/dsa',
     where: 'Website & extension',
     blurb:
-      'Practice tracker: curated packs, personal lists, revision ladder, and daily new/revise targets. The curated-core pack draws from Blind 75, Grind 75, Grind 169, NeetCode 75, NeetCode 150, NeetCode 250, LeetCode 75, and LeetCode Top Interview 150. Question metadata only — statements stay on LeetCode.',
+      'Practice tracker: curated packs, personal lists, revision ladder, and daily new/revise targets. The curated-core pack draws from Blind 75, Grind 75, Grind 169, NeetCode 75, NeetCode 150, NeetCode 250, LeetCode 75, and LeetCode Top Interview 150. Question metadata only — statements stay on LeetCode. Still being built, so it is hidden from the rail by default — turn it on in Settings → Navigation.',
   },
   {
     id: 'grove',
@@ -66,7 +66,7 @@ export const GUIDE_PAGES = [
     route: '#/sounds',
     where: 'Website & extension',
     blurb:
-      'Synthesised ambient mixes in the browser (Web Audio). Save presets and start them from here or from the Ambient mixes widget.',
+      'Twelve bundled ambient recordings you layer into your own mix, played from your device. Save presets and start them from here or from the Ambient mixes widget.',
   },
   {
     id: 'settings',

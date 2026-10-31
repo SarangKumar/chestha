@@ -24,6 +24,22 @@ export const MAX_CATEGORIES = 3;
 export const MAX_TAGS = 5;
 const MAX_TAG_LENGTH = 24;
 
+const SEED_NAMES = new Map(SEED_CATEGORIES.map((item) => [item.slug, item.name]));
+
+/**
+ * A category's display name, from the seed list.
+ *
+ * Categories are rows in Mongo, so a server page should prefer the name it read
+ * from the database (`listCategories`). This is for callers that have no
+ * database to ask — the extension's Read mode, which must also work offline.
+ * An unknown slug returns itself rather than nothing: a filter chip reading
+ * "home-automation" is odd but usable, where a blank one is broken.
+ */
+export function categoryName(slug) {
+  const key = normalizeCategorySlug(slug);
+  return SEED_NAMES.get(key) ?? (key || '');
+}
+
 export function normalizeCategorySlug(raw) {
   return String(raw ?? '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
 }

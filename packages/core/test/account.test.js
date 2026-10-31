@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  RESERVED_USERNAMES, buildProfileCard, normalizeBio, normalizeEmail,
+  ALLOWED_SIGNUP_DOMAINS, RESERVED_USERNAMES, buildProfileCard, emailDomain,
+  isAllowedSignupDomain, normalizeBio, normalizeEmail, validateSignupEmail,
   normalizeProfileLink, normalizeUsername, passwordStrength, profileUrl,
   suggestUsername, validateEmail, validatePassword, validateUsername,
 } from '../src/index.js';
@@ -57,6 +58,47 @@ test('email is normalised to one stored form', () => {
   for (const bad of ['sarang', 'sarang@', '@example.com', 'a@b', 'a b@example.com', 'a@b..com']) {
     assert.equal(validateEmail(bad).ok, false, `${bad} must be refused`);
   }
+});
+
+test('signing up with a password is restricted to the allowed domains', () => {
+  assert.deepEqual(ALLOWED_SIGNUP_DOMAINS, ['gmail.com']);
+  assert.equal(validateSignupEmail('sarang@gmail.com').ok, true);
+  assert.equal(validateSignupEmail('  Sarang@GMAIL.com ').ok, true, 'normalised first');
+
+  for (const refused of [
+    'sarang@example.com',
+    'sarang@outlook.com',
+    'sarang@googlemail.com',  // Google's alias domain, deliberately not allowed
+    'sarang@gmail.com.evil.co',
+    'sarang@notgmail.com',
+    'sarang@sub.gmail.com',
+  ]) {
+    assert.equal(validateSignupEmail(refused).ok, false, `${refused} must be refused`);
+  }
+});
+
+test('a malformed address is reported as malformed, not as the wrong domain', () => {
+  // Telling someone to "use a @gmail.com address" when they typed `sarang@`
+  // sends them looking for the wrong mistake.
+  assert.match(validateSignupEmail('sarang@').reason, /email address/);
+  assert.match(validateSignupEmail('').reason, /Enter your email/);
+  assert.match(validateSignupEmail('sarang@example.com').reason, /@gmail\.com/);
+});
+
+test('the domain rule guards sign-up only, so no one can be locked out', () => {
+  // `validateEmail` is what any non-registration path uses, and it stays
+  // domain-agnostic. If this ever starts failing, sign-in has been made
+  // stricter than the accounts that already exist.
+  assert.equal(validateEmail('sarang@example.com').ok, true);
+  assert.equal(validateEmail('someone@company.co.uk').ok, true);
+});
+
+test('a domain is matched whole, so a lookalike cannot pass', () => {
+  assert.equal(emailDomain('a@gmail.com'), 'gmail.com');
+  assert.equal(emailDomain('a@b@c'), '', 'two @ signs is not an address');
+  assert.equal(emailDomain('nope'), '');
+  assert.equal(isAllowedSignupDomain('a@GMAIL.COM'), true);
+  assert.equal(isAllowedSignupDomain('a@xgmail.com'), false);
 });
 
 test('password policy is length plus a blocklist, not a composition checklist', () => {

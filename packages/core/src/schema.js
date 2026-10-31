@@ -5,6 +5,7 @@ import { coerceRecurrence } from './recurrence.js';
 import { coerceShortcuts } from './shortcuts.js';
 import { coerceGithubForm } from './github.js';
 import { coerceTemperatureUnit, coerceWeatherPlace } from './weather.js';
+import { READING_CACHE_LIMIT, coerceFeedPost } from './posts/remote.js';
 import {
   BASE_COLUMNS, LEGACY_BASE_COLUMNS, V3_COLUMNS, createPlacement, migrateOrderedLayout,
   needsMigration, normalizeLayout, scaleLayout,
@@ -22,18 +23,22 @@ import { defaultLedger } from './grove/ledger.js';
 // 2 adds the four dsa.* areas; 3 adds the five grove.* areas. Version 1 and 2 files
 // still import: missing areas fall back to their defaults rather than being treated
 // as corrupt.
+//
+// `reading` was added without a bump on purpose: it is a re-fetchable cache, so an
+// older file simply arrives without it and gets the default. A bump is for data
+// that would otherwise be misread, not for every new area.
 export const STATE_VERSION = 3;
 
 // Each area is loaded, validated and persisted independently, so one corrupt
 // area degrades to its default without taking the rest of the app with it.
 export const AREAS = [
-  'tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings',
+  'tasks', 'tags', 'notes', 'dashboard', 'sound', 'settings', 'reading',
   ...DSA_AREAS,
   ...GROVE_AREAS,
 ];
 
 /** Areas skipped by init() and loaded on first use instead. */
-export const LAZY_AREAS = [...DSA_LAZY_AREAS, ...GROVE_LAZY_AREAS];
+export const LAZY_AREAS = ['reading', ...DSA_LAZY_AREAS, ...GROVE_LAZY_AREAS];
 
 export const WIDGET_SIZES = ['1x1', '2x1', '2x2'];
 
@@ -203,6 +208,13 @@ export const DEFAULT_DASHBOARD = {
   widgets: defaultWidgetsFor(DEFAULT_COLUMNS, DEFAULT_ROWS),
 };
 
+/**
+ * What the start screen opens to. The board is the workspace's own data; `read`
+ * is the community feed. This is a persisted preference rather than a route,
+ * so a deep link to `#/dashboard` honours whichever the user last chose.
+ */
+export const START_MODES = ['board', 'read'];
+
 export const DEFAULT_SETTINGS = {
   theme: 'system',
   upcomingHorizonDays: 7,
@@ -214,8 +226,18 @@ export const DEFAULT_SETTINGS = {
   lastExportAt: null,
   shortcuts: {},
   background: { kind: 'none', image: '', dim: 0.45 },
-  hiddenSections: [],
+  // DSA is hidden by default: the section is paused and incomplete (no search,
+  // no filters, no solving UI), so a new user meeting it first would judge the
+  // product by its least finished part. It is a default, not a removal — the
+  // switch is in Settings → Navigation, and `#/dsa` and the command palette
+  // still reach it, as they do for any hidden section.
+  //
+  // This only affects profiles with no stored settings. Anyone who already has
+  // `hiddenSections` keeps what they have, because an empty list is
+  // indistinguishable from a deliberate choice to show everything.
+  hiddenSections: ['dsa'],
   glass: 0.55,
+  startMode: 'board',
 };
 
 /**
@@ -268,6 +290,7 @@ export function defaultState() {
     notes: { text: '' },
     dashboard: structuredClone(DEFAULT_DASHBOARD),
     sound: structuredClone(DEFAULT_SOUND),
+    reading: defaultReading(),
     settings: {
       ...DEFAULT_SETTINGS,
       shortcuts: {},
@@ -314,6 +337,7 @@ export function coerceArea(area, raw) {
     case 'dashboard': return coerceDashboard(raw);
     case 'sound': return coerceSound(raw);
     case 'settings': return coerceSettings(raw);
+    case 'reading': return coerceReading(raw);
     default:
       if (DSA_AREAS.includes(area)) return coerceDsaArea(area, raw);
       if (GROVE_AREAS.includes(area)) return coerceGroveArea(area, raw);
@@ -541,7 +565,52 @@ function coerceSettings(raw) {
       background: coerceBackground(raw.background),
       hiddenSections: coerceHiddenSections(raw.hiddenSections),
       glass: num(raw.glass, 0.55, 0, 1),
+      startMode: START_MODES.includes(raw.startMode) ? raw.startMode : 'board',
     },
     issues: [],
+  };
+}
+
+/**
+ * The reading cache: the last list of published posts fetched from the website,
+ * so Read mode paints immediately and still works offline.
+ *
+ * This is a cache of someone else's data, not the user's own work, so losing it
+ * costs nothing — it is re-fetched. That is why it is lazy (a user who never
+ * opens Read mode never loads it) and why it merges last-write-wins.
+ */
+export function defaultReading() {
+  return { version: 1, posts: [], fetchedAt: null, category: null };
+}
+
+export function coerceReading(raw) {
+  if (!raw || typeof raw !== 'object') return { value: defaultReading(), issues: [] };
+
+  const issues = [];
+  let posts = [];
+  if (raw.posts != null) {
+    if (!Array.isArray(raw.posts)) {
+      issues.push('Cached posts were not a list and were cleared.');
+    } else {
+      // A slug is the identity, so a duplicate is a cache fault, not two posts.
+      const seen = new Set();
+      for (const item of raw.posts) {
+        const post = coerceFeedPost(item);
+        if (!post || seen.has(post.slug)) continue;
+        seen.add(post.slug);
+        posts.push(post);
+      }
+      posts = posts.slice(0, READING_CACHE_LIMIT);
+    }
+  }
+
+  return {
+    value: {
+      version: 1,
+      posts,
+      fetchedAt: isoInstant(raw.fetchedAt),
+      category: str(raw.category).trim() || null,
+    },
+    issues,
   };
 }

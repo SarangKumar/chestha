@@ -75,9 +75,10 @@ Not “collection by the developer,” but disclose honestly:
 | GitHub widget | After user enters a username | Requests for that public username’s public API data | `api.github.com` |
 | Weather widget | After user sets a place | Place coordinates / geocode + forecast requests | `open-meteo.com` (and its geocoding as used by the app) |
 | Shortcut icons | Only if user turns icons on | Browser requests each saved site’s icon | Those sites |
+| Reading mode | Only after the user switches the start screen to **Read** | A request for the public list of published posts. No account, no cookie, nothing identifying the reader | `chestha.vercel.app` |
 | Opening a question / search / shortcut | User clicks | Normal navigation in a new tab | Third-party site (their terms apply) |
 
-Built-in ambient sound is generated in the browser; the packing step strips redistributable media by default.
+Built-in ambient sound is bundled audio played from the extension itself — no network request. The packing step strips the author's own wallpaper and any extra audio they added, but always ships the twelve-sound library.
 
 ### Website time (opt-in)
 
@@ -116,7 +117,9 @@ Contact: [SUPPORT EMAIL]
 Last updated: [DATE ON PUBLICATION]
 
 1. Overview
-Chestha is a local-first personal productivity browser extension and web app. It replaces (or can be opened as) a New Tab workspace for tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking. We do not operate a user-content server for Chestha, and we do not require an account.
+Chestha is a local-first personal productivity browser extension and web app. It replaces (or can be opened as) a New Tab workspace for tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking.
+
+The workspace needs no account and keeps your data on your device. Separately, the Chestha website hosts an optional community side — accounts and published posts — which does run on a server. The two are distinct: signing up for the website does not move your workspace off your device, and the extension never asks you to sign in.
 
 2. Data we collect
 We do not collect your workspace data. We do not use analytics, advertising, crash reporting, or usage telemetry in the application.
@@ -131,6 +134,7 @@ If you enable website-time rules for Grove XP, the extension may record domain, 
 - GitHub widget: after you enter a username, your browser may request public data from GitHub’s API.
 - Weather widget: after you set a location, your browser may request forecast/geocode data from Open-Meteo.
 - Shortcut icons: off by default; if enabled, your browser may fetch icons from sites you saved.
+- Reading mode: the start screen shows your widgets by default. If you switch it to Read, your browser requests the public list of published posts from chestha.vercel.app. The request carries no account and no cookie, so we cannot tell who asked. Switch back to the board and the requests stop.
 - Links you open (searches, DSA problems, shortcuts) navigate to third-party sites under their own policies.
 
 6. Permissions (Chrome extension)
@@ -144,7 +148,7 @@ No host permissions. No content scripts. No remote code.
 Chestha is not directed at children under 13. Do not use it to store sensitive data about minors.
 
 8. Changes
-We may update this policy. The “Last updated” date will change when we do. Because we do not hold your workspace data on our servers, policy changes do not alter data we already store about you — we store none.
+We may update this policy. The “Last updated” date will change when we do. We hold no workspace data on our servers, so a policy change cannot alter what we store about your workspace — there is none. If you created a website account, what we hold for it is your account record and whatever posts you chose to write.
 
 9. Contact
 [SUPPORT EMAIL] · [REPOSITORY OR ISSUE TRACKER URL]

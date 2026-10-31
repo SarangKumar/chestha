@@ -5,6 +5,7 @@ import { RightSidebar } from './RightSidebar.jsx';
 import { Notices, ExportReminder } from './Notices.jsx';
 import { Toasts } from './Toasts.jsx';
 import { IconButton, cx } from './ui.jsx';
+import { StartModeToggle } from './StartModeToggle.jsx';
 import { Icon } from './icons.jsx';
 import { isEmbedPreview, isExtensionRuntime } from '../app/platform.js';
 
@@ -31,6 +32,7 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
   const embed = isEmbedPreview();
   const { state, today, actions } = useWorkspace();
   const sidebarOpen = state.settings.sidebarOpen;
+  const startMode = state.settings.startMode ?? 'board';
 
   const background = state.settings.background ?? { kind: 'none', image: '', dim: 0.45 };
 
@@ -76,9 +78,20 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
         {!embed && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-card font-semibold text-ink">{TITLES[section]}</h2>
+              <h2 className="truncate text-card font-semibold text-ink">
+                {section === 'dashboard' && startMode === 'read' ? 'Read' : TITLES[section]}
+              </h2>
               <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
             </div>
+
+            {/* Only the start screen has two modes, so the control appears only
+                there rather than sitting inert on every other page. */}
+            {section === 'dashboard' && (
+              <StartModeToggle
+                mode={startMode}
+                onChange={(next) => actions.setSetting('startMode', next)}
+              />
+            )}
 
             <button
               type="button"

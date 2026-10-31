@@ -1,0 +1,4 @@
+{
+  "comment": "The twelve sounds that ship with the app are listed in packages/core/src/sound.js and their files sit in this folder. Drop your own looping audio files here and list them below to add to them; they appear in the Sounds library with their own volume and work in mixes and presets identically. Nothing is fetched from the internet - files are served from this app only.",
+  "sounds": []
+}

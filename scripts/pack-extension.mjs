@@ -1,16 +1,18 @@
 /**
  * Packs the built extension into a .zip for the Chrome Web Store.
  *
- * The unpacked build in `dist/extension` is a development artefact: it
- * carries the author's own wallpaper and audio, plus the READMEs that explain
- * how to add more. None of that belongs in an upload. Two reasons:
+ * The unpacked build in `dist/extension` is a development artefact: it carries
+ * the author's own wallpaper and any extra audio they dropped in, plus the
+ * READMEs that explain how to add more. None of that belongs in an upload:
+ * a wallpaper or recording you are allowed to use locally is not automatically
+ * one you are allowed to redistribute to every installer, and shipping media by
+ * accident is the easy mistake, so stripping is the default and keeping it takes
+ * a flag.
  *
- *   1. Licence. A wallpaper or recording you are allowed to use locally is not
- *      automatically one you are allowed to redistribute to every installer.
- *      Shipping media by accident is the easy mistake, so stripping is the
- *      default and keeping it takes a flag.
- *   2. Size. The audio alone is ~25 MB of a ~27 MB build, and every installer
- *      downloads it whether or not they ever open the Sounds page.
+ * The sound library is the exception. Those twelve files ARE the Sounds page —
+ * they are declared in packages/core/src/sound.js, licensed for redistribution,
+ * and under 10 MB in total, so they always ship. Stripping them would leave an
+ * installed extension with an empty library and no way to fill it.
  *
  * Stripping media leaves each media catalog in place with an empty list rather
  * than deleting it, because the app fetches those catalogs on load; an empty
@@ -26,6 +28,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statS
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { EXTENSION_DIST } from './build-extension.mjs';
+import { SOUNDS } from '../packages/core/src/sound.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const OUT_DIR = `${root}release`;
@@ -44,9 +47,17 @@ const DROP_ALWAYS = [
  * Folders whose media is the author's own, each paired with its catalog.
  * Catalogs must NOT be named manifest.json — CWS treats every path ending in
  * /manifest.json as an extension manifest.
+ *
+ * `keep` names files that ship regardless, read from the catalogue rather than
+ * hardcoded so adding a sound cannot leave its file behind.
  */
 const MEDIA_FOLDERS = [
-  { dir: 'audio', catalog: 'audio/catalog.json', key: 'sounds' },
+  {
+    dir: 'audio',
+    catalog: 'audio/catalog.json',
+    key: 'sounds',
+    keep: new Set(SOUNDS.map((s) => s.file)),
+  },
   { dir: 'backgrounds', catalog: 'backgrounds/catalog.json', key: 'images' },
 ];
 
@@ -100,17 +111,28 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
   }
 
   if (!keepMedia) {
-    for (const { dir, catalog, key } of MEDIA_FOLDERS) {
+    for (const { dir, catalog, key, keep } of MEDIA_FOLDERS) {
       const folder = `${stage}/${dir}`;
       if (!existsSync(folder)) continue;
-      // Everything but the catalog itself: the catalog is rewritten, not removed.
+      // Everything but the catalog itself and the files that always ship: the
+      // catalog is rewritten, not removed.
       for (const name of readdirSync(folder)) {
-        if (`${dir}/${name}` !== catalog) drop(`${dir}/${name}`);
+        if (`${dir}/${name}` === catalog || keep?.has(name)) continue;
+        drop(`${dir}/${name}`);
       }
       writeFileSync(
         `${stage}/${catalog}`,
         `${JSON.stringify({ comment: 'Bundled media is not redistributed. Add your own files here.', [key]: [] }, null, 2)}\n`,
       );
+    }
+  }
+
+  // Guard: a shipped sound whose file is missing is a broken Sounds page, and
+  // the app only finds out when someone presses play.
+  for (const sound of SOUNDS) {
+    if (!existsSync(`${stage}/audio/${sound.file}`)) {
+      rmSync(stage, { recursive: true, force: true });
+      throw new Error(`Pack refused: ${sound.id} names audio/${sound.file}, which is not in the build.`);
     }
   }
 
@@ -151,7 +173,7 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
     if (dropped.length > 0) {
       console.log('Stripped:');
       for (const line of dropped) console.log(`  - ${line}`);
-      if (!keepMedia) console.log('  (audio and background catalogs kept, with empty lists)');
+      if (!keepMedia) console.log('  (the sound library and both catalogs kept; catalogs emptied of extras)');
       console.log('');
     }
     console.log(`  unpacked build  ${human(result.before)}`);
@@ -159,8 +181,9 @@ export function packExtension({ keepMedia = false, quiet = false } = {}) {
     console.log(`  zipped          ${human(result.zipped)}\n`);
     console.log(`Upload:  ${zip}`);
     console.log('Staging removed after pack.\n');
-    console.log('Pass --keep-media to include the bundled wallpaper and audio. Only do that');
-    console.log('if you hold redistribution rights for every file in those folders.');
+    console.log('Pass --keep-media to include the bundled wallpaper and any extra audio you');
+    console.log('added. Only do that if you hold redistribution rights for every one of those');
+    console.log('files. The twelve shipped sounds are included either way.');
   }
 
   return result;

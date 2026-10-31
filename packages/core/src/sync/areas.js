@@ -46,6 +46,9 @@ export const AREA_MERGE = {
   dashboard: { kind: 'replace' },
   sound: { kind: 'replace' },
   settings: { kind: 'replace' },
+  // A cache of published posts from the website, not user work. The newer
+  // fetch is simply the better one, and anything lost is re-fetched.
+  reading: { kind: 'replace' },
 
   // Rebuilt from the bundled packs, so it is derived data rather than user
   // work: replacing it loses nothing that cannot be regenerated.

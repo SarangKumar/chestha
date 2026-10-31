@@ -20,14 +20,32 @@ node_modules/.vite/
 apps/extension/public/backgrounds/manifest.json
 
 # ── The author's own media ───────────────────────────────────────────────────
-# Wallpaper and audio are personal and licensed to whoever added them, not to
-# the repository. The READMEs in these folders explain how to add your own; the
-# app runs with the folders empty.
+# Wallpaper is personal and licensed to whoever added it, not to the repository.
+# The README in that folder explains how to add your own; the app runs with the
+# folder empty.
 apps/extension/public/backgrounds/*
 !apps/extension/public/backgrounds/README.md
+
+# Audio is different: the twelve files below ARE the sound library, declared in
+# packages/core/src/sound.js, so a clone without them has a silent app. They are
+# tracked by name — anything else dropped in that folder stays personal and
+# ignored, which is the licence hazard this section exists for. Adding a sound
+# means adding its filename here.
 apps/extension/public/audio/*
 !apps/extension/public/audio/README.md
-!apps/extension/public/audio/manifest.json
+!apps/extension/public/audio/catalog.json
+!apps/extension/public/audio/light-rain.m4a
+!apps/extension/public/audio/flowing-water.m4a
+!apps/extension/public/audio/campfire-crackle.m4a
+!apps/extension/public/audio/campfire-night-wind.m4a
+!apps/extension/public/audio/summer-crickets.m4a
+!apps/extension/public/audio/forest-wolves.m4a
+!apps/extension/public/audio/street-footsteps.m4a
+!apps/extension/public/audio/supermarket-murmur.m4a
+!apps/extension/public/audio/church-bell.m4a
+!apps/extension/public/audio/road-construction.m4a
+!apps/extension/public/audio/horror-ambience.m4a
+!apps/extension/public/audio/space-atmosphere.m4a
 
 # ── Local configuration and secrets ──────────────────────────────────────────
 *.local

@@ -310,29 +310,70 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   author's own post list, bookmarks, upvotes, follows, and the sync transport.
   The data access for posts (`apps/website/lib/posts.js`) is written and ready for
   that UI.
+
+  **Password sign-up is gmail-only.** `ALLOWED_SIGNUP_DOMAINS` in
+  `packages/core/src/account/credentials.js` is the entire policy, applied by
+  `validateSignupEmail` and used only by `registerUser`. Two rules go with it:
+  sign-in uses plain `validateEmail` so a change to the list can never lock out
+  an existing account, and **an OAuth sign-in must never use
+  `validateSignupEmail`** — a Google Workspace address is a company domain, so a
+  gmail-only check there would reject the users Google sign-in exists to admit.
+  See `docs/enabling-google-auth.md`.
+
+  **The editor is now the blocking item.** Read mode on the start screen reads the
+  published feed, and until there is a way to publish, it correctly shows its empty
+  state to everyone. The surface is finished; the content pipeline is not.
 - **Verification status for pass 1.** `npm test`, `npm run build` and
   `npm run build:extension` all pass. **Nothing has been exercised against a real
   MongoDB** — there was no database in the environment — so every query in
   `apps/website/lib/` is unproven at runtime, and no page has been rendered in a
   browser. Sign-up, sign-in and the profile page need a human with a
   `DATABASE_URL` before they can be called working.
+- **The start screen has two modes.** `#/dashboard` renders either the widget board
+  or Read mode, chosen by the `startMode` setting and switched from a segmented
+  control in the shell header. It is a persisted preference, **not a route**, so a
+  deep link to the start screen honours whichever the user last chose. The board is
+  the default and `Dashboard.jsx` is untouched by the split — the branch sits above
+  it in `App.jsx`.
+
+  Read mode (`apps/extension/src/sections/Reading.jsx`) lists published posts from
+  `/api/posts` on the website, caching them in the lazy `reading` area so it paints
+  instantly and still works offline. Three rules hold it together:
+  **nothing is requested until that component mounts** — which is the entire privacy
+  argument, so do not hoist the fetch or the `ensureArea` call into the Shell;
+  **the cache paints before the network is consulted**, so a failed revalidation is a
+  note beside stale content rather than an error page; and **posts are read on the
+  website**, because bodies are Markdown and the extension has no sanitiser, so the
+  feed carries no bodies at all.
+
+  This made Read mode the **third** opt-in network surface, after the GitHub and
+  weather widgets. `README.md`, `TERMS.md`, `About.jsx` and
+  `docs/chrome-store/PRIVACY-PRACTICES.md` all state the count and the destination;
+  they have been updated, and a fourth must update them again.
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),
   settings with export/import/reset, command palette, quick capture.
-- **Sounds are built**: 14 synthesised in the browser across 6 groups
+- **Sounds are built**: 12 bundled recordings across 5 groups
   (`packages/core/src/sound.js` holds the catalogue and preset rules;
-  `apps/extension/src/audio/engine.js` is the Web Audio engine). Each sound is a stack of
-  layers — shaped noise or tones, optional filters, LFOs and scheduled grain
-  bursts, which is what gives fire its crackle and thunder its rumble. No audio
-  files, no licence to verify, works offline. Users can add their own recordings by
-  dropping files in `apps/extension/public/audio/` and listing them in `catalog.json`;
-  the manifest rejects absolute paths, `..` and remote URLs, so it cannot make the
-  app fetch from elsewhere. **Pixabay cannot be downloaded from automatically** —
-  it returns 403 to automated requests, like LeetCode. The engine is a module singleton so navigation
-  cannot duplicate a voice; each voice is scaled by 1/sqrt(n) and a compressor sits
-  before the destination, so a busy mix cannot clip. Audio only starts from a user
-  gesture — a paused mix is restored pre-armed and never shown as playing while
-  silent.
+  `apps/extension/src/audio/engine.js` is the Web Audio engine). Every sound is a
+  file in `apps/extension/public/audio/`, fetched from the app's own origin and
+  decoded once, so playback works offline and nothing leaves the machine. **The
+  synthesised library was removed** — 18 sounds built from filtered noise, tones,
+  LFOs and grain bursts, accurate as noise but never restful. Don't reintroduce
+  it; the engine no longer has a synthesis path, and the only thing still
+  generated there is the end-of-session chime. The shipped files are AAC `.m4a`
+  (`afconvert -f m4af -d aac -b 112000 -s 3`), under 10 MB in total, licensed from
+  Mixkit under the Mixkit Free License, and **`scripts/pack-extension.mjs` always
+  ships them** while still stripping the author's other media — it reads the keep
+  list from `SOUNDS` and refuses the pack if a named file is missing. Users can add
+  their own recordings by dropping files in that folder and listing them in
+  `catalog.json`; the manifest rejects absolute paths, `..` and remote URLs, so it
+  cannot make the app fetch from elsewhere. **Pixabay cannot be downloaded from
+  automatically** — it returns 403 to automated requests, like LeetCode. The engine
+  is a module singleton so navigation cannot duplicate a voice; each voice is
+  scaled by 1/sqrt(n) and a compressor sits before the destination, so a busy mix
+  cannot clip. Audio only starts from a user gesture — a paused mix is restored
+  pre-armed and never shown as playing while silent.
 - **Keyboard shortcuts are customisable.** `packages/core/src/shortcuts.js` is the
   single registry: actions, defaults, combo parsing, conflict detection, reserved
   browser combos and storage validation. `apps/extension/src/app/useShortcutDispatch.js`
@@ -340,7 +381,17 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   persist in the existing `settings` area.
 - **Chrome extension is built**: MV3 New Tab replacement, see `apps/extension/` and
   `npm run build:extension` / `pack:work`.
-- **DSA section — foundation only (increment B of F).** Wired in and navigable at
+- **DSA section — foundation only (increment B of F), and hidden by default.**
+  `DEFAULT_SETTINGS.hiddenSections` ships as `['dsa']`, so a new profile does not
+  meet the least finished part of the product first. This is a default and not a
+  removal: Settings → Navigation turns it back on, and `#/dsa` and the command
+  palette still reach it, as they do for any hidden section. It only affects
+  profiles with no stored settings — an existing `hiddenSections` is left alone,
+  because an empty list cannot be told apart from a deliberate "show everything".
+  The `dsaToday` and `daily` widgets remain in the picker; hiding a section has
+  never hidden its widgets, and both work standalone.
+
+  Wired in and navigable at
   `#/dsa`. The domain rules live in `packages/core/src/dsa/` with 31 tests. Shipped:
   canonical question records, shared solving history, the revision ladder, daily
   target counting, weak-topic rules, four storage areas, version-2 export. Not yet

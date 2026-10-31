@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GITHUB_FORMS, HIDEABLE_SECTIONS, TEMPERATURE_UNITS, activityDayLabels, activityLevel,
-  activityMonthLabels, buildActivityCalendar, buildContributionYearCalendar,
-  coerceArea, coerceGithubForm, coerceTemperatureUnit, coerceWeatherPlace, describeCondition,
+  DEFAULT_SETTINGS, GITHUB_FORMS, HIDEABLE_SECTIONS, TEMPERATURE_UNITS, activityDayLabels,
+  activityLevel, activityMonthLabels, buildActivityCalendar, buildContributionYearCalendar,
+  coerceArea, coerceGithubForm, coerceTemperatureUnit, coerceWeatherPlace, defaultState, describeCondition,
   describeEvent, describeGithubError, describePlace, forecastUrl, formatTemperature, geocodeUrl,
   githubContributionsUrl, githubEventsUrl, githubProfileUrl, githubReposUrl, isValidGithubUsername, normalizeLines,
   pickForDay, shortAge, summariseEvents, summariseGeocode, summariseRepos, summariseWeather,
@@ -126,8 +126,25 @@ test('settings saved before backgrounds existed still load', () => {
   const { value } = coerceArea('settings', { theme: 'dark', upcomingHorizonDays: 7 });
   assert.deepEqual(value.background, { kind: 'none', image: '', dim: 0.45 });
   assert.equal(value.theme, 'dark', 'existing preferences are untouched');
-  assert.deepEqual(value.hiddenSections, [], 'nothing is hidden by default');
+  // Not the shipped default (which hides DSA) — an existing settings blob with
+  // no `hiddenSections` means a user who has everything showing, and upgrading
+  // must not reach in and hide a section they were already using.
+  assert.deepEqual(value.hiddenSections, [], 'an existing profile keeps its rail');
   assert.equal(value.glass, 0.55, 'and the glass level has a default');
+});
+
+test('a fresh profile starts with DSA hidden, because that section is paused', () => {
+  assert.deepEqual(DEFAULT_SETTINGS.hiddenSections, ['dsa']);
+  assert.deepEqual(defaultState().settings.hiddenSections, ['dsa']);
+  // No stored settings at all is a new install, so it gets the default.
+  assert.deepEqual(coerceArea('settings', null).value.hiddenSections, ['dsa']);
+});
+
+test('hiding DSA is a default, not a removal: it stays reachable and re-showable', () => {
+  // Still hideable/showable from Settings → Navigation, so the default is undoable.
+  assert.ok(HIDEABLE_SECTIONS.includes('dsa'));
+  // And a user who turns it back on is respected rather than re-defaulted.
+  assert.deepEqual(coerceArea('settings', { hiddenSections: [] }).value.hiddenSections, []);
 });
 
 // ─── Hidden sidebar sections ─────────────────────────────────────────────────

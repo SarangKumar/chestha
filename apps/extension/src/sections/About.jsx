@@ -52,13 +52,16 @@ export function About({ onNavigate }) {
           the app is recorded anywhere but your own browser.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-          Two widgets can reach the internet, and only once you ask them to. The{' '}
+          Three things can reach the internet, and only once you ask them to. The{' '}
           <strong className="font-medium text-ink">GitHub activity</strong> widget reads public
           activity from <code className="font-mono text-xs">api.github.com</code> after you enter
           a username. The <strong className="font-medium text-ink">Weather</strong> widget reads a
           forecast from <code className="font-mono text-xs">open-meteo.com</code> after you set a
-          location. Both are inert until then, both send only what they need to answer the
-          question, and removing the widget ends the requests. Nothing else in the running app
+          location. <strong className="font-medium text-ink">Read mode</strong> fetches published
+          posts from <code className="font-mono text-xs">chestha.vercel.app</code> after you switch
+          the start screen away from your widgets — with no account and no cookie, so we cannot
+          tell who asked. All three are inert until then, each sends only what it needs to answer
+          the question, and reversing it ends the requests. Nothing else in the running app
           contacts the network.
         </p>
       </Panel>
@@ -91,8 +94,18 @@ export function About({ onNavigate }) {
         <h2 className="text-card font-semibold text-ink">Credits</h2>
         <ul className="mt-2 space-y-2 text-sm leading-relaxed text-ink-muted">
           <li>
-            Ambient sounds are synthesised in the browser with the Web Audio API — no recordings
-            are shipped. Files you add yourself appear beside them, credited as you describe them.
+            Ambient sounds are recordings from{' '}
+            <a
+              href="https://mixkit.co/free-sound-effects/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-line-strong underline-offset-2 transition-colors duration-150 hover:decoration-ink"
+            >
+              Mixkit
+            </a>
+            , used under the Mixkit Free License and bundled with the app — they play from your
+            device, not from the internet. Files you add yourself appear beside them, credited as
+            you describe them.
           </li>
           <li>
             Question metadata for the practice tracker is built from published, permissively

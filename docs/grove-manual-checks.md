@@ -114,7 +114,7 @@ Useful while testing:
 | G3 | Settings → **Delete website-time data** | Stats empties; XP, tasks, plants and rules are untouched |
 | G4 | Settings → Grove → **Reset Grove progress** | XP, seeds, sessions, plants and unlocks go; tasks, notes, calendar and DSA are untouched |
 | G5 | Inspect `grove.inbox` and the `grove.time` area | Only domains, local days and seconds. No paths, no query strings, no titles |
-| G6 | Watch the Network tab throughout | The extension makes no request of any kind |
+| G6 | Watch the Network tab throughout, with the start screen on **Board** | The extension makes no request of any kind. Grove itself never contacts the network; the opt-in surfaces that can are the GitHub and weather widgets and Read mode, none of them on by default — see `docs/reading-manual-checks.md` |
 | G7 | Export, then import into a fresh profile | Grove data round-trips; a pre-Grove backup still imports |
 
 ---

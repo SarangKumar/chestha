@@ -180,11 +180,11 @@ export function Sounds() {
         <div className="border-b border-line px-4 py-3">
           <CardTitle>Sound library</CardTitle>
           <p className="mt-1 text-meta leading-relaxed text-ink-faint">
-            These are generated from filtered noise and tones, so they are honest
-            approximations rather than recordings — the noise colours and the tonal
-            ones are faithful, while rain, fire and crowds are suggestions of the real
-            thing. For true fidelity, drop recordings into{' '}
-            <span className="font-mono">public/audio/</span>; they appear here beside these.
+            Real recordings, shipped with the app and played from it — nothing is
+            fetched from the internet. Mix as many as you like; each keeps its own
+            volume. To add your own, drop looping files into{' '}
+            <span className="font-mono">public/audio/</span> and list them in{' '}
+            <span className="font-mono">catalog.json</span>; they appear here beside these.
           </p>
         </div>
         {groups.map((group) => (
@@ -192,7 +192,7 @@ export function Sounds() {
             <p className="border-b border-line bg-inset px-4 py-1.5 text-meta font-medium text-ink-muted">
               {group}
             </p>
-            {/* Two columns: eighteen sounds in one list is a long scroll, and a
+            {/* Two columns: the whole library in one list is a long scroll, and a
                 full-width row wastes space on a name and a slider. */}
             <ul className="grid gap-px bg-line sm:grid-cols-2">
               {catalogue.filter((s) => s.group === group).map((item) => {

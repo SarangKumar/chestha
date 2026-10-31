@@ -11,57 +11,69 @@ import {
 // ─── Sound: mixing, clipping, presets ────────────────────────────────────────
 
 test('a mix keeps only known sounds and clamps their volumes', () => {
-  const mix = normalizeMix({ rain: 0.5, waves: 2, wind: -1, nonsense: 0.5, brown: 'x' });
-  assert.deepEqual(Object.keys(mix).sort(), ['brown', 'rain', 'waves', 'wind']);
-  assert.equal(mix.waves, 1, 'clamped down');
-  assert.equal(mix.wind, 0, 'clamped up');
-  assert.equal(mix.brown, 0.5, 'unparseable falls back');
+  const mix = normalizeMix({
+    'light-rain': 0.5, 'flowing-water': 2, 'campfire-crackle': -1,
+    nonsense: 0.5, 'summer-crickets': 'x',
+  });
+  assert.deepEqual(
+    Object.keys(mix).sort(),
+    ['campfire-crackle', 'flowing-water', 'light-rain', 'summer-crickets'],
+  );
+  assert.equal(mix['flowing-water'], 1, 'clamped down');
+  assert.equal(mix['campfire-crackle'], 0, 'clamped up');
+  assert.equal(mix['summer-crickets'], 0.5, 'unparseable falls back');
   assert.equal(clampVolume('0.25'), 0.25);
 });
 
 test('adding sounds scales each voice so the mix cannot clip', () => {
-  const one = mixGain({ rain: 1 }, 'rain', 1);
-  const four = mixGain({ rain: 1, waves: 1, wind: 1, brown: 1 }, 'rain', 1);
+  const four = ['light-rain', 'flowing-water', 'campfire-crackle', 'summer-crickets'];
+  const fourMix = Object.fromEntries(four.map((id) => [id, 1]));
+
+  const one = mixGain({ 'light-rain': 1 }, 'light-rain', 1);
+  const each = mixGain(fourMix, 'light-rain', 1);
   assert.equal(one, 1);
-  assert.ok(four < one, 'each voice is attenuated as the mix grows');
-  assert.ok(Math.abs(four - 0.5) < 1e-9, 'four equal voices sit at 1/sqrt(4)');
+  assert.ok(each < one, 'each voice is attenuated as the mix grows');
+  assert.ok(Math.abs(each - 0.5) < 1e-9, 'four equal voices sit at 1/sqrt(4)');
 
   // The summed amplitude stays bounded rather than multiplying.
-  const total = ['rain', 'waves', 'wind', 'brown']
-    .reduce((sum, id) => sum + mixGain({ rain: 1, waves: 1, wind: 1, brown: 1 }, id, 1), 0);
+  const total = four.reduce((sum, id) => sum + mixGain(fourMix, id, 1), 0);
   assert.ok(total <= 2.0, `summed gain ${total} stays bounded`);
 });
 
 test('master volume scales the mix without changing its balance', () => {
-  const mix = { rain: 1, waves: 0.5 };
-  const full = { rain: mixGain(mix, 'rain', 1), waves: mixGain(mix, 'waves', 1) };
-  const half = { rain: mixGain(mix, 'rain', 0.5), waves: mixGain(mix, 'waves', 0.5) };
-  assert.ok(Math.abs(half.rain / half.waves - full.rain / full.waves) < 1e-9, 'ratio preserved');
+  const mix = { 'light-rain': 1, 'flowing-water': 0.5 };
+  const at = (volume) => ({
+    rain: mixGain(mix, 'light-rain', volume),
+    water: mixGain(mix, 'flowing-water', volume),
+  });
+  const full = at(1);
+  const half = at(0.5);
+  assert.ok(Math.abs(half.rain / half.water - full.rain / full.water) < 1e-9, 'ratio preserved');
   assert.ok(Math.abs(half.rain - full.rain / 2) < 1e-9);
 });
 
 test('turning one sound off leaves the others playing', () => {
-  const mix = { rain: 0.8, waves: 0.4, wind: 0.6 };
+  const mix = { 'light-rain': 0.8, 'flowing-water': 0.4, 'campfire-crackle': 0.6 };
   const next = { ...mix };
-  delete next.waves;
-  assert.deepEqual(activeSoundIds(next).sort(), ['rain', 'wind']);
-  assert.ok(mixGain(next, 'rain', 1) > 0 && mixGain(next, 'wind', 1) > 0);
-  assert.equal(mixGain(next, 'waves', 1), 0);
+  delete next['flowing-water'];
+  assert.deepEqual(activeSoundIds(next).sort(), ['campfire-crackle', 'light-rain']);
+  assert.ok(mixGain(next, 'light-rain', 1) > 0 && mixGain(next, 'campfire-crackle', 1) > 0);
+  assert.equal(mixGain(next, 'flowing-water', 1), 0);
 });
 
 test('a preset needs a name and a non-empty mix', () => {
   assert.equal(createPreset('', { rain: 0.5 }).ok, false);
   assert.equal(createPreset('Focus', {}).ok, false, 'refuses to save silence');
   assert.match(createPreset('Focus', {}).error, /nothing is playing/i);
-  const made = createPreset('  Deep focus  ', { rain: 0.6, brown: 0.4 });
+  const made = createPreset('  Deep focus  ', { 'light-rain': 0.6, 'flowing-water': 0.4 });
   assert.equal(made.ok, true);
   assert.equal(made.preset.name, 'Deep focus');
-  assert.deepEqual(made.preset.mix, { rain: 0.6, brown: 0.4 });
+  assert.deepEqual(made.preset.mix, { 'light-rain': 0.6, 'flowing-water': 0.4 });
 });
 
 test('presets can be renamed and deleted without touching the others', () => {
-  const a = createPreset('A', { rain: 0.5 }).preset;
-  const b = createPreset('B', { wind: 0.5 }).preset;
+  const a = createPreset('A', { 'light-rain': 0.5 }).preset;
+  const b = createPreset('B', { 'campfire-crackle': 0.5 }).preset;
   const renamed = renamePreset([a, b], a.id, 'Rain only');
   assert.equal(renamed.ok, true);
   assert.equal(renamed.presets[0].name, 'Rain only');
@@ -77,21 +89,22 @@ test('loading a preset reports sounds this build no longer ships', () => {
   const absent = 'sound-that-does-not-exist';
   assert.ok(!SOUNDS.some((s) => s.id === absent), 'the fixture id really is absent');
 
-  const { mix, missing } = applyPreset({ name: 'Old', mix: { rain: 0.5, [absent]: 0.7 } });
-  assert.deepEqual(Object.keys(mix), ['rain']);
+  const { mix, missing } = applyPreset({ name: 'Old', mix: { 'light-rain': 0.5, [absent]: 0.7 } });
+  assert.deepEqual(Object.keys(mix), ['light-rain']);
   assert.deepEqual(missing, [absent], 'the omission is reported, not hidden');
 });
 
-test('every built-in sound is synthesised, so nothing needs downloading', () => {
+test('every built-in sound names a local file shipped with the app', () => {
   assert.ok(SOUNDS.length >= 12, `${SOUNDS.length} sounds available`);
+  const ids = new Set();
   for (const sound of SOUNDS) {
     assert.equal(sound.builtin, true, `${sound.id} is built in`);
-    assert.ok(sound.layers?.length, `${sound.id} has at least one layer`);
-    assert.ok(sound.name && sound.description && sound.group);
-    assert.equal(sound.file, undefined, `${sound.id} needs no audio file`);
-    for (const layer of sound.layers) {
-      assert.ok(layer.noise || layer.tone, `${sound.id} layer has a noise or tone source`);
-    }
+    assert.ok(sound.name && sound.description && sound.group, `${sound.id} is described`);
+    assert.ok(sound.credit, `${sound.id} records its licence`);
+    assert.match(sound.file, /^[a-z0-9-]+\.(m4a|mp3|ogg|wav|flac)$/,
+      `${sound.id} names a plain local filename`);
+    assert.equal(ids.has(sound.id), false, `${sound.id} appears once`);
+    ids.add(sound.id);
   }
 });
 
@@ -102,7 +115,7 @@ test('a user-supplied audio manifest is validated, and cannot escape its folder'
       { id: 'escape', name: 'Bad', file: '../../secrets.mp3' },
       { id: 'remote', name: 'Bad', file: 'https://example.com/a.mp3' },
       { id: 'absolute', name: 'Bad', file: '/etc/passwd' },
-      { id: 'brown', name: 'Clashes with a built-in', file: 'x.mp3' },
+      { id: 'light-rain', name: 'Clashes with a built-in', file: 'x.mp3' },
       { id: 'nofile', name: 'Missing file' },
     ],
   });
@@ -118,8 +131,8 @@ test('user files take part in mixes and presets like built-in sounds', () => {
   const extra = coerceAudioManifest({ sounds: [{ id: 'my-rain', name: 'My rain', file: 'rain.mp3' }] });
   const known = [...SOUNDS.map((s) => s.id), ...extra.map((s) => s.id)];
 
-  const mix = normalizeMix({ 'my-rain': 0.8, brown: 0.4 }, known);
-  assert.deepEqual(Object.keys(mix).sort(), ['brown', 'my-rain']);
+  const mix = normalizeMix({ 'my-rain': 0.8, 'light-rain': 0.4 }, known);
+  assert.deepEqual(Object.keys(mix).sort(), ['light-rain', 'my-rain']);
   assert.ok(mixGain(mix, 'my-rain', 1, known) > 0);
 
   const saved = createPreset('With my file', mix, known);
@@ -127,19 +140,19 @@ test('user files take part in mixes and presets like built-in sounds', () => {
 
   // Without the manifest, the preset reports the omission instead of failing.
   const { mix: fallback, missing } = applyPreset(saved.preset);
-  assert.deepEqual(Object.keys(fallback), ['brown']);
+  assert.deepEqual(Object.keys(fallback), ['light-rain']);
   assert.deepEqual(missing, ['my-rain']);
 });
 
 test('sound settings survive a store round trip', async () => {
   const store = createStore();
   await store.init();
-  const preset = createPreset('Night', { waves: 0.7, brown: 0.3 }).preset;
-  store.update('sound', (s) => ({ ...s, presets: [preset], lastMix: { waves: 0.7 }, masterVolume: 0.4 }));
+  const preset = createPreset('Night', { 'summer-crickets': 0.7, 'light-rain': 0.3 }).preset;
+  store.update('sound', (s) => ({ ...s, presets: [preset], lastMix: { 'summer-crickets': 0.7 }, masterVolume: 0.4 }));
   await store.flush();
   const saved = store.getState().sound;
   assert.equal(saved.presets.length, 1);
-  assert.deepEqual(saved.lastMix, { waves: 0.7 });
+  assert.deepEqual(saved.lastMix, { 'summer-crickets': 0.7 });
   assert.equal(saved.masterVolume, 0.4);
 });
 
