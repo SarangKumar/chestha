@@ -10,13 +10,35 @@ community features and cross-device sync cannot exist without them. Rules 2 and 
 below used to say the opposite; the owner reversed them deliberately. Anything
 written before that still carrying "no backend, ever" is stale — this file wins.
 
+**And again in v0.2.1: most of the workspace now needs an account.** v0.2 kept
+the whole workspace usable signed out. It no longer is — only the widget board
+and Settings are. The extension therefore requests `host_permissions` for the
+website and asks it who is signed in, which v0.2 explicitly ruled out. Rule 2
+and the "Signing in from the extension" section below are the current statement;
+any older text promising a login-free workspace or "no host permissions" is
+stale.
+
 ## Hard rules
 
 1. **Never commit.** Leave all work uncommitted for manual review.
-2. **The workspace still works with no account.** Accounts unlock the community
-   and cross-device sync; they are not a condition of using tasks, the calendar,
-   the Grove or DSA. The extension in particular must keep working offline and
-   signed out. Do not put a login wall in front of the workspace.
+2. **The widget board works with no account; everything else needs one.**
+   Reversed again in v0.2.1, deliberately, by the owner — this rule said the
+   opposite twice before, so read it carefully rather than from memory. Signed
+   out, two surfaces stay usable: the **dashboard widget board** and
+   **Settings** (so export, import, theme and navigation are never trapped
+   behind a sign-in). Tasks, the calendar, DSA, the Grove, productive time,
+   Sounds and Read mode are gated.
+
+   The policy is a table in `packages/core/src/account/gating.js` and nowhere
+   else. Two rules go with it and are both tested:
+
+   - **Unknown is not signed out.** `isSectionAllowed` fails *open*: only a
+     definite answer from the website gates anything. A fresh offline install
+     has no cached answer and no way to sign in, so treating that as signed out
+     would be a wall with no door. Offline, the workspace behaves as the last
+     known answer did.
+   - **The gate is a page, not a redirect.** The rail, header and open sections
+     stay reachable. Nothing bounces the user to the website.
 3. **Ask before adding a runtime dependency.** The list is no longer "React and
    nothing else", but it is still short and deliberate: React, Next, NextAuth and
    the Prisma client. Password hashing uses `node:crypto` scrypt rather than
@@ -29,12 +51,26 @@ written before that still carrying "no backend, ever" is stale — this file win
    than silently picking. Several open decisions are recorded below.
 6. **Secrets stay in the environment.** `apps/website/.env.example` documents every
    variable. Never commit a real `DATABASE_URL` or `AUTH_SECRET`.
+   `apps/extension/.env.example` documents the extension app's own build-time
+   values, which are public by definition — Vite inlines them into the bundle,
+   so nothing secret may go there. `VITE_SITE_URL` is where the website lives,
+   and **nothing in the app hardcodes that origin**: `SITE_URL` in
+   `apps/extension/src/siteLinks.js` reads the variable with no fallback. The
+   per-mode defaults are the committed `apps/extension/.env.development`
+   (localhost) and `.env.production` (the deployed site) — the two exceptions to
+   the ignored `.env.*`, allowed in `.gitignore` because they are public values
+   and because a fresh clone must build correctly with no setup. `.env.local`
+   overrides both and stays ignored. A missing or non-http(s) value **fails the
+   build**, checked in `apps/extension/vite.config.js`, so it cannot become a
+   `new URL()` throw on someone's New Tab.
 
 ## Commands
 
 ```bash
 npm install               # also runs `prisma generate` via postinstall
 cp apps/website/.env.example apps/website/.env   # then fill DATABASE_URL and AUTH_SECRET
+# apps/extension needs no env setup: .env.development and .env.production are committed.
+# Copy .env.example to apps/extension/.env.local only to point at a different website.
 
 npm run dev               # the website (Next.js) on http://localhost:3000
 npm run dev:extension     # the extension app (Vite) on http://localhost:5173
@@ -231,6 +267,46 @@ and `firstPublishedAt` survives so re-publishing does not reset its date.
 Status moves only through `applyTransition`, never through an edit — which is
 why `applyPostEdit` ignores a `status` key.
 
+**Signing in from the extension rests on one Chromium rule.** The New Tab is a
+static bundle on `chrome-extension://`, so it cannot read the website's session
+cookie the way a page on the site can. It asks `GET /api/session` with
+`credentials: 'include'`, and that request carries the `SameSite=Lax` NextAuth
+cookie **only because** Chromium treats a request as first-party for SameSite
+purposes when "the request initiator is an extension with access to the
+requested URL" — `chrome/browser/extensions/extension_samesite_cookies_browsertest.cc`.
+Two consequences, and getting either wrong fails silently with every user
+appearing signed out:
+
+- **The extension must declare `host_permissions` for the website origin.** It
+  is not in the committed `scripts/extension/manifest.json`, because the origin
+  is a build-time value (`VITE_SITE_URL`). `scripts/build-extension.mjs` injects
+  it while assembling, reading `.site-origin` — a file the Vite build emits from
+  the same `loadEnv` the bundle was built with. That indirection exists so the
+  manifest cannot name a different origin than the bundle; do not re-resolve the
+  env files in the assembly script, and do not hardcode the origin in the
+  manifest.
+- **The fetch must happen on the extension *page*, not in the service worker.**
+  A worker has no initiator frame and gets no exemption. The fetch lives in
+  `apps/extension/src/app/session.js`, which runs on the New Tab document. Do
+  not move it into `background.js`.
+
+This is daily.dev's pattern — scoped host permission, a cookie'd boot call, a
+cached answer — and it was chosen over a token handed to the extension because a
+copied token goes stale and cannot be revoked. It is also the **fourth** opt-in
+network surface and the first that identifies the user, so unlike the other
+three it is not opt-in at all: it fires on New Tab open whenever the cached
+answer is older than `SESSION_MAX_AGE_MS`. `README.md`, `TERMS.md`, `About.jsx`
+and `docs/chrome-store/PRIVACY-PRACTICES.md` all had to change, including the
+"no host permissions, no content scripts" line that is no longer true of the
+first half.
+
+The cached answer lives in `chrome.storage.local` (`localStorage` on the website
+build) and is read synchronously at first paint, so the board never waits on the
+network and an offline New Tab gates as the last answer did. Every failure path
+— offline, 503, malformed body, corrupt cache — coerces to `unknown`, which
+fails open. A 503 from `/api/session` deliberately carries no `signedIn` key for
+that reason: a database hiccup must not lock the workspace.
+
 **Workspace sync is per-area, with revisions rather than clocks.** It is built
 on the fact that storage is already per-area, so each area syncs independently
 and a conflict in `settings` cannot endanger `tasks`. Each area carries a
@@ -320,9 +396,46 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   gmail-only check there would reject the users Google sign-in exists to admit.
   See `docs/enabling-google-auth.md`.
 
+  **The sign-up form asks for the password twice**, and
+  `validatePasswordConfirmation` is checked by `registerUser`, not only in the
+  browser. It is a required argument rather than an optional one, so a new
+  caller with no confirmation to offer has to be deliberate about it. The
+  comparison normalises with **NFKC, matching `hashPassword` in
+  `@chestha/db`** — any other form would report a mismatch for a pair the KDF
+  then treats as the same password. There is no password reset yet, and no
+  email verification, which is why the second box is worth its friction.
+
   **The editor is now the blocking item.** Read mode on the start screen reads the
   published feed, and until there is a way to publish, it correctly shows its empty
   state to everyone. The surface is finished; the content pipeline is not.
+- **Sign-in gating (v0.2.1).** Shipped: the policy table and its 21 tests, the
+  `/api/session` endpoint, the cached session reader, the gate page, nav-rail
+  padlocks, the session-aware account menu, the injected host permission, and
+  every privacy document restated. The free surfaces are the widget board and
+  Settings; everything else is gated.
+
+  Two scope calls were mine, not the owner's, and are worth revisiting:
+  **`tasks` is gated** (it was named in neither list, and keeping it free was
+  declined), and **`websites` is gated with the Grove** because productive time
+  exists to earn XP and writes the same `grove.*` areas. Either can move by
+  editing one array in `gating.js`.
+
+  **What is not done:** nothing signs the user out from inside the workspace —
+  the account menu links to the website and clears the cached answer, because
+  the cookie is the website's to clear. Widgets are not gated, so a tasks widget
+  on the free board still reads and completes tasks while the tasks *section* is
+  behind the gate; hiding a section has never hidden its widgets, and that rule
+  was left alone.
+- **Verification status for sign-in gating.** `npm test` (423 tests),
+  `npm run build`, `npm run build:extension`, `npm run work` and
+  `npm run pack:work` all pass, and the assembled manifest was read back to
+  confirm the injected `host_permissions`. **Nothing has been exercised in a
+  browser or against a real MongoDB.** In particular: the SameSite exemption
+  that the whole mechanism rests on is confirmed only from Chromium's test
+  suite, not observed here; `/api/session` has never answered a real request;
+  and no gate, padlock or account menu has been rendered. Loading the unpacked
+  extension against a running website with a `DATABASE_URL` is the first real
+  check, and the thing to watch is whether the session cookie actually arrives.
 - **Verification status for pass 1.** `npm test`, `npm run build` and
   `npm run build:extension` all pass. **Nothing has been exercised against a real
   MongoDB** — there was no database in the environment — so every query in
@@ -347,9 +460,12 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   feed carries no bodies at all.
 
   This made Read mode the **third** opt-in network surface, after the GitHub and
-  weather widgets. `README.md`, `TERMS.md`, `About.jsx` and
-  `docs/chrome-store/PRIVACY-PRACTICES.md` all state the count and the destination;
-  they have been updated, and a fourth must update them again.
+  weather widgets. The sign-in check is the **fourth** — and the one that breaks
+  the pattern: it identifies the user and it is not opt-in, because the gate
+  cannot work without it. `README.md`, `TERMS.md`, `About.jsx` and
+  `docs/chrome-store/PRIVACY-PRACTICES.md` all state the count and the
+  destination; all four have been updated for it, and a fifth must update them
+  again.
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),
   settings with export/import/reset, command palette, quick capture.

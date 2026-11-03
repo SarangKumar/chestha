@@ -4,7 +4,8 @@ import {
   ALLOWED_SIGNUP_DOMAINS, RESERVED_USERNAMES, buildProfileCard, emailDomain,
   isAllowedSignupDomain, normalizeBio, normalizeEmail, validateSignupEmail,
   normalizeProfileLink, normalizeUsername, passwordStrength, profileUrl,
-  suggestUsername, validateEmail, validatePassword, validateUsername,
+  suggestUsername, validateEmail, validatePassword, validatePasswordConfirmation,
+  validateUsername,
 } from '../src/index.js';
 
 // ─── Usernames share a namespace with the site's own routes ──────────────────
@@ -16,7 +17,7 @@ test('a username is stored lowercase, with a pasted @ stripped', () => {
 
 test('route segments cannot be claimed as usernames', () => {
   // These would shadow a real page or make an account look official.
-  for (const taken of ['settings', 'api', 'user', 'post', 'chestha', 'admin']) {
+  for (const taken of ['settings', 'api', 'user', 'post', 'chestha', 'admin', 'account']) {
     const result = validateUsername(taken);
     assert.equal(result.ok, false, `${taken} must be reserved`);
     assert.equal(result.reason, 'That username is reserved.');
@@ -122,6 +123,41 @@ test('password length is counted in code points, and bounded', () => {
   assert.equal(validatePassword('🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱').ok, true);
   assert.equal(validatePassword('🌱'.repeat(9)).ok, false);
   assert.equal(validatePassword('x'.repeat(201)).ok, false, 'unbounded input is a slow-KDF DoS');
+});
+
+test('the confirmation box must repeat the password exactly', () => {
+  assert.equal(validatePasswordConfirmation('four correct horse staples', 'four correct horse staples').ok, true);
+  assert.equal(validatePasswordConfirmation('four correct horse staples', 'four correct horse staple').ok, false);
+  // Case and spacing are part of a password, so neither is forgiven.
+  assert.equal(validatePasswordConfirmation('Horse Staples 42', 'horse staples 42').ok, false);
+  assert.equal(validatePasswordConfirmation(' leading space pw', 'leading space pw').ok, false);
+  assert.equal(validatePasswordConfirmation('trailing space pw ', 'trailing space pw ').ok, true);
+});
+
+test('an empty or missing confirmation is refused, with its own wording', () => {
+  for (const absent of ['', undefined, null, 12345678901]) {
+    const result = validatePasswordConfirmation('four correct horse staples', absent);
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'Type your password again to confirm it.');
+  }
+  // A mismatch is a different complaint from an empty box.
+  assert.equal(
+    validatePasswordConfirmation('four correct horse staples', 'something else').reason,
+    'Those passwords do not match.',
+  );
+  // An absent password cannot be confirmed by anything, including itself.
+  assert.equal(validatePasswordConfirmation(undefined, 'anything at all').ok, false);
+});
+
+test('confirmation normalises exactly as hashing does', () => {
+  // `hashPassword` normalises to NFKC, so the comparison must too: refusing
+  // either pair below would reject a password that would then have verified.
+  // Composed against decomposed — NFC would also cover this one.
+  assert.equal(validatePasswordConfirmation('cafe\u0301 passphrase', 'caf\u00e9 passphrase').ok, true);
+  // Compatibility equivalence, which only NFKC covers: the ﬁ ligature
+  // against the two letters, and a fullwidth digit against its ASCII form.
+  assert.equal(validatePasswordConfirmation('ﬁve green bottles', 'five green bottles').ok, true);
+  assert.equal(validatePasswordConfirmation('bottles ４２ here', 'bottles 42 here').ok, true);
 });
 
 test('strength is advisory and never contradicts acceptance with a zero', () => {

@@ -5,8 +5,13 @@ import { signIn } from '@/auth';
 import { registerUser } from '@/lib/accounts';
 
 /**
- * Creates an account and signs the new user straight in — asking someone to
- * type the password they just chose a second time is friction with no benefit.
+ * Creates an account and signs the new user straight in.
+ *
+ * The password is typed twice. A sign-up is the one moment a typo is
+ * unrecoverable — there is no password reset in this product yet, and the
+ * address is never verified, so a mistyped password with a mistyped-but-valid
+ * email would leave an account nobody can reach. The second box is checked on
+ * the server, by `registerUser`, not only in the browser.
  *
  * Returns `{ field, reason }` so the form can mark the offending input. On
  * success it does not return at all: `signIn` redirects.
@@ -17,9 +22,12 @@ export async function signUpAction(_previous, formData) {
     username: String(formData.get('username') ?? ''),
     name: String(formData.get('name') ?? ''),
   };
+  // Neither password is echoed back in `values`: a rejected form re-renders
+  // with the other fields filled and both password boxes empty.
   const password = String(formData.get('password') ?? '');
+  const confirmPassword = String(formData.get('confirmPassword') ?? '');
 
-  const result = await registerUser({ ...values, password });
+  const result = await registerUser({ ...values, password, confirmPassword });
   if (!result.ok) {
     return { ...result, values };
   }

@@ -27,6 +27,17 @@ export const GITHUB_REPO = {
   api: 'https://api.github.com/repos/SarangKumar/chestha',
 };
 
-/** Public marketing site. */
-export const SITE_URL = 'https://chestha.vercel.app/';
+/**
+ * Public marketing site — where posts are read and accounts live.
+ *
+ * `VITE_SITE_URL` is the only source, and there is deliberately no fallback
+ * here: a hardcoded origin is the thing this removes. The per-mode defaults are
+ * committed as `apps/extension/.env.development` and `.env.production`
+ * (public build values, not secrets), and `.env.local` overrides either without
+ * being committed.
+ *
+ * A missing or unparseable value fails the build, in `vite.config.js` — a URL
+ * is checked once there rather than discovered when a New Tab throws.
+ */
+export const SITE_URL = import.meta.env.VITE_SITE_URL.replace(/\/+$/, '');
 

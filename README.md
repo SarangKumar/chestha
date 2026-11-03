@@ -1,9 +1,12 @@
 # Chestha
 
 A local-first personal productivity workspace — tasks, a calendar, ambient sound, a
-scratchpad dashboard and a DSA practice tracker, in one tab. No account, no backend,
-no telemetry. Your data is stored by your browser, on your device, and an export file
-is the only copy that survives a cleared browser.
+scratchpad dashboard and a DSA practice tracker, in one tab. No telemetry. Your data
+is stored by your browser, on your device, and an export file is the only copy that
+survives a cleared browser.
+
+The **widget board** works with no account. The other sections need a free one —
+signing in changes who may use them, not where your data lives.
 
 Runs as a web app, or as a Chrome extension that replaces the New Tab page.
 
@@ -154,7 +157,8 @@ and 8×4 in another.
 
 ## Privacy
 
-The app makes no network requests, with three opt-in exceptions:
+The app makes no network requests, with three opt-in exceptions and one that is not
+optional:
 
 - **GitHub** reads public activity or repositories from `api.github.com` once you
   enter a username.
@@ -166,11 +170,21 @@ The app makes no network requests, with three opt-in exceptions:
   no cookie, so the server cannot tell who asked; posts are cached locally, so the
   mode still works offline.
 
-All three are inert until you ask for them, each says so where you turn it on, and
+Those three are inert until you ask for them, each says so where you turn it on, and
 reversing it — removing the widget, or switching back to the board — ends the
-requests. Nothing else in the running app contacts the internet. `npm run dsa-pack`
-does, but it is a build tool you run deliberately.
+requests.
 
-The workspace itself never needs an account. The website's community side has one,
-but signing in there does not move your workspace off your device, and the extension
-never asks you to.
+- **The sign-in check** asks `chestha.vercel.app/api/session` whether you are signed
+  in, because most sections require an account and the workspace has to know which
+  to show. It sends your Chestha session cookie and nothing else, goes only to our
+  own origin, and is cached for ten minutes — so opening many tabs is one request,
+  and the cached answer is what gates the workspace when you are offline. This is
+  the one request that identifies you, and the reason the extension requests a host
+  permission for `chestha.vercel.app`.
+
+Nothing else in the running app contacts the internet. `npm run dsa-pack` does, but
+it is a build tool you run deliberately.
+
+Signing in does not move your workspace off your device. It is still IndexedDB on
+your own machine, and an export is still the only copy that survives a cleared
+browser.

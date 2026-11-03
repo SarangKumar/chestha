@@ -60,6 +60,18 @@ export default function SignUpPage() {
           error={errorFor('password')}
           minLength={PASSWORD_MIN}
         />
+        <Field
+          label="Confirm password"
+          name="confirmPassword"
+          type="password"
+          // `new-password` on both, so a password manager offers to generate
+          // once and fills the pair, rather than treating this as the login
+          // box for an account that does not exist yet.
+          autoComplete="new-password"
+          hint="There is no password reset yet, so a typo here is worth catching."
+          error={errorFor('confirmPassword')}
+          minLength={PASSWORD_MIN}
+        />
         <SubmitButton pending={pending}>
           {pending ? 'Creating account…' : 'Create account'}
         </SubmitButton>

@@ -1,5 +1,6 @@
 import {
-  normalizeEmail, suggestUsername, validatePassword, validateSignupEmail, validateUsername,
+  normalizeEmail, suggestUsername, validatePassword, validatePasswordConfirmation,
+  validateSignupEmail, validateUsername,
 } from '@chestha/core';
 import { hashPassword, needsRehash, verifyPassword } from '@chestha/db/password.js';
 import { prisma } from '@chestha/db';
@@ -14,7 +15,7 @@ import { prisma } from '@chestha/db';
 /**
  * @returns {Promise<{ ok: true, user: object } | { ok: false, field: string, reason: string }>}
  */
-export async function registerUser({ email, password, username, name } = {}) {
+export async function registerUser({ email, password, confirmPassword, username, name } = {}) {
   // `validateSignupEmail`, not `validateEmail`: creating a password account is
   // restricted to the allowed domains, where signing in is not. See the note on
   // that function — an OAuth sign-up must not be put through this check.
@@ -28,6 +29,13 @@ export async function registerUser({ email, password, username, name } = {}) {
   // echo the handle the account actually gets.
   const passwordCheck = validatePassword(password, { email, username: usernameCheck.handle, name });
   if (!passwordCheck.ok) return { ok: false, field: 'password', reason: passwordCheck.reason };
+
+  // After the password's own rules, so someone who typed a too-short password
+  // twice is told what is actually wrong with it rather than being sent to the
+  // confirmation box. Required, not optional: a caller with no confirmation to
+  // offer has to say so by not using this function.
+  const confirmCheck = validatePasswordConfirmation(password, confirmPassword);
+  if (!confirmCheck.ok) return { ok: false, field: 'confirmPassword', reason: confirmCheck.reason };
 
   const normalizedEmail = normalizeEmail(email);
   const handle = usernameCheck.handle;

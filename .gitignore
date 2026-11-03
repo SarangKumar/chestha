@@ -52,6 +52,12 @@ apps/extension/public/audio/*
 .env
 .env.*
 !.env.example
+# The extension app's per-mode site URL. Public build values, not secrets —
+# committed so a fresh clone builds correctly with no setup, and the source has
+# no hardcoded origin to fall back to. `.env.local` still overrides them and
+# stays ignored.
+!apps/extension/.env.development
+!apps/extension/.env.production
 .npmrc
 
 # ── Editor and tooling state ─────────────────────────────────────────────────

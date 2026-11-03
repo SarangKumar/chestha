@@ -25,7 +25,7 @@ const SHAPE = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
  */
 export const RESERVED_USERNAMES = new Set([
   // Site routes, current and plainly coming.
-  'about', 'admin', 'api', 'app', 'auth', 'bookmarks', 'calendar', 'changelog',
+  'about', 'account', 'admin', 'api', 'app', 'auth', 'bookmarks', 'calendar', 'changelog',
   'dashboard', 'discover', 'dsa', 'explore', 'extension', 'feed', 'grove',
   'guide', 'help', 'home', 'login', 'logout', 'new', 'notifications', 'onboarding',
   'post', 'posts', 'privacy', 'profile', 'register', 'reset', 'search', 'session',

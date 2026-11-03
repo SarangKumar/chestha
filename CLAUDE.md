@@ -8,9 +8,14 @@ The rules most easily got wrong, repeated here:
 
 - **Never commit.** Leave changes uncommitted for manual review.
 - **There is a backend now** — Next.js, MongoDB, Prisma and accounts, added in
-  v0.2. The old "no backend, ever" rule was reversed deliberately. But the
-  **workspace must still work signed out and offline**; no login wall in front
-  of tasks, calendar, Grove or DSA, and the extension stays account-free.
+  v0.2. The old "no backend, ever" rule was reversed deliberately.
+- **Most of the workspace needs an account, as of v0.2.1.** Signed out, only the
+  **widget board** and **Settings** work. Tasks, calendar, DSA, Grove,
+  productive time, Sounds and Read mode are gated. The policy is the table in
+  `packages/core/src/account/gating.js` and nowhere else, and **unknown is not
+  signed out** — the gate fails open, so a fresh offline install is never
+  walled. This reverses what v0.2 promised; the extension now does request
+  `host_permissions`.
 - **Ask before adding a runtime dependency.** Still a short, deliberate list.
 - **Plain JS, not TypeScript**, including the Prisma and NextAuth wiring.
   `npm test`, `npm run build` (the website) and `npm run build:extension`

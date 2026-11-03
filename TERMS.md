@@ -18,8 +18,11 @@ than assumptions. Have a lawyer review it before publishing. Replace every
 Chestha is a personal workspace for tasks, a calendar view, ambient sound, and
 tracking practice of coding-interview questions. It runs entirely in your browser.
 
-The workspace needs no account and no sign-in, and no server of ours holds what you
-create in it.
+The **widget board** and **Settings** need no account. The other sections — tasks,
+the calendar, DSA practice, the Grove, productive time, Sounds and Read mode —
+require a free Chestha account, and the extension asks our website whether you are
+signed in so it knows which to show. Signing in does not move your workspace: no
+server of ours holds what you create in it.
 
 The Chestha website additionally offers an optional community side — an account and
 posts you choose to publish — which does run on a server we operate. It is separate
@@ -104,6 +107,14 @@ exception is something you switch on, and switching it back off ends the request
 - **The Weather widget** requests a forecast from `open-meteo.com`, and only after
   you set a place. No key and no account; what is sent is that place's coordinates,
   rounded, and the browser's geolocation prompt is never used.
+- **The sign-in check** requests `chestha.vercel.app/api/session` when you open a
+  New Tab and the last answer is more than ten minutes old. It sends your Chestha
+  session cookie and nothing else; the answer is whether you are signed in and your
+  username. This is the one request the extension makes that identifies you, it
+  goes only to our own site, and it identifies you only to your own account. The
+  answer is cached on your device, which is what the extension uses when you are
+  offline — so losing your connection never locks you out of what you could already
+  reach.
 - **Read mode** requests the list of published posts from `chestha.vercel.app`, and
   only after you switch the start screen from your widgets to Read. The request
   carries no account and no cookie, so we cannot tell who asked. Posts are cached on
@@ -117,7 +128,9 @@ build output and the network panel are the checks.]`
 
 The extension is the same application, bundled and run from `chrome-extension://`.
 There is no second copy of the interface, and nothing is fetched from the network
-except the opt-in requests listed in §2 — none of which are on by default.
+except the requests listed in §2. All but one of those are opt-in and off by
+default; the exception is the sign-in check, which runs because most of the
+workspace requires an account.
 
 ### Permissions, and why each one is necessary
 
@@ -126,11 +139,13 @@ except the opt-in requests listed in §2 — none of which are on by default.
 | `tabs` | Raising an already-open workspace instead of opening a duplicate, and reading the **address** of the tab you are looking at so website time can be attributed to a site you added. Chrome describes this as "read your browsing history", which overstates it: no history is read or stored, and sites without a rule are never recorded. |
 | `idle` | Knowing whether you are at the keyboard, so time does not accrue while you are away or the screen is locked. |
 | `alarms` | Waking the extension about once a minute to close off the time it has counted. Chrome suspends background extension code aggressively; without this, counted time would be lost. |
-| `storage` | Holding the handful of pending time records that the workspace has not yet taken in. |
+| `storage` | Holding the handful of pending time records that the workspace has not yet taken in, and caching the answer to the sign-in check so a New Tab need not ask on every open and still knows what to show you offline. |
 
-**No host permissions are requested and no content scripts are used.** The extension
-has no access to the contents of any web page, and cannot obtain it without asking
-you for a new permission that Chrome would show you.
+| `host_permissions` for `chestha.vercel.app` | The sign-in check described in §2. Chrome only sends your session cookie on a request an extension makes to another origin when the extension holds host access to it, so this permission is what makes the check possible at all — without it every user would appear signed out. It names our own site and nothing else. |
+
+**No content scripts are used, and no other site is covered.** The extension has no
+access to the contents of any web page, including ours, and cannot obtain it without
+asking you for a new permission that Chrome would show you.
 
 ### Storage is separate
 

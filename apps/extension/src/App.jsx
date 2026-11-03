@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { todayISO } from '@chestha/core';
+import { effectiveSection, isSectionAllowed, todayISO } from '@chestha/core';
 import { useShortcutDispatch } from './app/useShortcutDispatch.js';
+import { useSession } from './app/useSession.js';
 import { useGroveDrain } from './grove/useGroveDrain.js';
 import { useGroveMaintenance } from './grove/useGroveMaintenance.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
@@ -8,6 +9,7 @@ import { useHashRoute } from './app/useHashRoute.js';
 import { useEmbedReady } from './app/useEmbedReady.js';
 import { Shell } from './components/Shell.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
+import { SignInGate } from './components/SignInGate.jsx';
 import { QuickCapture } from './components/QuickCapture.jsx';
 import { TaskEditor } from './components/TaskEditor.jsx';
 import { Dashboard } from './sections/Dashboard.jsx';
@@ -41,6 +43,7 @@ export default function App() {
 function Workspace() {
   const { state, status, actions, today } = useWorkspace();
   const [route, navigate] = useHashRoute();
+  const { session, recheck } = useSession();
 
   // When this document is the landing page's preview iframe, tell the parent
   // once the workspace is painted, so its placeholder does not vanish early.
@@ -55,6 +58,14 @@ function Workspace() {
 
   const { section, param } = route;
   const startMode = state.settings.startMode ?? 'board';
+
+  // The start screen is one route with two modes, and only one of them needs an
+  // account, so what is gated is the mode rather than the section — that
+  // resolution lives in `effectiveSection`, not here. `isSectionAllowed` fails
+  // open on an unknown session, which is what keeps a fresh offline install
+  // usable; see `packages/core/src/account/gating.js`.
+  const gatedAs = effectiveSection(section, startMode);
+  const allowed = isSectionAllowed(gatedAs, session.state);
 
   // A section can carry a parameter, which is what the extension deep-links to.
   useEffect(() => {
@@ -129,7 +140,7 @@ function Workspace() {
       id: 'open-website',
       label: 'Open Chestha website',
       group: 'Navigate',
-      keywords: 'home marketing landing chestha.vercel.app site',
+      keywords: 'home marketing landing site blog posts account',
       run: () => window.open(SITE_URL, '_blank', 'noopener,noreferrer'),
     },
     ...(!isExtensionRuntime() ? [{
@@ -198,45 +209,54 @@ function Workspace() {
         onPalette={openPalette}
         onOpenTask={openTask}
       >
-        {section === 'dashboard' && (
-          startMode === 'read'
-            ? <Reading />
-            : <Dashboard onOpenTask={openTask} onCapture={openCapture} onNavigate={go} />
+        {/* One branch for every gated section, above the router: a section that
+            needs an account must not be able to render half of itself, mount a
+            fetch, or write to a store it is not entitled to. */}
+        {!allowed ? (
+          <SignInGate section={gatedAs} onRecheck={recheck} onNavigate={go} />
+        ) : (
+          <>
+          {section === 'dashboard' && (
+            startMode === 'read'
+              ? <Reading />
+              : <Dashboard onOpenTask={openTask} onCapture={openCapture} onNavigate={go} />
+          )}
+          {section === 'tasks' && (
+            <Tasks
+              view={taskView}
+              onChangeView={(view) => { setTaskView(view); navigate('tasks', view); }}
+              onOpenTask={openTask}
+              onCapture={openCapture}
+            />
+          )}
+          {section === 'calendar' && (
+            <Calendar
+              selected={calendarDay ?? today}
+              onSelect={setCalendarDay}
+              onOpenTask={openTask}
+              onCreateOn={createOn}
+              onNavigate={go}
+            />
+          )}
+          {section === 'dsa' && (
+            <DsaSection
+              tab={dsaTab}
+              onChangeTab={(next) => { setDsaTab(next); navigate('dsa', next); }}
+            />
+          )}
+          {section === 'grove' && (
+            <GroveSection
+              tab={groveTab}
+              onChangeTab={(next) => { setGroveTab(next); navigate('grove', next); }}
+              onNavigate={go}
+            />
+          )}
+          {section === 'websites' && <Websites />}
+          {section === 'sounds' && <Sounds />}
+          {section === 'settings' && <Settings />}
+          {section === 'changelog' && <Changelog />}
+          </>
         )}
-        {section === 'tasks' && (
-          <Tasks
-            view={taskView}
-            onChangeView={(view) => { setTaskView(view); navigate('tasks', view); }}
-            onOpenTask={openTask}
-            onCapture={openCapture}
-          />
-        )}
-        {section === 'calendar' && (
-          <Calendar
-            selected={calendarDay ?? today}
-            onSelect={setCalendarDay}
-            onOpenTask={openTask}
-            onCreateOn={createOn}
-            onNavigate={go}
-          />
-        )}
-        {section === 'dsa' && (
-          <DsaSection
-            tab={dsaTab}
-            onChangeTab={(next) => { setDsaTab(next); navigate('dsa', next); }}
-          />
-        )}
-        {section === 'grove' && (
-          <GroveSection
-            tab={groveTab}
-            onChangeTab={(next) => { setGroveTab(next); navigate('grove', next); }}
-            onNavigate={go}
-          />
-        )}
-        {section === 'websites' && <Websites />}
-        {section === 'sounds' && <Sounds />}
-        {section === 'settings' && <Settings />}
-        {section === 'changelog' && <Changelog />}
       </Shell>
 
       <CommandPalette

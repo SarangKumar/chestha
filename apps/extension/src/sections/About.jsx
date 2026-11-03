@@ -37,8 +37,8 @@ export function About({ onNavigate }) {
 
           <dt className="text-meta font-medium text-ink-muted">Where data lives</dt>
           <dd className="text-sm text-ink">
-            In this browser, on this device, in IndexedDB. There is no account and no server to
-            sync to, so an export file is the only copy that survives clearing your browser data.
+            In this browser, on this device, in IndexedDB — including when you are signed in.
+            An export file is the only copy that survives clearing your browser data.
           </dd>
         </dl>
       </Panel>
@@ -48,11 +48,20 @@ export function About({ onNavigate }) {
           <Icon name="lock" className="size-4 text-ink-muted" /> Privacy
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-          No account, no analytics, no telemetry, no crash reporting. Nothing about how you use
-          the app is recorded anywhere but your own browser.
+          No analytics, no telemetry, no crash reporting. Nothing about how you use the app is
+          recorded anywhere but your own browser.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-          Three things can reach the internet, and only once you ask them to. The{' '}
+          One request is not optional: because most sections need an account, a New Tab asks{' '}
+          <code className="font-mono text-xs">chestha.vercel.app</code> whether you are signed
+          in. It sends your Chestha session cookie and nothing else, and the answer is your
+          username and nothing else — so it identifies you to your own account, on our own
+          site, and to nobody else. It is cached for ten minutes, which is why opening ten tabs
+          is one request and why the workspace still knows what to show you offline. Your widget
+          board does not need it and works signed out.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+          Three further things can reach the internet, and only once you ask them to. The{' '}
           <strong className="font-medium text-ink">GitHub activity</strong> widget reads public
           activity from <code className="font-mono text-xs">api.github.com</code> after you enter
           a username. The <strong className="font-medium text-ink">Weather</strong> widget reads a

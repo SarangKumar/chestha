@@ -16,7 +16,7 @@ Keep this narrow. Do not describe advertising, content scraping, or general brow
 ## Permission justifications
 
 Manifest permissions: `tabs`, `idle`, `alarms`, `storage`.
-**No host permissions. No content scripts.**
+Host permission: **`https://chestha.vercel.app/*` only.** **No content scripts.**
 
 ### `tabs`
 
@@ -37,7 +37,13 @@ Wakes the extension periodically (about once a minute) to close off counted time
 
 ### `storage`
 
-Holds a small amount of pending time records until the workspace UI takes them in (plus normal extension storage needs for that feature). Workspace content (tasks, notes, DSA, etc.) lives in the extension page’s IndexedDB on the `chrome-extension://` origin.
+Holds a small amount of pending time records until the workspace UI takes them in, and caches the answer to the sign-in check below so a New Tab does not have to ask on every open and still knows which sections to show when offline. Workspace content (tasks, notes, DSA, etc.) lives in the extension page’s IndexedDB on the `chrome-extension://` origin.
+
+### `host_permissions`: `https://chestha.vercel.app/*`
+
+Used for exactly one request: asking our own website whether the user is signed in, so the sections that require an account can be shown or gated. The permission is necessary rather than convenient — Chromium only sends the session cookie on a cross-origin request from an extension when the extension holds host access to that origin, so without it the check cannot work at all and every user would appear signed out.
+
+The pattern names one origin, our own. It grants no access to any other site, and it is not used to read, modify, or observe page content anywhere.
 
 ---
 
@@ -53,7 +59,9 @@ The extension does not execute remote code. UI and logic ship inside the package
 
 ### What the developer collects
 
-**Essentially none.** There is no Chestha backend, no account, no analytics, no telemetry, no crash reporter, and no advertising SDK. The publisher does not receive tasks, notes, calendar data, DSA history, or website-time records.
+**Authentication only.** There is no analytics, no telemetry, no crash reporter, and no advertising SDK. The publisher does not receive tasks, notes, calendar data, DSA history, or website-time records — none of that leaves the device.
+
+What the publisher does receive is the sign-in check: because most sections of the workspace require an account, the extension asks our own server whether the person using it is signed in, which necessarily identifies them to their own account. That is a single request to `chestha.vercel.app`, carrying the Chestha session cookie and nothing else. For store-disclosure purposes this is **authentication information**, and it is used only to decide which sections to show — never sold, never shared with a third party, and not used for tracking across sites.
 
 ### What stays on the device
 
@@ -76,6 +84,7 @@ Not “collection by the developer,” but disclose honestly:
 | Weather widget | After user sets a place | Place coordinates / geocode + forecast requests | `open-meteo.com` (and its geocoding as used by the app) |
 | Shortcut icons | Only if user turns icons on | Browser requests each saved site’s icon | Those sites |
 | Reading mode | Only after the user switches the start screen to **Read** | A request for the public list of published posts. No account, no cookie, nothing identifying the reader | `chestha.vercel.app` |
+| Sign-in check | On New Tab open, when the last answer is over 10 minutes old | A request carrying the user's own Chestha session cookie, answered with whether they are signed in and their username. **This one does identify the user** — to their own account, on our own site | `chestha.vercel.app` |
 | Opening a question / search / shortcut | User clicks | Normal navigation in a new tab | Third-party site (their terms apply) |
 
 Built-in ambient sound is bundled audio played from the extension itself — no network request. The packing step strips the author's own wallpaper and any extra audio they added, but always ships the twelve-sound library.
@@ -119,7 +128,7 @@ Last updated: [DATE ON PUBLICATION]
 1. Overview
 Chestha is a local-first personal productivity browser extension and web app. It replaces (or can be opened as) a New Tab workspace for tasks, calendar, ambient sound, dashboard widgets, and DSA practice tracking.
 
-The workspace needs no account and keeps your data on your device. Separately, the Chestha website hosts an optional community side — accounts and published posts — which does run on a server. The two are distinct: signing up for the website does not move your workspace off your device, and the extension never asks you to sign in.
+Your data is kept on your device. The **dashboard widget board** and **Settings** work with no account at all. The other sections — tasks, calendar, DSA practice, the Grove, productive time, Sounds, and Read mode — require a free Chestha account, and the extension checks with `chestha.vercel.app` whether you are signed in so it knows which to show. Signing in does not move your workspace off your device: it is still stored locally, and signing up for the website does not upload it.
 
 2. Data we collect
 We do not collect your workspace data. We do not use analytics, advertising, crash reporting, or usage telemetry in the application.
@@ -128,13 +137,14 @@ We do not collect your workspace data. We do not use analytics, advertising, cra
 Content you create (tasks, notes, layouts, settings, DSA progress, optional Grove and website-time records) is stored locally by your browser for this extension/site origin. We cannot access, recover, or restore it. Clearing browser data, using a private window, or removing the extension can delete it. Export regularly if you need a backup.
 
 4. Optional website time
-If you enable website-time rules for Grove XP, the extension may record domain, local date, and seconds for sites you configure, only while those tabs are active and you are not idle. This data stays on your device and is not transmitted to us. Full URLs, paths, queries, titles, and page contents are not stored. The extension does not inject scripts into web pages and does not request host permissions.
+If you enable website-time rules for Grove XP, the extension may record domain, local date, and seconds for sites you configure, only while those tabs are active and you are not idle. This data stays on your device and is not transmitted to us. Full URLs, paths, queries, titles, and page contents are not stored. The extension does not inject scripts into web pages, and its one host permission covers only `chestha.vercel.app` — it has no access to any other site.
 
 5. Optional network features
 - GitHub widget: after you enter a username, your browser may request public data from GitHub’s API.
 - Weather widget: after you set a location, your browser may request forecast/geocode data from Open-Meteo.
 - Shortcut icons: off by default; if enabled, your browser may fetch icons from sites you saved.
 - Reading mode: the start screen shows your widgets by default. If you switch it to Read, your browser requests the public list of published posts from chestha.vercel.app. The request carries no account and no cookie, so we cannot tell who asked. Switch back to the board and the requests stop.
+- Sign-in check: because most sections need an account, a New Tab asks chestha.vercel.app whether you are signed in. It sends your Chestha session cookie and nothing else, and the answer is your username and nothing else. It is cached for 10 minutes, so opening many tabs is one request, and the cached answer is what the extension uses when you are offline. This request goes only to our own site and identifies you only to your own account.
 - Links you open (searches, DSA problems, shortcuts) navigate to third-party sites under their own policies.
 
 6. Permissions (Chrome extension)
@@ -142,7 +152,7 @@ tabs — focus an existing workspace tab; read the active tab’s address for op
 idle — pause timing when you are away.
 alarms — periodically finalize counted time.
 storage — hold small pending timing records for the workspace.
-No host permissions. No content scripts. No remote code.
+One host permission: chestha.vercel.app, used solely for the sign-in check above. No content scripts. No remote code.
 
 7. Children
 Chestha is not directed at children under 13. Do not use it to store sensitive data about minors.

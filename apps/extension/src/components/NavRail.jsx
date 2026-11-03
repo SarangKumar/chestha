@@ -1,11 +1,15 @@
+import { lockedSections } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
+import { useSession } from '../app/useSession.js';
 import { SITE_URL } from '../siteLinks.js';
 import { isExtensionRuntime } from '../app/platform.js';
 import { Icon } from './icons.jsx';
+import { ProfileMenu } from './ProfileMenu.jsx';
 import { cx } from './ui.jsx';
 
-// Primary destinations sit at the top; Settings is pinned to the bottom of the
-// rail. The mobile bar keeps everything in one row, where there is no "bottom".
+// Primary destinations sit at the top. On the rail, the bottom slot is the
+// account menu, which holds Settings; the mobile bar has no "bottom" and no
+// room for a popover, so there Settings stays a tab of its own.
 const PRIMARY = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
@@ -18,22 +22,38 @@ const PRIMARY = [
 
 const SETTINGS = { id: 'settings', label: 'Settings', icon: 'settings' };
 
-/** A rail on wide screens, a bottom bar on phones. The same items either way. */
-function RailButton({ item, section, onNavigate }) {
+/**
+ * A rail on wide screens, a bottom bar on phones. The same items either way.
+ *
+ * A locked item still navigates. The gate is a page with an explanation and a
+ * way through it, so letting someone reach it is more useful than a dead
+ * control that gives no reason — and the padlock already sets the expectation
+ * before they click. The lock is in the accessible name too, because a 10px
+ * glyph in the corner of an icon is not a signal everyone gets.
+ */
+function RailButton({ item, section, locked, onNavigate }) {
   const active = section === item.id;
   return (
     <button
       type="button"
       onClick={() => onNavigate(item.id)}
       aria-current={active ? 'page' : undefined}
-      title={item.label}
+      title={locked ? `${item.label} — needs an account` : item.label}
       className={cx(
         'group relative flex size-10 shrink-0 items-center justify-center rounded-card transition-colors duration-150',
         active ? 'bg-accent-soft text-ink' : 'text-ink-faint hover:bg-hover hover:text-ink',
       )}
     >
       <Icon name={item.icon} />
-      <span className="sr-only">{item.label}</span>
+      <span className="sr-only">{locked ? `${item.label} — needs an account` : item.label}</span>
+      {locked && (
+        <span
+          aria-hidden="true"
+          className="absolute right-0.5 bottom-0.5 flex size-3.5 items-center justify-center rounded-full bg-canvas text-ink-faint"
+        >
+          <Icon name="lock" className="size-2.5" />
+        </span>
+      )}
       {active && <span className="absolute -left-px h-5 w-0.5 rounded-full bg-accent" aria-hidden="true" />}
     </button>
   );
@@ -41,7 +61,11 @@ function RailButton({ item, section, onNavigate }) {
 
 export function NavRail({ section, onNavigate, onCapture }) {
   const { state } = useWorkspace();
+  const { session } = useSession();
   const hidden = state.settings.hiddenSections ?? [];
+  // Empty unless we positively know there is no account, so the rail never
+  // sprouts padlocks because someone opened a New Tab offline.
+  const locked = lockedSections(session.state);
 
   // The section you are currently looking at always shows, even if hidden: the
   // alternative is a rail with no current item while its page fills the screen,
@@ -84,13 +108,19 @@ export function NavRail({ section, onNavigate, onCapture }) {
         </button>
 
         {primary.map((item) => (
-          <RailButton key={item.id} item={item} section={section} onNavigate={onNavigate} />
+          <RailButton
+            key={item.id}
+            item={item}
+            section={section}
+            locked={locked.includes(item.id)}
+            onNavigate={onNavigate}
+          />
         ))}
 
-        {/* mt-auto pins Settings to the bottom; overflow keeps it reachable on
-            short viewports instead of pushing it off-screen. */}
+        {/* mt-auto pins the account menu to the bottom; overflow keeps it
+            reachable on short viewports instead of pushing it off-screen. */}
         <div className="mt-auto flex flex-col items-center gap-1 pt-3">
-          <RailButton item={SETTINGS} section={section} onNavigate={onNavigate} />
+          <ProfileMenu section={section} onNavigate={onNavigate} />
         </div>
       </nav>
 
@@ -109,8 +139,21 @@ export function NavRail({ section, onNavigate, onCapture }) {
               section === item.id ? 'text-ink' : 'text-ink-faint',
             )}
           >
-            <Icon name={item.icon} className="size-5" />
+            <span className="relative">
+              <Icon name={item.icon} className="size-5" />
+              {locked.includes(item.id) && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-1 -bottom-0.5 flex size-3 items-center justify-center rounded-full bg-canvas text-ink-faint"
+                >
+                  <Icon name="lock" className="size-2" />
+                </span>
+              )}
+            </span>
+            {/* The visible label stays short — "Productive time · locked" wraps
+                badly in a 10px cell — so the lock is spoken, not written. */}
             {item.label}
+            {locked.includes(item.id) && <span className="sr-only"> — needs an account</span>}
           </button>
         ))}
       </nav>

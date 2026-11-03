@@ -152,6 +152,38 @@ export function validatePassword(password, context = {}) {
 }
 
 /**
+ * Does the confirmation box match the password?
+ *
+ * Separate from `validatePassword` because it is a different kind of rule: the
+ * password itself is either acceptable or not, while this compares two inputs
+ * and belongs to the form that has two. A caller that has only one password —
+ * an OAuth sign-up, a future password reset done by token — must not pretend
+ * to pass it.
+ *
+ * Nothing is trimmed. Leading and trailing spaces are part of a password, so
+ * trimming here would accept a pair the hash will later treat as different.
+ *
+ * Unicode *is* normalised, with **NFKC — the same form `hashPassword` in
+ * `@chestha/db` applies**, and that match is the point rather than a detail.
+ * Comparing raw strings, or normalising to a different form, would refuse a
+ * pair that the KDF then considers identical: the user would be told the
+ * passwords differ when the account they create would accept either. If that
+ * normalisation ever changes, this changes with it.
+ *
+ * @returns {{ ok: boolean, reason: string | null }}
+ */
+export function validatePasswordConfirmation(password, confirmation) {
+  if (typeof confirmation !== 'string' || !confirmation) {
+    return { ok: false, reason: 'Type your password again to confirm it.' };
+  }
+  const typed = typeof password === 'string' ? password.normalize('NFKC') : '';
+  if (typed !== confirmation.normalize('NFKC')) {
+    return { ok: false, reason: 'Those passwords do not match.' };
+  }
+  return { ok: true, reason: null };
+}
+
+/**
  * Advisory 0–4 score for a strength meter. Never gates submission —
  * `validatePassword` is the only thing that accepts or refuses.
  */
