@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SESSION_IN, SESSION_OUT, signInUrl, signUpUrl } from '@chestha/core';
 import { SITE_URL } from '../siteLinks.js';
 import { useSession } from '../app/useSession.js';
@@ -30,7 +31,9 @@ import { cx } from './ui.jsx';
 export function ProfileMenu({ section, onNavigate }) {
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState(null);
   const { session, recheck, forget } = useSession();
 
   const active = section === 'settings';
@@ -42,10 +45,38 @@ export function ProfileMenu({ section, onNavigate }) {
   // named.
   const named = signedIn && session.handle && session.handleChosen;
 
+  /**
+   * Anchor the menu to the trigger, in viewport coordinates.
+   *
+   * The menu is rendered through a portal rather than beside the button, because
+   * the rail is a `w-16` scroll container: `overflow-y-auto` forces `overflow-x`
+   * to compute to `auto` rather than `visible`, so anything positioned at
+   * `left-full` is outside the 64px box and gets clipped. No z-index fixes that
+   * — a clip is not a stacking question — so the menu has to leave the rail's
+   * subtree entirely, which means positioning it by hand.
+   */
+  const place = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Bottom-aligned with the trigger and opening to its right, which is where
+    // it opened before. Clamped so a short viewport cannot push it off-screen.
+    const bottom = Math.max(8, window.innerHeight - rect.bottom);
+    setAnchor({ left: Math.round(rect.right + 8), bottom: Math.round(bottom) });
+  }, []);
+
+  // Layout effect, so the menu is never painted at the wrong place first.
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e) => {
-      if (!rootRef.current?.contains(e.target)) setOpen(false);
+      // Two subtrees now: the trigger in the rail, and the menu under <body>.
+      // Checking only the former would dismiss the menu on its own clicks.
+      if (rootRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -56,11 +87,17 @@ export function ProfileMenu({ section, onNavigate }) {
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', place);
+    // Capture, because the rail scrolls independently of the page and a
+    // scroll event on it does not bubble to the window.
+    window.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
     };
-  }, [open]);
+  }, [open, place]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -92,13 +129,16 @@ export function ProfileMenu({ section, onNavigate }) {
         {active && <span className="absolute -left-px h-5 w-0.5 rounded-full bg-accent" aria-hidden="true" />}
       </button>
 
-      {open && (
-        // Anchored to the rail's bottom corner and opening to the right, so it
-        // never runs off the bottom of a short viewport.
+      {open && anchor && createPortal(
+        // Under <body>, so the rail's overflow clip and stacking context are
+        // both out of the picture. z-50 matches the dialogs: this is an overlay,
+        // and the only thing entitled to cover it is a modal.
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Account and settings"
-          className="absolute bottom-0 left-full z-40 ml-2 w-60 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          style={{ left: anchor.left, bottom: anchor.bottom }}
+          className="fixed z-50 w-60 overflow-hidden rounded-card border border-line bg-surface shadow-overlay"
         >
           <p className="border-b border-line px-3 py-2.5 text-meta text-ink-faint">
             {signedIn && named
@@ -171,7 +211,8 @@ export function ProfileMenu({ section, onNavigate }) {
               Settings
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

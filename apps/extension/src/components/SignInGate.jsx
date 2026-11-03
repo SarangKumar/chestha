@@ -20,7 +20,7 @@ import { Icon } from './icons.jsx';
  *    signs in on another tab, so this offers the recheck explicitly rather than
  *    leaving them to guess that reopening the tab is the fix.
  */
-export function SignInGate({ section, onRecheck, onNavigate }) {
+export function SignInGate({ section, onRecheck, onBack }) {
   const copy = describeGate(section);
   // In the extension the website is a different tab; on the website build it is
   // the same one. Same rule as every other outbound link in the app.
@@ -78,7 +78,7 @@ export function SignInGate({ section, onRecheck, onNavigate }) {
         device stays on it.{' '}
         <button
           type="button"
-          onClick={() => onNavigate('dashboard')}
+          onClick={onBack}
           className="text-ink-muted underline underline-offset-4 transition-colors duration-150 hover:text-ink"
         >
           Back to the board

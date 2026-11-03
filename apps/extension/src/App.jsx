@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { effectiveSection, isSectionAllowed, todayISO } from '@chestha/core';
+import { READING_SECTION, effectiveSection, isSectionAllowed, todayISO } from '@chestha/core';
 import { useShortcutDispatch } from './app/useShortcutDispatch.js';
 import { useSession } from './app/useSession.js';
 import { useGroveDrain } from './grove/useGroveDrain.js';
@@ -86,6 +86,19 @@ function Workspace() {
 
   const go = useCallback((target, targetParam) => navigate(target, targetParam), [navigate]);
 
+  /**
+   * The way out of a gate.
+   *
+   * Read mode is a persisted setting, not a route, so navigating to the start
+   * screen while `startMode` is still `read` lands straight back on the gate.
+   * Leaving the reading gate therefore has to put the setting back as well —
+   * otherwise the only escape is Settings, which is not where anyone would look.
+   */
+  const leaveGate = useCallback(() => {
+    if (gatedAs === READING_SECTION) actions.setSetting('startMode', 'board');
+    go('dashboard');
+  }, [gatedAs, actions, go]);
+
   const commands = useMemo(() => [
     { id: 'new-task', label: 'New task', group: 'Actions', shortcut: 'N', keywords: 'add create capture', run: openCapture },
     { id: 'go-dashboard', label: 'Go to dashboard', group: 'Navigate', shortcut: 'G D', run: () => go('dashboard') },
@@ -94,24 +107,28 @@ function Workspace() {
       label: startMode === 'read' ? 'Show the widget board' : 'Show reading on the start screen',
       group: 'Preferences',
       keywords: 'read feed posts blog board widgets dashboard start screen new tab',
+      // Only gated in the direction that turns Read *on*: switching back to the
+      // board must stay available, or someone left on Read while signed out has
+      // no way off the gate from here.
+      requires: startMode === 'read' ? null : READING_SECTION,
       run: () => {
         actions.setSetting('startMode', startMode === 'read' ? 'board' : 'read');
         go('dashboard');
       },
     },
-    { id: 'go-tasks', label: 'Go to tasks', group: 'Navigate', shortcut: 'G T', run: () => go('tasks', 'today') },
-    { id: 'go-upcoming', label: 'Go to upcoming tasks', group: 'Navigate', keywords: 'soon', run: () => go('tasks', 'upcoming') },
-    { id: 'go-overdue', label: 'Go to overdue tasks', group: 'Navigate', keywords: 'late', run: () => go('tasks', 'overdue') },
-    { id: 'go-nodate', label: 'Go to undated tasks', group: 'Navigate', keywords: 'no due date', run: () => go('tasks', 'nodate') },
-    { id: 'go-completed', label: 'Go to completed tasks', group: 'Navigate', keywords: 'done', run: () => go('tasks', 'completed') },
-    { id: 'go-calendar', label: 'Go to calendar', group: 'Navigate', shortcut: 'G C', run: () => go('calendar', todayISO()) },
-    { id: 'go-dsa', label: 'Go to DSA', group: 'Navigate', keywords: 'algorithms leetcode practice', run: () => go('dsa', 'home') },
-    { id: 'go-dsa-library', label: 'Go to the question library', group: 'Navigate', keywords: 'dsa questions', run: () => go('dsa', 'library') },
-    { id: 'go-grove', label: 'Go to the Grove', group: 'Navigate', keywords: 'focus timer plant garden xp', run: () => go('grove') },
-    { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', run: () => { actions.startFocusSession(); go('grove'); } },
-    { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', run: () => actions.endFocusSession() },
-    { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', run: () => go('sounds') },
-    { id: 'go-websites', label: 'Go to productive time', group: 'Navigate', keywords: 'time tracking sites domains websites', shortcut: 'G W', run: () => go('websites') },
+    { id: 'go-tasks', label: 'Go to tasks', group: 'Navigate', shortcut: 'G T', requires: 'tasks', run: () => go('tasks', 'today') },
+    { id: 'go-upcoming', label: 'Go to upcoming tasks', group: 'Navigate', keywords: 'soon', requires: 'tasks', run: () => go('tasks', 'upcoming') },
+    { id: 'go-overdue', label: 'Go to overdue tasks', group: 'Navigate', keywords: 'late', requires: 'tasks', run: () => go('tasks', 'overdue') },
+    { id: 'go-nodate', label: 'Go to undated tasks', group: 'Navigate', keywords: 'no due date', requires: 'tasks', run: () => go('tasks', 'nodate') },
+    { id: 'go-completed', label: 'Go to completed tasks', group: 'Navigate', keywords: 'done', requires: 'tasks', run: () => go('tasks', 'completed') },
+    { id: 'go-calendar', label: 'Go to calendar', group: 'Navigate', shortcut: 'G C', requires: 'calendar', run: () => go('calendar', todayISO()) },
+    { id: 'go-dsa', label: 'Go to DSA', group: 'Navigate', keywords: 'algorithms leetcode practice', requires: 'dsa', run: () => go('dsa', 'home') },
+    { id: 'go-dsa-library', label: 'Go to the question library', group: 'Navigate', keywords: 'dsa questions', requires: 'dsa', run: () => go('dsa', 'library') },
+    { id: 'go-grove', label: 'Go to the Grove', group: 'Navigate', keywords: 'focus timer plant garden xp', requires: 'grove', run: () => go('grove') },
+    { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', requires: 'grove', run: () => { actions.startFocusSession(); go('grove'); } },
+    { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', requires: 'grove', run: () => actions.endFocusSession() },
+    { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', requires: 'sounds', run: () => go('sounds') },
+    { id: 'go-websites', label: 'Go to productive time', group: 'Navigate', keywords: 'time tracking sites domains websites', shortcut: 'G W', requires: 'websites', run: () => go('websites') },
     { id: 'go-settings', label: 'Go to settings', group: 'Navigate', shortcut: 'G S', run: () => go('settings') },
     {
       id: 'toggle-theme',
@@ -156,7 +173,22 @@ function Workspace() {
       keywords: 'map sitemap widgets sections whats in documentation help',
       run: () => go('guide'),
     }] : []),
-  ], [state.settings, actions, go, openCapture]);
+  ], [state.settings, actions, go, openCapture, startMode]);
+
+  /**
+   * The palette lists only what the account can reach.
+   *
+   * A command is dropped rather than shown-and-disabled: the palette is a search
+   * box, and a result that cannot run is worse than no result. `requires` names
+   * the section each one needs, so this filter and the nav rail read the same
+   * policy table and cannot disagree. Commands with no `requires` are always
+   * listed, and `isSectionAllowed` fails open, so an unknown session sees the
+   * full palette.
+   */
+  const availableCommands = useMemo(
+    () => commands.filter((command) => isSectionAllowed(command.requires ?? null, session.state)),
+    [commands, session.state],
+  );
 
   useGroveDrain();
   useGroveMaintenance();
@@ -213,7 +245,7 @@ function Workspace() {
             needs an account must not be able to render half of itself, mount a
             fetch, or write to a store it is not entitled to. */}
         {!allowed ? (
-          <SignInGate section={gatedAs} onRecheck={recheck} onNavigate={go} />
+          <SignInGate section={gatedAs} onRecheck={recheck} onBack={leaveGate} />
         ) : (
           <>
           {section === 'dashboard' && (
@@ -262,7 +294,7 @@ function Workspace() {
       <CommandPalette
         open={overlay === 'palette'}
         onClose={closeOverlay}
-        commands={commands}
+        commands={availableCommands}
         onOpenTask={openTask}
       />
       <QuickCapture open={overlay === 'capture'} onClose={closeOverlay} />

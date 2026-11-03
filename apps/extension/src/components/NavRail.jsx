@@ -63,14 +63,22 @@ export function NavRail({ section, onNavigate, onCapture }) {
   const { state } = useWorkspace();
   const { session } = useSession();
   const hidden = state.settings.hiddenSections ?? [];
-  // Empty unless we positively know there is no account, so the rail never
-  // sprouts padlocks because someone opened a New Tab offline.
+  // Empty unless we positively know there is no account, so an offline New Tab
+  // shows the full rail rather than hiding most of the product. Same fail-open
+  // rule as the gate itself.
   const locked = lockedSections(session.state);
 
-  // The section you are currently looking at always shows, even if hidden: the
-  // alternative is a rail with no current item while its page fills the screen,
-  // which reads as a bug. Arriving by palette or link is the normal way in.
-  const primary = PRIMARY.filter((item) => !hidden.includes(item.id) || item.id === section);
+  // A section needing an account is not advertised until there is one: signed
+  // out, the rail is the board and Settings. The padlock remains for the one
+  // case a locked item can still appear — the section you are looking at.
+  //
+  // The section you are currently looking at always shows, even if hidden or
+  // locked: the alternative is a rail with no current item while its page fills
+  // the screen, which reads as a bug. Arriving by palette or link is the normal
+  // way in, and a deep link to a gated section lands on the gate.
+  const primary = PRIMARY.filter(
+    (item) => item.id === section || !(hidden.includes(item.id) || locked.includes(item.id)),
+  );
   const items = [...primary, SETTINGS];
   const siteTarget = isExtensionRuntime() ? '_blank' : '_self';
 

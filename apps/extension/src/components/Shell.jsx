@@ -1,5 +1,6 @@
-import { formatLongDate } from '@chestha/core';
+import { READING_SECTION, formatLongDate, isSectionAllowed } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
+import { useSession } from '../app/useSession.js';
 import { NavRail } from './NavRail.jsx';
 import { RightSidebar } from './RightSidebar.jsx';
 import { Notices, ExportReminder } from './Notices.jsx';
@@ -31,8 +32,20 @@ const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
   const embed = isEmbedPreview();
   const { state, today, actions } = useWorkspace();
+  const { session } = useSession();
   const sidebarOpen = state.settings.sidebarOpen;
   const startMode = state.settings.startMode ?? 'board';
+
+  /**
+   * Read mode needs an account, so the control that turns it on is not offered
+   * without one — the same reason the rail hides gated sections.
+   *
+   * The second clause is an escape hatch, not a loophole: someone who was on
+   * Read and then signed out is looking at the gate, and the toggle is the
+   * obvious way back to their board. Hiding it there would leave the header with
+   * no way out of a page they did not choose.
+   */
+  const showStartMode = isSectionAllowed(READING_SECTION, session.state) || startMode === 'read';
 
   const background = state.settings.background ?? { kind: 'none', image: '', dim: 0.45 };
 
@@ -86,7 +99,7 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
 
             {/* Only the start screen has two modes, so the control appears only
                 there rather than sitting inert on every other page. */}
-            {section === 'dashboard' && (
+            {section === 'dashboard' && showStartMode && (
               <StartModeToggle
                 mode={startMode}
                 onChange={(next) => actions.setSetting('startMode', next)}

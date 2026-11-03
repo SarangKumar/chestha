@@ -30,8 +30,19 @@ not updated yet — it is user-facing, and these are not released.
   page with host access (a service worker has no initiator frame and would see no
   cookie at all), and every failure path must coerce to `unknown` rather than to
   signed-out.
-- Padlocks on gated items in the nav rail, spoken as well as drawn, and only when
-  the session is positively known to be absent.
+- Signed out, the nav rail, the command palette and the Board / Read toggle show
+  only what an account can reach: gated sections are **not listed**, rather than
+  listed and locked. Three things keep that from becoming a trap. The section
+  you are currently on is always listed even when gated, so a deep link never
+  leaves the rail with no current item, and it keeps its padlock. Palette entries
+  are dropped rather than disabled, because a search result that cannot run is
+  worse than no result — each command declares the section it `requires`, so the
+  palette and the rail read the same table. And the toggle that turns Read mode
+  *on* is hidden while the toggle back to the board is not, so nobody is stranded
+  on the reading gate.
+- Leaving the reading gate clears `startMode`. Read mode is a persisted setting
+  rather than a route, so navigating to the start screen without resetting it
+  lands straight back on the gate.
 - Start screen has two modes. A Board / Read switch in the shell header chooses
   between the widget board and a reading feed; the choice persists locally in
   `settings.startMode` and the board stays the default. `#/dashboard` honours the

@@ -39,6 +39,14 @@ stale.
      known answer did.
    - **The gate is a page, not a redirect.** The rail, header and open sections
      stay reachable. Nothing bounces the user to the website.
+
+   Signed out, gated sections are **not listed** in the rail or the palette, so
+   the product does not advertise what it will refuse. The gate still exists
+   because `#/calendar`, a keyboard shortcut and a stale bookmark all still
+   reach it. One exception keeps that honest: the section you are *currently*
+   on is always listed, gated or not, so arriving by link never leaves the rail
+   without a current item. Palette commands declare `requires`, which is how
+   that filter and the rail stay on one table.
 3. **Ask before adding a runtime dependency.** The list is no longer "React and
    nothing else", but it is still short and deliberate: React, Next, NextAuth and
    the Prisma client. Password hashing uses `node:crypto` scrypt rather than
@@ -410,7 +418,8 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   state to everyone. The surface is finished; the content pipeline is not.
 - **Sign-in gating (v0.2.1).** Shipped: the policy table and its 21 tests, the
   `/api/session` endpoint, the cached session reader, the gate page, nav-rail
-  padlocks, the session-aware account menu, the injected host permission, and
+  hiding of gated sections, the session-aware account menu, the injected host
+  permission, and
   every privacy document restated. The free surfaces are the widget board and
   Settings; everything else is gated.
 
@@ -433,7 +442,9 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   browser or against a real MongoDB.** In particular: the SameSite exemption
   that the whole mechanism rests on is confirmed only from Chromium's test
   suite, not observed here; `/api/session` has never answered a real request;
-  and no gate, padlock or account menu has been rendered. Loading the unpacked
+  and no gate, rail or account menu has been rendered — including the account
+  popover, which was moved into a portal to escape the rail's overflow clip and
+  whose hand-computed position has not been seen on screen. Loading the unpacked
   extension against a running website with a `DATABASE_URL` is the first real
   check, and the thing to watch is whether the session cookie actually arrives.
 - **Verification status for pass 1.** `npm test`, `npm run build` and

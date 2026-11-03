@@ -104,7 +104,7 @@ export const GUIDE_PAGES = [
 
 export const GUIDE_NOTES = [
   'The top-left Chestha mark in the app rail opens the website; a development build points at localhost instead.',
-  'The account icon at the foot of the rail holds Settings, names the account you are signed in as, and links out to the website to sign in or create one. The widget board and Settings work signed out; the other sections ask for an account, and show a padlock on the rail when they do.',
+  'The account icon at the foot of the rail holds Settings, names the account you are signed in as, and links out to the website to sign in or create one. Signed out, the rail is your widget board and Settings; the other sections appear once you sign in.',
   'Website and extension keep separate IndexedDB stores (different origins); use Export / Import to move data.',
   'The Weather and GitHub widgets and Read mode are the only surfaces that contact the network, and each only after you ask for it.',
 ];
