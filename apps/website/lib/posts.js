@@ -19,7 +19,7 @@ import { prisma } from '@chestha/db';
 const PUBLIC_POST = {
   id: true, slug: true, title: true, body: true, excerpt: true, coverUrl: true,
   categories: true, tags: true, status: true, publishedAt: true,
-  firstPublishedAt: true, createdAt: true, updatedAt: true,
+  firstPublishedAt: true, createdAt: true, updatedAt: true, views: true,
   author: { select: { handle: true, displayUsername: true, name: true, image: true } },
 };
 
@@ -194,4 +194,64 @@ async function requireOwnPost(authorId, postId) {
   // here cannot carry a bad status into a transition check.
   const { value } = coercePost(row, { knownCategories: row.categories });
   return { ok: true, post: { ...row, ...(value ?? {}) } };
+}
+
+/**
+ * Count a view, unless the reader is the author.
+ *
+ * Excluding the author is the difference between a number that means something
+ * and one that mostly counts you checking your own post. It is a fire-and-
+ * forget increment: a view that cannot be recorded must not take down the page
+ * someone came to read, which is the same rule `recordRead` follows.
+ *
+ * Only published posts count. A draft preview is the author looking at their
+ * own work, and an unpublished post has no audience by definition.
+ */
+export async function recordView(post, viewerId) {
+  if (!post || post.status !== 'published') return;
+  if (viewerId && viewerId === post.authorId) return;
+  try {
+    await prisma.post.update({
+      where: { id: post.id },
+      data: { views: { increment: 1 } },
+      select: { id: true },
+    });
+  } catch (error) {
+    console.error('[posts] could not record a view', error);
+  }
+}
+
+/**
+ * The numbers an author sees about their own post.
+ *
+ * `views` and `readers` are deliberately two numbers. Views counts everybody,
+ * including anonymous readers, and goes up on a re-read. Readers counts
+ * distinct signed-in people, because that is all `PostRead` can know. Showing
+ * one of them as "the" audience would overstate or understate depending on
+ * which was chosen, so both are reported and labelled.
+ */
+export async function postStats(postId) {
+  const [post, readers, upvotes, bookmarks] = await Promise.all([
+    prisma.post.findUnique({ where: { id: postId }, select: { views: true } }),
+    prisma.postRead.count({ where: { postId } }),
+    prisma.upvote.count({ where: { postId } }),
+    prisma.bookmark.count({ where: { postId } }),
+  ]);
+  return { views: post?.views ?? 0, readers, upvotes, bookmarks };
+}
+
+/** Stats for several posts at once — the author's own list. */
+export async function statsForPosts(postIds) {
+  if (!Array.isArray(postIds) || postIds.length === 0) return {};
+  const [reads, upvotes, bookmarks] = await Promise.all([
+    prisma.postRead.groupBy({ by: ['postId'], where: { postId: { in: postIds } }, _count: true }),
+    prisma.upvote.groupBy({ by: ['postId'], where: { postId: { in: postIds } }, _count: true }),
+    prisma.bookmark.groupBy({ by: ['postId'], where: { postId: { in: postIds } }, _count: true }),
+  ]);
+  const out = {};
+  for (const id of postIds) out[id] = { readers: 0, upvotes: 0, bookmarks: 0 };
+  for (const row of reads) out[row.postId].readers = row._count;
+  for (const row of upvotes) out[row.postId].upvotes = row._count;
+  for (const row of bookmarks) out[row.postId].bookmarks = row._count;
+  return out;
 }

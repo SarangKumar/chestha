@@ -17,6 +17,7 @@ export const LIST_FAMILIES = {
   'neetcode-250': 'neetcode',
   'leetcode-75': 'leetcode-official',
   'leetcode-top-interview-150': 'leetcode-official',
+  'striver-180': 'striver',
   'striver-a2z': 'striver',
   'striver-sde': 'striver',
 };

@@ -18,6 +18,7 @@ const PRIMARY = [
   { id: 'grove', label: 'Grove', icon: 'leaf' },
   { id: 'websites', label: 'Productive time', icon: 'websites' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
+  { id: 'writing', label: 'Writing', icon: 'book' },
 ];
 
 const SETTINGS = { id: 'settings', label: 'Settings', icon: 'settings' };

@@ -68,6 +68,9 @@ export const GATED_SECTIONS = [
   'websites',
   'sounds',
   'reading',
+  // Posts live in the website's database, so writing one without an account
+  // is not merely gated — there is nowhere to put it.
+  'writing',
 ];
 
 /** The feed's name in this table; a setting in the app, a section here. */
@@ -85,6 +88,7 @@ export const SESSION_MAX_AGE_MS = 10 * 60 * 1000;
 /** Where the workspace asks who it is talking to. Same shape as the feed URL. */
 const SESSION_PATH = '/api/session';
 const PROFILE_PATH = '/api/profile';
+const OWN_POSTS_PATH = '/api/posts/mine';
 
 export function requiresSignIn(section) {
   return GATED_SECTIONS.includes(section);
@@ -160,6 +164,16 @@ export function profilePageUrl(base, handle) {
 /** The share-your-card page, where the embeddable image lives. */
 export function devCardUrl(base, handle) {
   return new URL(`/user/${encodeURIComponent(handle)}/devcard`, base).toString();
+}
+
+/**
+ * The author's own posts — list, create, edit, delete.
+ *
+ * Cookie'd, like the session and profile endpoints, and for the same reason:
+ * it answers for one account and takes no author parameter.
+ */
+export function ownPostsUrl(base) {
+  return new URL(OWN_POSTS_PATH, base).toString();
 }
 
 /** Reading history — the extension links out to it rather than hosting one. */
@@ -253,6 +267,10 @@ const GATE_COPY = {
   sounds: {
     title: 'Sounds need an account',
     reason: 'Your mixes and presets are saved to your account.',
+  },
+  writing: {
+    title: 'Writing needs an account',
+    reason: 'A post is published to the website under your name, so it needs one to be published under.',
   },
   [READING_SECTION]: {
     title: 'Reading needs an account',

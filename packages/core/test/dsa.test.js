@@ -471,6 +471,9 @@ test('the bundled curated pack parses and matches its documented list sizes', ()
     'leetcode-top-interview-150': 150,
     'grind-75': 75,
     'grind-169': 169,
+    // Partial by construction: 145 of the sheet's 179 entries are a LeetCode
+    // problem. See scripts/data/striver-180.json for the other 34.
+    'striver-180': 145,
   });
 
   // Every membership must resolve to a question that is actually in the pack.
@@ -485,12 +488,12 @@ test('applying the pack builds one record per question despite list overlap', ()
   const { pack } = parsePack(readFileSync(PACK_PATH, 'utf8'));
   const { library, added, listsAdded } = applyPack(emptyLibrary(), pack);
 
-  assert.equal(listsAdded, 8);
+  assert.equal(listsAdded, 9);
   assert.equal(added, library.questions.length);
   assert.equal(new Set(library.questions.map((q) => q.slug)).size, library.questions.length, 'no duplicates');
   // Far more memberships than questions: the lists heavily overlap.
   assert.ok(library.curatedMemberships.length > library.questions.length);
-  assert.equal(library.curatedMemberships.length, 1019);
+  assert.equal(library.curatedMemberships.length, 1164);
 
   const twoSum = library.questions.find((q) => q.slug === 'two-sum');
   assert.ok(twoSum, 'Two Sum is present');

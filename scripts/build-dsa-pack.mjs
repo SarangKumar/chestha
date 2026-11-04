@@ -19,6 +19,15 @@
  *     Grind 75 pool (169). Grind 75 is the first 75 in that order; Grind 169 is
  *     the full list. Origin list: techinterviewhandbook.org/grind75. We do not
  *     scrape LeetCode HTML.
+ *   - Striver's 180 Sheet membership: scripts/data/striver-180.json, a hand
+ *     transcription of the published sheet's own section listing — title,
+ *     section, group, Basic/Core/Pro tier and the matched problem's URL,
+ *     nothing else. No problem
+ *     statements and no editorial text, and nothing fetched: the file is
+ *     checked in, so this part of the build is offline and auditable by
+ *     reading it. It is the one list whose membership is our own reading of a
+ *     published page rather than a licensed dataset, and it is deliberately
+ *     partial — see STRIVER_SHEET below.
  *   - NeetCode 75 membership: derived from the same MIT sheets — the Blind 75
  *     set ordered as in NeetCode 150 (Blind 75 ∩ NeetCode 150). That intersection
  *     is exactly 75 and matches NeetCode's presentation of the set; we do not
@@ -38,7 +47,7 @@
  * Only facts are bundled: title, slug, difficulty, topic tags, question id.
  * Problem statements are never included — those are LeetCode's copyrighted text.
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const METADATA_URL = 'https://huggingface.co/datasets/kaysss/leetcode-problem-set/resolve/main/data.csv';
 const SHEETS_URL = 'https://raw.githubusercontent.com/leetnotion/vscode-leetnotion/HEAD/data/sheets.json';
@@ -292,6 +301,74 @@ if (!Array.isArray(grindRaw)) {
   }
 }
 
+/**
+ * Striver's 180 Sheet.
+ *
+ * Membership comes from a checked-in transcription rather than a fetch, so
+ * unlike every other list here its size cannot be verified against a
+ * publisher — the check that can be made instead is that the file still says
+ * what it said when it was reviewed, which is what EXPECTED pins.
+ *
+ * It ships partial on purpose. An entry becomes a membership only where the
+ * sheet's problem IS a LeetCode problem; 34 of the 179 are algorithm or
+ * implementation exercises (Dijkstra, Kosaraju, heapify, Rabin-Karp, a DSU)
+ * with no LeetCode question at all. A question's identity in this feature is a
+ * LeetCode slug, so giving those a slug would mean shipping a dead problem
+ * link — worse than a list that is honestly 145 long and says so. Each
+ * omission carries its reason in the file.
+ */
+const STRIVER_SHEET = new URL('./data/striver-180.json', import.meta.url);
+const STRIVER_EXPECTED = { entries: 179, mapped: 145 };
+
+console.log('reading Striver 180 sheet…');
+{
+  let sheet;
+  try {
+    sheet = JSON.parse(readFileSync(STRIVER_SHEET, 'utf8'));
+  } catch (error) {
+    problems.push(`Striver 180: could not read scripts/data/striver-180.json — ${error.message}`);
+    sheet = null;
+  }
+  const entries = Array.isArray(sheet?.entries) ? sheet.entries : null;
+  if (sheet && !entries) {
+    problems.push('Striver 180: the sheet file has no entries array');
+  } else if (entries) {
+    const mapped = entries.filter((e) => typeof e?.slug === 'string' && e.slug);
+    const unknown = mapped.filter((e) => !bySlug.has(e.slug)).map((e) => e.slug);
+    if (entries.length !== STRIVER_EXPECTED.entries) {
+      problems.push(`Striver 180: ${entries.length} entries, expected ${STRIVER_EXPECTED.entries}`);
+    } else if (mapped.length !== STRIVER_EXPECTED.mapped) {
+      // A changed mapping count means someone edited the transcription. That is
+      // allowed, but it is an editorial decision, so it should be made
+      // deliberately here rather than slipping through a rebuild.
+      problems.push(`Striver 180: ${mapped.length} entries map to a LeetCode problem, expected ${STRIVER_EXPECTED.mapped} — update STRIVER_EXPECTED if that was intended`);
+    } else if (unknown.length) {
+      problems.push(`Striver 180: ${unknown.length} slugs missing from metadata (e.g. ${unknown.slice(0, 3).join(', ')})`);
+    } else if (new Set(mapped.map((e) => e.slug)).size !== mapped.length) {
+      problems.push('Striver 180: the same LeetCode problem is mapped twice');
+    } else if (entries.some((e) => (e.slug ? e.url !== `https://leetcode.com/problems/${e.slug}/` : 'url' in e))) {
+      // The `url` in that file is the slug's problem page, kept alongside it so
+      // the transcription can be checked by clicking. Two copies of one fact
+      // can disagree, so a hand edit to either that leaves them out of step is
+      // a fault here rather than a wrong link shipped to someone.
+      problems.push('Striver 180: an entry\u2019s url does not match its slug, or an unmapped entry carries one');
+    } else {
+      lists.push({
+        id: 'striver-180',
+        name: "Striver's 180 Sheet",
+        family: 'striver',
+        source: 'striver-180',
+        sourceVersion: fetchedAt.slice(0, 10),
+      });
+      mapped.forEach((entry, order) => {
+        usedSlugs.add(entry.slug);
+        memberships.push({ listId: 'striver-180', slug: entry.slug, order });
+      });
+      console.log(`  Striver's 180 Sheet: ${mapped.length} of ${entries.length} entries are LeetCode problems`);
+    }
+  }
+}
+
 // ─── Company lists ───────────────────────────────────────────────────────────
 
 /** `Beyond Meat` → `company:beyond-meat`. The prefix is what `familyOf` keys on. */
@@ -453,6 +530,12 @@ const provenance = {
     fetchedAt,
     note: 'Blind 75 ∩ NeetCode 150 in NeetCode 150 order (75). Same MIT sheets as Blind / NeetCode lists; not scraped from LeetCode or neetcode.io.',
   },
+  striver180: {
+    source: 'scripts/data/striver-180.json',
+    licence: 'titles only, transcribed from the published sheet',
+    fetchedAt,
+    note: "Hand-transcribed section listing of Striver's 180 Sheet (179 entries under its 180 branding). Only the 145 entries that ARE a LeetCode problem ship as membership; the other 34 are algorithm or implementation exercises with no LeetCode counterpart, and each records its reason in that file. No problem statements, ordering metadata or editorial text was taken, and question facts come from the same MIT metadata dataset as every other list here.",
+  },
   companies: {
     source: COMPANY_TREE_URL,
     licence: 'none stated',
@@ -481,7 +564,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 writeFileSync(new URL('curated-core.json', OUT_DIR), JSON.stringify(
   pack('curated-core', 'Curated interview lists',
-    'Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75 and Top Interview 150, with the metadata for every question they contain.',
+    "Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75, Top Interview 150 and the LeetCode-available part of Striver's 180 Sheet, with the metadata for every question they contain.",
     curatedQuestions, lists, memberships),
 ));
 

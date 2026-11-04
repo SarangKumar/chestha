@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import {
   POST_STATUS_LABELS, derivedExcerpt, interestLabel, plainText, readingMinutes,
 } from '@chestha/core';
-import { getPostBySlug } from '@/lib/posts';
+import { getPostBySlug, recordView } from '@/lib/posts';
 import { currentUserId } from '@/lib/session';
 import { recordRead } from '@/lib/social';
 
@@ -38,6 +38,11 @@ export default async function PostPage({ params }) {
   if (viewerId && post.status === 'published') {
     await recordRead(viewerId, post.id);
   }
+
+  // The view counter runs for everyone, signed in or not — it is the number
+  // that includes anonymous readers. `recordView` skips the author's own
+  // visits and anything unpublished.
+  await recordView(post, viewerId);
 
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-10">

@@ -157,8 +157,8 @@ and 8×4 in another.
 
 ## Privacy
 
-The app makes no network requests, with three opt-in exceptions and two that are not
-optional — both to our own site, and only when you have an account:
+The app makes no network requests, with three opt-in exceptions and three that follow
+from having an account — all three to our own site:
 
 - **GitHub** reads public activity or repositories from `api.github.com` once you
   enter a username.
@@ -181,6 +181,10 @@ requests.
   and the cached answer is what gates the workspace when you are offline. It is the
   reason the extension requests a host permission for `chestha.vercel.app`, and —
   with the profile card below — one of the two requests that identify you.
+- **Writing a post** sends it to `chestha.vercel.app/api/posts/mine` — the only
+  request the extension makes that *writes* anything. It happens when you open the
+  Writing section, and when you save, publish or delete a post. It carries the same
+  session cookie to the same origin, and it can only ever reach your own posts.
 - **Your profile card** asks `chestha.vercel.app/api/profile` for your own handle,
   interests, post count, followers and reading streak — and only while a card is
   actually on screen, which is the card widget or the account menu. It sends the

@@ -52,7 +52,7 @@ test('the two lists are disjoint and cover every real section', () => {
   // section to the app forces a decision here rather than defaulting to open.
   const everything = [
     'dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds',
-    'settings', 'home', 'about', 'changelog', 'guide', READING_SECTION,
+    'writing', 'settings', 'home', 'about', 'changelog', 'guide', READING_SECTION,
   ].sort();
   assert.deepEqual([...OPEN_SECTIONS, ...GATED_SECTIONS].sort(), everything);
 });

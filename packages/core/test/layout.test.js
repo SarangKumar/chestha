@@ -412,8 +412,11 @@ test('the default layout reaches the corners and centres the clock/search stack'
       assert.equal(byId.w_shortcuts.config?.presentation, 'transparent', 'shortcuts are glass');
       assert.equal(byId.w_notes.x, 0, 'the scratchpad stays on the left');
       assert.equal(byId.w_notes.config?.presentation, 'transparent', 'scratchpad is glass');
-      assert.equal(byId.w_notes.y + byId.w_notes.h, rows, `scratchpad hugs the bottom at ${rows} rows`);
-      assert.equal(byId.w_shortcuts.y + byId.w_shortcuts.h, rows, `shortcuts hug the bottom at ${rows} rows`);
+      // One row clear of the bottom edge, not flush against it: the board reads
+      // better with a margin under the corner widgets, and the gap is what the
+      // sketch's `vOffset: 1` buys.
+      assert.equal(byId.w_notes.y + byId.w_notes.h, rows - 1, `scratchpad sits one row off the bottom at ${rows} rows`);
+      assert.equal(byId.w_shortcuts.y + byId.w_shortcuts.h, rows - 1, `shortcuts sit one row off the bottom at ${rows} rows`);
 
       // Clock and search share a centre line horizontally and sit as a stack
       // centred vertically in the live row count.
@@ -424,7 +427,13 @@ test('the default layout reaches the corners and centres the clock/search stack'
       assert.equal(byId.w_search.y, byId.w_clock.y + byId.w_clock.h, 'search sits under the clock');
       const stackH = byId.w_clock.h + byId.w_search.h;
       const stackMid = byId.w_clock.y + stackH / 2;
-      assert.ok(Math.abs(stackMid - rows / 2) <= 0.5, `stack centred vertically at ${rows} rows`);
+      // Centred, then lifted one row — so the midpoint sits one above centre.
+      // `0` is the floor, which only bites on the shortest grids.
+      const expectedMid = Math.max(stackH / 2, rows / 2 - 1);
+      assert.ok(
+        Math.abs(stackMid - expectedMid) <= 0.5,
+        `stack centred and lifted one row at ${rows} rows (mid ${stackMid}, expected ~${expectedMid})`,
+      );
       assert.ok(byId.w_notes.y >= byId.w_search.y + byId.w_search.h, 'scratchpad below the stack');
 
       assert.equal(byId.w_clock.w, 9, 'clock width');
@@ -473,7 +482,8 @@ test('untouched default sketch re-anchors when the live grid differs', () => {
   ));
   const reanchored = reanchorDefaultWidgets(withPlace, 28, 18);
   assert.equal(reanchored.find((w) => w.id === 'w_weather').x + 3, 28, 'weather hugs 28');
-  assert.equal(reanchored.find((w) => w.id === 'w_notes').y + 3, 18, 'notes hugs 18 rows');
+  // One row clear of the bottom, as the sketch now draws it.
+  assert.equal(reanchored.find((w) => w.id === 'w_notes').y + 3, 17, 'notes sits one row off an 18-row grid');
   assert.equal(reanchored.find((w) => w.id === 'w_weather').config.place, 'Bengaluru', 'keeps config');
 });
 

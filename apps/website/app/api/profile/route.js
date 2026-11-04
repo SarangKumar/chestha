@@ -1,4 +1,5 @@
 import { currentUser } from '@/lib/session';
+import { extensionHeaders, extensionPreflight } from '@/lib/extensionCors';
 import { getProfileCard } from '@/lib/profile';
 
 /**
@@ -21,29 +22,11 @@ import { getProfileCard } from '@/lib/profile';
  * is whoever the cookie belongs to. A public profile is already readable at
  * `/user/<handle>` and does not need an API, and a parameter here would be a
  * way to enumerate accounts with a cookie attached.
+ *
+ * The credentialed CORS rules are shared — see `lib/extensionCors.js`.
  */
-const DEV_ORIGINS = new Set([
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-]);
-
-function headersFor(request) {
-  const headers = {
-    'Cache-Control': 'no-store',
-    Vary: 'Origin, Cookie',
-  };
-  const origin = request.headers.get('origin');
-  if (process.env.NODE_ENV !== 'production' && origin && DEV_ORIGINS.has(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Credentials'] = 'true';
-    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Accept';
-  }
-  return headers;
-}
-
 export async function GET(request) {
-  const headers = headersFor(request);
+  const headers = extensionHeaders(request);
 
   try {
     const user = await currentUser();
@@ -70,5 +53,5 @@ export async function GET(request) {
 }
 
 export function OPTIONS(request) {
-  return new Response(null, { status: 204, headers: headersFor(request) });
+  return extensionPreflight(request);
 }

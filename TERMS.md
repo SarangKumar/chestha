@@ -115,6 +115,11 @@ exception is something you switch on, and switching it back off ends the request
   answer is cached on your device, which is what the extension uses when you are
   offline — so losing your connection never locks you out of what you could already
   reach.
+- **Writing a post** sends it to `chestha.vercel.app/api/posts/mine`. This is the
+  only request the extension makes that writes anything rather than reading: it
+  carries the post you typed, when you open the Writing section and when you save,
+  publish or delete. Same cookie, same site, and the server checks on every write
+  that the post belongs to the account the cookie belongs to.
 - **Your profile card** requests `chestha.vercel.app/api/profile` while a profile
   card is on screen — the card widget on your board, or the account menu when it is
   open. It sends the same session cookie as the sign-in check, to the same site, and

@@ -155,6 +155,7 @@ const SHEET_SHORT = {
   'neetcode-250': 'NC 250',
   'leetcode-75': 'LC 75',
   'leetcode-top-interview-150': 'Top 150',
+  'striver-180': 'Striver 180',
   'striver-a2z': 'A2Z',
   'striver-sde': 'SDE',
 };

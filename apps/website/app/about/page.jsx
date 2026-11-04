@@ -80,6 +80,13 @@ export default function AboutPage() {
           look anyone else up.
         </p>
         <p className="mt-3 text-card leading-relaxed text-ink-muted">
+          <strong className="font-medium text-ink">Writing a post</strong> is the one
+          request the workspace makes that writes rather than reads. It sends what you
+          typed to the same site, with the same cookie, when you open the Writing
+          section and when you save, publish or delete — and it can reach no post but
+          your own.
+        </p>
+        <p className="mt-3 text-card leading-relaxed text-ink-muted">
           Three further things can reach the internet, and only once you ask them to.
           The <strong className="font-medium text-ink">GitHub activity</strong> widget
           reads public activity from <Code>api.github.com</Code> after you enter a

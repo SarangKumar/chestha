@@ -58,7 +58,11 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
  * compaction cannot collapse the open mid-board; "Tidy up" releases those.
  *
  * `offset` shifts a widget inward from its horizontal anchor, in columns.
- * `vOffset` shifts inward from its vertical anchor, in rows.
+ * `vOffset` shifts inward from its vertical anchor, in rows — down from `top`,
+ * up from `bottom`. A `middle` widget has no inward direction, so there it
+ * lifts the whole centre stack: the clock and search move together or not at
+ * all, and giving them different offsets would split a stack whose point is
+ * that it is one thing.
  */
 /**
  * Default dashboard — sparse corners + centre stack (glass / transparent).
@@ -67,13 +71,13 @@ export const WIDGET_FLOWS = ['ltr', 'rtl', 'ttb', 'btt'];
 const DEFAULT_SKETCH = [
   { id: 'w_weather', type: 'weather', anchor: 'right', vAnchor: 'top', offset: 0, vOffset: 0, w: 3, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_clock', type: 'clock', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 9, h: 2,
+  { id: 'w_clock', type: 'clock', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 1, w: 9, h: 2,
     config: { showSeconds: false, presentation: 'transparent' } },
-  { id: 'w_search', type: 'search', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 0, w: 11, h: 2,
+  { id: 'w_search', type: 'search', anchor: 'center', vAnchor: 'middle', offset: 0, vOffset: 1, w: 11, h: 2,
     config: { presentation: 'transparent' } },
-  { id: 'w_notes', type: 'notes', anchor: 'left', vAnchor: 'bottom', offset: 0, vOffset: 0, w: 5, h: 3,
+  { id: 'w_notes', type: 'notes', anchor: 'left', vAnchor: 'bottom', offset: 0, vOffset: 1, w: 5, h: 3,
     config: { presentation: 'transparent' } },
-  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', vAnchor: 'bottom', offset: 0, vOffset: 0, w: 4, h: 2,
+  { id: 'w_shortcuts', type: 'shortcuts', anchor: 'right', vAnchor: 'bottom', offset: 0, vOffset: 1, w: 4, h: 2,
     config: { presentation: 'transparent' } },
 ];
 
@@ -118,7 +122,9 @@ export function defaultWidgetsFor(columns = DEFAULT_COLUMNS, rows = DEFAULT_ROWS
   // Clock + search form one vertically centred stack (order in DEFAULT_SKETCH).
   const middle = DEFAULT_SKETCH.filter((s) => s.vAnchor === 'middle');
   const stackH = middle.reduce((sum, s) => sum + s.h, 0);
-  let stackY = Math.max(0, Math.round((rowCount - stackH) / 2));
+  // One lift for the whole stack, not one per widget — see the note above.
+  const stackLift = middle.reduce((max, s) => Math.max(max, s.vOffset ?? 0), 0);
+  let stackY = Math.max(0, Math.round((rowCount - stackH) / 2) - stackLift);
   const middleY = new Map();
   for (const s of middle) {
     middleY.set(s.id, stackY);
@@ -149,6 +155,20 @@ export function defaultWidgetsFor(columns = DEFAULT_COLUMNS, rows = DEFAULT_ROWS
 }
 
 /**
+ * Recover the grid height a resolved default was drawn for.
+ *
+ * Bottom-anchored widgets sit `vOffset` rows above the last row, so the offset
+ * has to be added back. Two callers need this — the "is this still the shipped
+ * sketch" check and the "does it need re-anchoring" check — and when they each
+ * did the arithmetic inline, lifting the sketch by one row broke one of them
+ * silently while the other kept working.
+ */
+function rowsBehind(notes) {
+  const sketch = DEFAULT_SKETCH.find((entry) => entry.id === 'w_notes');
+  return notes.y + notes.h + (sketch?.vOffset ?? 0);
+}
+
+/**
  * True when `widgets` is still the shipped corner sketch (same ids, types,
  * sizes, and pinned anchors) resolved for some column/row count — not a
  * user-custom arrangement. Config (location, links, …) may differ.
@@ -167,8 +187,7 @@ export function isShippedDefaultLayout(widgets) {
   const notes = byId.w_notes;
   if (!weather || !notes) return false;
   const resolvedCols = weather.x + weather.w;
-  // Bottom-anchored notes sit on the last row of the resolved grid.
-  const resolvedRows = notes.y + notes.h;
+  const resolvedRows = rowsBehind(notes);
   const expected = defaultWidgetsFor(resolvedCols, resolvedRows);
   return expected.every((e) => {
     const w = byId[e.id];
@@ -188,7 +207,7 @@ export function shouldReanchorDefault(widgets, columns, rows = DEFAULT_ROWS) {
   const weather = widgets.find((w) => w.id === 'w_weather');
   const notes = widgets.find((w) => w.id === 'w_notes');
   if (!weather || !notes) return false;
-  return weather.x + weather.w !== cols || notes.y + notes.h !== rowCount;
+  return weather.x + weather.w !== cols || rowsBehind(notes) !== rowCount;
 }
 
 /**
@@ -251,7 +270,7 @@ export const DEFAULT_SETTINGS = {
  * Hiding only affects the rail. A hidden section still renders from a deep link
  * or the palette, so nothing becomes unreachable and no data is touched.
  */
-export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds'];
+export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds', 'writing'];
 
 /**
  * How the app paints behind the interface.

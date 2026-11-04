@@ -11,6 +11,36 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **Writing posts from the extension** — a gated `writing` section with a draft
+  list, an editor and explicit publish / unpublish / delete. The website had no
+  editor either, so this is the first surface in the product that can write a
+  post at all; `lib/posts.js` and `packages/core/src/posts/` already held every
+  rule, and only the HTTP shape and the UI were missing.
+- `GET/POST/PATCH/DELETE /api/posts/mine` — the **sixth** network surface and
+  the first that *writes*. Ownership is re-checked on every mutation against the
+  session id rather than trusted from the body, because a post id in a request
+  is attacker-controlled.
+- **Post stats**: views, readers, upvotes and saves on each published post.
+  `views` is a new counter on `Post`, incremented per page render and
+  **excluding the author's own visits** — otherwise it mostly counts you
+  checking your own work. Views and readers are two figures and are never
+  summed: views counts everybody including anonymous readers and rises on a
+  re-read, readers counts distinct signed-in people, and either alone would
+  misstate the audience.
+- `apps/website/lib/extensionCors.js` — one definition of the credentialed CORS
+  rules, replacing hand-written copies in `/api/session` and `/api/profile`
+  before a third could drift.
+- **Striver's 180 Sheet in the bundled curated pack** — 145 memberships, the
+  entries of the published sheet that are a LeetCode problem, in sheet order and
+  sharing the `striver` family. Membership comes from
+  `scripts/data/striver-180.json`, a checked-in hand transcription of the sheet's
+  section listing (title, section, group, Basic/Core/Pro tier, LeetCode URL — no
+  problem statements, no editorial text, nothing fetched). It ships partial on
+  purpose: the other 34 of the sheet's 179 entries are algorithm or
+  implementation exercises — Dijkstra, Kosaraju, heapify, Rabin-Karp, a disjoint
+  set — with no LeetCode question to key them to, and each one records why in
+  that file. A question's identity in this feature is a LeetCode slug, so the
+  alternative was a made-up slug and a dead problem link.
 - **Company question lists in the DSA section** — a Companies tab over 422
   companies and 16,898 memberships, each list ordered by how often the question
   is reported. Solving from there records the same `dsa.progress` event as
@@ -32,6 +62,11 @@ not updated yet — it is user-facing, and these are not released.
   built by `npm run dsa-pack`.
 
 ### Changed
+- **The default board sits one row higher.** Clock, search, scratchpad and
+  shortcuts all lift by one, so the bottom corners clear the edge instead of
+  hugging it. `vOffset` now means something for the centred stack — it lifts the
+  clock and search together, since splitting a stack whose whole point is that
+  it is one thing would be strange to allow.
 - **`familyOf` collapses every `company:` list into one family.** There are 422
   of them; left to the `other:<id>` fallback, a question tagged by forty
   companies would have scored forty families and buried the curated signal the
@@ -44,6 +79,11 @@ not updated yet — it is user-facing, and these are not released.
   successful work.
 
 ### Fixed
+- Lifting the sketch exposed the same off-by-one in two places:
+  `isShippedDefaultLayout` and `shouldReanchorDefault` both inferred the grid
+  height from the scratchpad's bottom edge, so a lifted board stopped being
+  recognised as the shipped default and re-anchored on every render. They now
+  share one `rowsBehind` helper instead of repeating the arithmetic.
 - The pack generator treated 48 companies whose upstream CSV is a bare header as
   *failures*, which tripped the verification guard and meant no pack shipped at
   all. A company with no tagged questions is now a company with no questions;

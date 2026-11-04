@@ -164,6 +164,17 @@ model Post {
 
   status PostStatus @default(draft)
 
+  /// Total times the post page was rendered for somebody other than its author.
+  ///
+  /// A counter rather than a row per view: a view is not a record anyone needs
+  /// to look up, and a `post_views` collection would be the largest in the
+  /// database within a week to answer one number. The per-reader detail that
+  /// *is* worth keeping already exists as `PostRead`, which is the reading
+  /// history — so "views" counts everybody including anonymous readers, and
+  /// "readers" counts distinct signed-in ones. The two are different numbers
+  /// on purpose and are labelled separately wherever they are shown.
+  views Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

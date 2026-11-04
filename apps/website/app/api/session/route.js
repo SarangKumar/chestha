@@ -1,4 +1,5 @@
 import { currentUser } from '@/lib/session';
+import { extensionHeaders, extensionPreflight } from '@/lib/extensionCors';
 
 /**
  * "Is there an account behind this cookie?" — for the extension's New Tab.
@@ -32,41 +33,12 @@ import { currentUser } from '@/lib/session';
  *    origin — `*` is invalid with credentials, and echoing whatever `Origin`
  *    arrives would let any website read this with the visitor's cookie. The
  *    packed extension needs no CORS header at all (its host permission exempts
- *    it), so the allowlist below exists only for the dev server.
+ *    it), so the dev-server allowlist that implements this lives in
+ *    `lib/extensionCors.js`, shared with every other cookie'd route.
  */
-
-/**
- * Origins allowed to read this *with credentials*.
- *
- * Only the Vite dev server, and only outside production: `npm run dev:extension`
- * serves the workspace from :5173 against the website on :3000, which is a real
- * cross-origin request with no extension host permission to exempt it.
- */
-const DEV_ORIGINS = new Set([
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-]);
-
-function headersFor(request) {
-  const headers = {
-    'Cache-Control': 'no-store',
-    // The body does not vary by origin but the CORS header does, so any cache
-    // in front of this must key on both.
-    Vary: 'Origin, Cookie',
-  };
-
-  const origin = request.headers.get('origin');
-  if (process.env.NODE_ENV !== 'production' && origin && DEV_ORIGINS.has(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Credentials'] = 'true';
-    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Accept';
-  }
-  return headers;
-}
 
 export async function GET(request) {
-  const headers = headersFor(request);
+  const headers = extensionHeaders(request);
 
   try {
     const user = await currentUser();
@@ -103,5 +75,5 @@ export async function GET(request) {
 }
 
 export function OPTIONS(request) {
-  return new Response(null, { status: 204, headers: headersFor(request) });
+  return extensionPreflight(request);
 }

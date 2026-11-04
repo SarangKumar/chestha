@@ -10,6 +10,7 @@ import { useEmbedReady } from './app/useEmbedReady.js';
 import { Shell } from './components/Shell.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
 import { SignInGate } from './components/SignInGate.jsx';
+import { Writing } from './sections/Writing.jsx';
 import { QuickCapture } from './components/QuickCapture.jsx';
 import { TaskEditor } from './components/TaskEditor.jsx';
 import { Dashboard } from './sections/Dashboard.jsx';
@@ -129,6 +130,7 @@ function Workspace() {
     { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', requires: 'grove', run: () => { actions.startFocusSession(); go('grove'); } },
     { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', requires: 'grove', run: () => actions.endFocusSession() },
     { id: 'go-sounds', label: 'Go to sounds', group: 'Navigate', requires: 'sounds', run: () => go('sounds') },
+    { id: 'go-writing', label: 'Go to writing', group: 'Navigate', keywords: 'posts blog draft publish write', requires: 'writing', run: () => go('writing') },
     { id: 'go-websites', label: 'Go to productive time', group: 'Navigate', keywords: 'time tracking sites domains websites', shortcut: 'G W', requires: 'websites', run: () => go('websites') },
     { id: 'go-settings', label: 'Go to settings', group: 'Navigate', shortcut: 'G S', run: () => go('settings') },
     {
@@ -207,6 +209,7 @@ function Workspace() {
       'go-calendar': () => go('calendar', todayISO()),
       'go-dsa': () => go('dsa', 'home'),
       'go-sounds': () => go('sounds'),
+      'go-writing': () => go('writing'),
       'go-websites': () => go('websites'),
       'go-settings': () => go('settings'),
       navigate: go,
@@ -286,6 +289,7 @@ function Workspace() {
           )}
           {section === 'websites' && <Websites />}
           {section === 'sounds' && <Sounds />}
+          {section === 'writing' && <Writing />}
           {section === 'settings' && <Settings />}
           {section === 'changelog' && <Changelog />}
           </>
