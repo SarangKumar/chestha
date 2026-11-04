@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { POST_STATUS_LABELS, derivedExcerpt, plainText, readingMinutes } from '@chestha/core';
+import {
+  POST_STATUS_LABELS, derivedExcerpt, interestLabel, plainText, readingMinutes,
+} from '@chestha/core';
 import { getPostBySlug } from '@/lib/posts';
 import { currentUserId } from '@/lib/session';
+import { recordRead } from '@/lib/social';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -19,10 +22,22 @@ export async function generateMetadata({ params }) {
 
 export default async function PostPage({ params }) {
   const { slug } = await params;
+  const viewerId = await currentUserId();
   // The viewer id is what lets an author preview their own draft. Without a
   // match an unpublished post is indistinguishable from one that is not there.
-  const post = await getPostBySlug(slug, { viewerId: await currentUserId() });
+  const post = await getPostBySlug(slug, { viewerId });
   if (!post) notFound();
+
+  // Reading history, written as the page renders.
+  //
+  // Only for a signed-in reader, and only for a *published* post: an author
+  // previewing their own draft has not read anything, and logging it would put
+  // unpublished work in a history that is meant to be a record of reading.
+  // `recordRead` swallows its own failures — a history write must never take
+  // down the page someone came to read.
+  if (viewerId && post.status === 'published') {
+    await recordRead(viewerId, post.id);
+  }
 
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-10">
@@ -44,8 +59,23 @@ export default async function PostPage({ params }) {
           @{post.author.displayUsername || post.author.handle}
         </Link>
         {' · '}
-        <span className="tabular">{readingMinutes(post.body)}</span> min read
+        <span className="tabular-nums">{readingMinutes(post.body)}</span> min read
       </p>
+
+      {post.tags?.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Tags">
+          {post.tags.map((tag) => (
+            <li key={tag}>
+              <Link
+                href={`/feed?tag=${encodeURIComponent(tag)}`}
+                className="inline-flex rounded-chip border border-line px-2.5 py-1 text-meta text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
+              >
+                {interestLabel(tag)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {/* Bodies are authored as Markdown but rendered as plain paragraphs for
           now: rendering untrusted Markdown as HTML needs a sanitiser, and

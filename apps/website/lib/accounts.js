@@ -161,3 +161,47 @@ export async function provisionalHandle({ email, name } = {}) {
   // handle is still better than failing the sign-in outright.
   return `member-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+/**
+ * Replace a provisional handle with one the account actually chose.
+ *
+ * Separate from `registerUser` because the two are different moments: a
+ * registration has an email and a password to validate, while this has one
+ * field and an account that already exists. Sharing a function would mean one
+ * of them carrying arguments it has no use for.
+ *
+ * `handleChosen` is the point of the write. It is what `/account` and the
+ * extension's profile menu key on to stop sending someone back here, and it is
+ * why the flag cannot simply be inferred from the handle looking reasonable.
+ *
+ * @returns {Promise<{ ok: true, handle: string } | { ok: false, field: string, reason: string }>}
+ */
+export async function claimUsername(userId, username) {
+  const check = validateUsername(username);
+  if (!check.ok) return { ok: false, field: 'username', reason: check.reason };
+
+  const handle = check.handle;
+
+  // Checked for a useful message; the unique index below is what actually
+  // prevents the duplicate, since two requests can pass this concurrently.
+  const taken = await prisma.user.findFirst({
+    where: { handle, NOT: { id: userId } },
+    select: { id: true },
+  });
+  if (taken) return { ok: false, field: 'username', reason: 'That username is taken.' };
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { handle, displayUsername: String(username).trim(), handleChosen: true },
+    });
+  } catch (error) {
+    // P2002 is the unique violation that the check above raced with.
+    if (error?.code === 'P2002') {
+      return { ok: false, field: 'username', reason: 'That username is taken.' };
+    }
+    throw error;
+  }
+
+  return { ok: true, handle };
+}

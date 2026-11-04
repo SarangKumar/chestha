@@ -24,6 +24,7 @@ import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { TaskList } from '../components/TaskItem.jsx';
 import { Badge, Button, EmptyState, Meter, Select, Stat, TextArea, cx } from '../components/ui.jsx';
+import { ProfileCard } from '../components/ProfileCard.jsx';
 import { Sparkline } from '../components/LineChart.jsx';
 import { Icon } from '../components/icons.jsx';
 
@@ -1877,7 +1878,28 @@ function WebsiteTimeWidget({ onNavigate, span }) {
   );
 }
 
+/**
+ * Your profile card on the board.
+ *
+ * It renders `ProfileCard` rather than its own layout, so the widget, the
+ * account popover and the website all describe you from the same payload.
+ * The card handles its own three states — signed out, unknown and ready — so
+ * there is nothing to branch on here.
+ */
+function ProfileWidget() {
+  return <ProfileCard />;
+}
+
 export const WIDGETS = {
+  profile: {
+    presentation: 'card',
+    name: 'Your card',
+    description: 'Your profile: handle, what you write about, posts, followers and your reading streak. Needs an account.',
+    defaultSize: { w: 4, h: 3 },
+    sizes: ['large', 'panel', 'block', 'column'],
+    limits: { minW: 3, minH: 2, maxW: BASE_COLUMNS, maxH: 6 },
+    render: ProfileWidget,
+  },
   today: {
     presentation: 'card',
     name: "Today's tasks",

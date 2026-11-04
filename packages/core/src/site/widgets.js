@@ -12,6 +12,7 @@
  * the replacement for an import that is no longer possible.
  */
 export const WIDGET_CATALOGUE = [
+  { type: 'profile', name: 'Your card', description: 'Your profile: handle, what you write about, posts, followers and your reading streak. Needs an account.' },
   { type: 'today', name: "Today's tasks", description: 'Due today, plus everything overdue.' },
   { type: 'upcoming', name: 'Upcoming', description: 'What is due within a horizon you choose.' },
   { type: 'overdue', name: 'Overdue', description: 'A count, and the oldest few.' },

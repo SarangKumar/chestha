@@ -65,6 +65,13 @@ model User {
   // Validated by `normalizeProfileLink` before storage: these render as hrefs.
   links String[] @default([])
 
+  // Chosen at onboarding from the curated catalogue in packages/core, and
+  // validated by `normalizeInterests` before storage — which is also what
+  // keeps every slug in the same shape as a post tag, since that is what they
+  // are matched against. Free-form values would make the match meaningless.
+  // Empty is a real answer: the onboarding step can be skipped.
+  interests String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -76,6 +83,7 @@ model User {
   areas     WorkspaceArea[]
   following Follow[]        @relation("follower")
   followers Follow[]        @relation("following")
+  reads     PostRead[]
 
   @@map("users")
 }
@@ -171,6 +179,7 @@ model Post {
 
   bookmarks Bookmark[]
   upvotes   Upvote[]
+  reads     PostRead[]
 
   // The feed: published posts, newest first.
   @@index([status, publishedAt])
@@ -221,6 +230,34 @@ model Upvote {
   @@unique([userId, postId])
   @@index([postId])
   @@map("upvotes")
+}
+
+/// Reading history: one row per person per post, rewritten on a re-read.
+///
+/// One row rather than one per visit, deliberately. The history page answers
+/// "where did I read that thing" and wants each post once, at the last time it
+/// was opened; a visit log would bury a post under its own re-reads and grow
+/// without bound for anyone who refreshes. The cost is that the streak is
+/// computed over distinct posts rather than distinct visits, which is the same
+/// number on every day someone reads something new — and a day spent re-reading
+/// one post is arguably not a day of reading anyway.
+model PostRead {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  postId String @db.ObjectId
+
+  /// The instant the post was last opened. An instant, not a calendar day:
+  /// `readingDay` in packages/core resolves it to a day in the reader's own
+  /// zone, which is the only place those two kinds of value are allowed to meet.
+  readAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  /// The history page, and the streak query behind it.
+  @@index([userId, readAt])
+  @@map("post_reads")
 }
 
 model Follow {

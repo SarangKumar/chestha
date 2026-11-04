@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { SESSION_IN, SESSION_OUT, signInUrl, signUpUrl } from '@chestha/core';
+import { SESSION_IN, SESSION_OUT, historyUrl, signInUrl, signUpUrl } from '@chestha/core';
 import { SITE_URL } from '../siteLinks.js';
 import { useSession } from '../app/useSession.js';
+import { ProfileCard } from './ProfileCard.jsx';
 import { isExtensionRuntime } from '../app/platform.js';
 import { Icon } from './icons.jsx';
 import { cx } from './ui.jsx';
@@ -138,31 +139,45 @@ export function ProfileMenu({ section, onNavigate }) {
           role="menu"
           aria-label="Account and settings"
           style={{ left: anchor.left, bottom: anchor.bottom }}
-          className="fixed z-50 w-60 overflow-hidden rounded-card border border-line bg-surface shadow-overlay"
+          className="fixed z-50 w-72 overflow-hidden rounded-card border border-line bg-surface shadow-overlay"
         >
-          <p className="border-b border-line px-3 py-2.5 text-meta text-ink-faint">
-            {signedIn && named
-              ? `Signed in as @${session.displayUsername}. Your widget board also works signed out.`
-              : signedOut
-                ? 'Signed out. Your widget board works as it is; the other sections need an account.'
-                : 'Your widget board works on this device. An account unlocks the other sections and the posts on the website.'}
-          </p>
+          {/* The card replaces the line of prose this used to open with. It
+              answers the same question — who am I signed in as — and three
+              more that the prose could not: what you write about, how much,
+              and whether your reading streak is alive. Signed out and unknown
+              are handled inside it, so there is nothing to branch on here. */}
+          <div className="border-b border-line">
+            <ProfileCard compact />
+          </div>
 
           {signedIn ? (
             <>
-              <MenuLink
-                href={named ? `${SITE_URL}/user/${session.handle}` : `${SITE_URL}/onboarding/username`}
-                target={target}
-                icon="user"
-                onDone={() => setOpen(false)}
-              >
-                {named ? 'Your profile' : 'Pick a username'}
-              </MenuLink>
+              {/* Only while the handle is still provisional: once it is
+                  chosen, the card above already links to the profile and a
+                  second row saying the same thing is noise. */}
+              {!named ? (
+                <MenuLink
+                  href={`${SITE_URL}/onboarding/username`}
+                  target={target}
+                  icon="user"
+                  onDone={() => setOpen(false)}
+                >
+                  Pick a username
+                </MenuLink>
+              ) : null}
               {/* The sign-out itself happens on the website, which owns the
                   cookie. Clearing the cached answer here means the next check
                   asks rather than trusting a session that may be gone — and
                   until it answers, `unknown` fails open rather than locking
                   someone out of a workspace they are still signed into. */}
+              <MenuLink
+                href={historyUrl(SITE_URL)}
+                target={target}
+                icon="book"
+                onDone={() => setOpen(false)}
+              >
+                Reading history
+              </MenuLink>
               <MenuLink
                 href={`${SITE_URL}/signin`}
                 target={target}

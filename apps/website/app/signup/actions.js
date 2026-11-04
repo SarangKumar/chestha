@@ -37,7 +37,10 @@ export async function signUpAction(_previous, formData) {
     await signIn('credentials', {
       email: values.email,
       password,
-      redirectTo: `/user/${result.user.handle}`,
+      // Into the second onboarding step rather than onto an empty profile.
+      // A brand-new account has nothing to show on /user/<handle>, and the
+      // feed it is about to see is only as good as the interests behind it.
+      redirectTo: '/onboarding/interests',
     });
     return { ok: true, values };
   } catch (error) {

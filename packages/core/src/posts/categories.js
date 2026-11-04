@@ -20,8 +20,19 @@ export const SEED_CATEGORIES = [
 
 /** The most categories one post may carry, so a post cannot be in everything. */
 export const MAX_CATEGORIES = 3;
-/** Tags are cheap but not free; an unbounded list becomes keyword spam. */
-export const MAX_TAGS = 5;
+/**
+ * Tags are cheap but not free; an unbounded list becomes keyword spam.
+ *
+ * Ten rather than five, so a post can be described properly — a piece about
+ * React rendering is legitimately about hooks, profiling, performance and the
+ * browser all at once, and five forced authors to drop real signal. Ten is
+ * still a number a person can hold in their head, and it keeps a tag row to
+ * about two lines wherever one is rendered.
+ *
+ * This is also the surface interests match against, so a wider tag set makes
+ * the feed better at finding a reader — which is the actual reason to raise it.
+ */
+export const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 24;
 
 const SEED_NAMES = new Map(SEED_CATEGORIES.map((item) => [item.slug, item.name]));

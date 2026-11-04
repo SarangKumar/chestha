@@ -9,10 +9,17 @@ import Link from 'next/link';
  * palette, so a control that looked different here would read as a different
  * product.
  */
+/**
+ * The names and the look match the extension's `buttonVariants`, so a control
+ * does not change character between the two apps. `danger` carries the warning
+ * in the label rather than in a fill — a destructive action should be legible,
+ * not loud.
+ */
 const VARIANTS = {
   default: 'bg-accent text-on-accent hover:opacity-90',
   outline: 'border border-line bg-raised text-ink hover:bg-hover',
   ghost: 'text-ink-muted hover:bg-hover hover:text-ink',
+  danger: 'border border-line text-danger hover:bg-danger-soft',
 };
 
 /**

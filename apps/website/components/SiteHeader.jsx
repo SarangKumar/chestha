@@ -76,6 +76,7 @@ function AccountLinks({ user, stacked = false }) {
   if (user) {
     return (
       <>
+        <Link href="/history" className={row}>History</Link>
         {/* A provisional handle is not a chosen one — the same rule /account
             applies, so an unnamed account is sent to the form rather than to a
             profile it has not named. */}

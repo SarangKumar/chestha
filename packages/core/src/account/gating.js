@@ -84,6 +84,7 @@ export const SESSION_MAX_AGE_MS = 10 * 60 * 1000;
 
 /** Where the workspace asks who it is talking to. Same shape as the feed URL. */
 const SESSION_PATH = '/api/session';
+const PROFILE_PATH = '/api/profile';
 
 export function requiresSignIn(section) {
   return GATED_SECTIONS.includes(section);
@@ -138,6 +139,32 @@ export function signInUrl(base, callbackUrl = null) {
 
 export function signUpUrl(base) {
   return new URL('/signup', base).toString();
+}
+
+/**
+ * The signed-in person's own card, for the extension's profile surfaces.
+ *
+ * Deliberately parameterless: the subject is whoever the cookie belongs to.
+ * See the note on the route itself for why it is separate from the session
+ * check rather than folded into it.
+ */
+export function profileCardUrl(base) {
+  return new URL(PROFILE_PATH, base).toString();
+}
+
+/** A person's public profile on the website. */
+export function profilePageUrl(base, handle) {
+  return new URL(`/user/${encodeURIComponent(handle)}`, base).toString();
+}
+
+/** The share-your-card page, where the embeddable image lives. */
+export function devCardUrl(base, handle) {
+  return new URL(`/user/${encodeURIComponent(handle)}/devcard`, base).toString();
+}
+
+/** Reading history — the extension links out to it rather than hosting one. */
+export function historyUrl(base) {
+  return new URL('/history', base).toString();
 }
 
 function str(value) {
