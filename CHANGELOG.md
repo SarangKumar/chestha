@@ -11,6 +11,67 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **Profile cards**, on the website and in the extension. `/user/<handle>` is
+  rebuilt around one, and `/user/<handle>/devcard.png` renders the same facts as
+  a 500×280 PNG for a README or a sidebar, with `/user/<handle>/devcard` offering
+  Markdown, HTML and bare-URL snippets. The image is cached for an hour — a
+  README image is fetched by every visitor to that README — while the page itself
+  is live, which is also why the page gave up its `revalidate`: a follow button's
+  state belongs to the viewer, so a cached page would serve one visitor's answer
+  to everyone.
+- **Interests**, chosen at onboarding from a curated catalogue
+  (`packages/core/src/account/interests.js`) rather than typed. They are matched
+  against post *tags*, and a match only works if two people who mean the same
+  thing pick the same string — free-form interests would give "js", "javascript"
+  and "JavaScript" as three separate audiences. A test asserts every catalogue
+  slug survives `normalizePostTags` unchanged, which is the whole contract.
+- **A real username form at `/onboarding/username`.** It was a note saying the
+  form would arrive "in the pass that adds Google and GitHub sign-in", which made
+  the entire onboarding chain a dead end for any account arriving without a
+  chosen handle. Sign-up now lands on the interests step rather than on an empty
+  profile.
+- **Reading history** at `/history`: posts you opened, grouped by day, with
+  per-entry and wholesale removal. One row per person per post, rewritten on a
+  re-read, so a post appears once at the last time it was opened rather than
+  buried under its own refreshes. Days are cut in UTC and the page says so — the
+  server cannot learn a visitor's zone during a render, and guessing would file
+  posts under the wrong heading for half the world.
+- **Following**, using the `Follow` model that had been in the schema unused
+  since v0.2. A "Following" tab on the feed shows nothing rather than falling
+  back to everything when you follow nobody, because the fallback hides the fact
+  that the tab is empty because of a choice not yet made.
+- `GET /api/profile` — the signed-in person's own card for the extension. A
+  second endpoint rather than a wider `/api/session` on purpose: the session
+  check is one boolean asked by every New Tab, this is several queries asked only
+  when a card is on screen. It takes no handle, so it cannot enumerate accounts.
+  The **fifth** network surface, and the first that widened nothing: same origin,
+  same cookie, no new permission.
+- A **"Your card" dashboard widget** and a card at the head of the account
+  popover, both rendering the same `ProfileCard` from the same payload the
+  website uses.
+- `PostRead` in the schema, and `interests` on `User`.
+
+### Changed
+- **`MAX_TAGS` is 10, up from 5.** Five forced authors to drop real signal from
+  posts that are legitimately about several things, and tags are the surface
+  interests match against — a wider tag set makes the feed better at finding a
+  reader, which is the actual reason to raise it.
+- The profile card separates **"Writes about"** (counted from published posts)
+  from **"Interested in"** (chosen). Merging them would let anyone look expert in
+  anything by ticking a box.
+- `buildProfileCard` takes server-counted extras. A count that was not taken is
+  **omitted**, and renders as a dash rather than as a confident zero.
+- One `PostList` now backs the feed, profiles and history. The three had drifted
+  into different excerpt lengths and different metadata; a post should look like
+  the same post wherever it appears.
+
+### Fixed
+- The shareable card image failed to render at all for any real profile:
+  `@{handle}` in JSX is **two** children, and Satori refuses an element with more
+  than one child unless it declares a display mode. Found by rendering it, not by
+  building it.
+
+### Added
 - A sign-in gate (`apps/extension/src/components/SignInGate.jsx`) for gated
   sections: a page inside the shell, not a redirect, so the rail and the open
   sections stay reachable. It carries per-section copy saying what the section

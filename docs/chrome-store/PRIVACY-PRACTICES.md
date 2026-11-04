@@ -85,6 +85,7 @@ Not “collection by the developer,” but disclose honestly:
 | Shortcut icons | Only if user turns icons on | Browser requests each saved site’s icon | Those sites |
 | Reading mode | Only after the user switches the start screen to **Read** | A request for the public list of published posts. No account, no cookie, nothing identifying the reader | `chestha.vercel.app` |
 | Sign-in check | On New Tab open, when the last answer is over 10 minutes old | A request carrying the user's own Chestha session cookie, answered with whether they are signed in and their username. **This one does identify the user** — to their own account, on our own site | `chestha.vercel.app` |
+| Profile card | Only while a profile card is on screen — the card widget on the board, or the account menu while it is open | A request carrying the user's own Chestha session cookie, answered with their own handle, interests, post and follower counts, and reading streak. **This one does identify the user**, to their own account only — it takes no username and cannot be asked about anyone else | `chestha.vercel.app` |
 | Opening a question / search / shortcut | User clicks | Normal navigation in a new tab | Third-party site (their terms apply) |
 
 Built-in ambient sound is bundled audio played from the extension itself — no network request. The packing step strips the author's own wallpaper and any extra audio they added, but always ships the twelve-sound library.

@@ -157,8 +157,8 @@ and 8×4 in another.
 
 ## Privacy
 
-The app makes no network requests, with three opt-in exceptions and one that is not
-optional:
+The app makes no network requests, with three opt-in exceptions and two that are not
+optional — both to our own site, and only when you have an account:
 
 - **GitHub** reads public activity or repositories from `api.github.com` once you
   enter a username.
@@ -178,9 +178,15 @@ requests.
   in, because most sections require an account and the workspace has to know which
   to show. It sends your Chestha session cookie and nothing else, goes only to our
   own origin, and is cached for ten minutes — so opening many tabs is one request,
-  and the cached answer is what gates the workspace when you are offline. This is
-  the one request that identifies you, and the reason the extension requests a host
-  permission for `chestha.vercel.app`.
+  and the cached answer is what gates the workspace when you are offline. It is the
+  reason the extension requests a host permission for `chestha.vercel.app`, and —
+  with the profile card below — one of the two requests that identify you.
+- **Your profile card** asks `chestha.vercel.app/api/profile` for your own handle,
+  interests, post count, followers and reading streak — and only while a card is
+  actually on screen, which is the card widget or the account menu. It sends the
+  same session cookie to the same origin, answers only for your own account, and
+  takes no username, so it cannot be used to look anyone else up. Remove the widget
+  and close the menu and it stops.
 
 Nothing else in the running app contacts the internet. `npm run dsa-pack` does, but
 it is a build tool you run deliberately.

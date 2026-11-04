@@ -71,6 +71,15 @@ export default function AboutPage() {
           widget board does not need it and works signed out.
         </p>
         <p className="mt-3 text-card leading-relaxed text-ink-muted">
+          One more request follows from that one. While a{' '}
+          <strong className="font-medium text-ink">profile card</strong> is on screen
+          in the extension — the card widget on your board, or the account menu while
+          it is open — it asks this site for your own handle, interests, counts and
+          reading streak. Same cookie, same origin, and it answers only for the
+          account the cookie belongs to: it takes no username, so it is not a way to
+          look anyone else up.
+        </p>
+        <p className="mt-3 text-card leading-relaxed text-ink-muted">
           Three further things can reach the internet, and only once you ask them to.
           The <strong className="font-medium text-ink">GitHub activity</strong> widget
           reads public activity from <Code>api.github.com</Code> after you enter a

@@ -61,6 +61,15 @@ export function About({ onNavigate }) {
           board does not need it and works signed out.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+          One more request follows from that one. While a{' '}
+          <strong className="font-medium text-ink">profile card</strong> is on
+          screen — the card widget on your board, or this account menu while it is
+          open — the workspace asks the same site for your own handle, interests,
+          counts and reading streak. Same cookie, same origin, and it answers only
+          for the account the cookie belongs to: it takes no username, so it is not
+          a way to look anyone else up. Remove the widget and it stops.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-muted">
           Three further things can reach the internet, and only once you ask them to. The{' '}
           <strong className="font-medium text-ink">GitHub activity</strong> widget reads public
           activity from <code className="font-mono text-xs">api.github.com</code> after you enter

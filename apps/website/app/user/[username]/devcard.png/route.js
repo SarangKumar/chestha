@@ -66,8 +66,12 @@ export async function GET(_request, { params }) {
           <Avatar profile={profile} />
           <div style={{ display: 'flex', flexDirection: 'column', marginLeft: 16, flex: 1 }}>
             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6 }}>{name}</div>
+            {/* One text child, not `@{handle}`. JSX would make that two
+                children, and Satori refuses any element with more than one
+                child unless it declares a display mode — which fails the whole
+                image rather than that one line. */}
             <div style={{ fontSize: 16, color: MUTED, marginTop: 2 }}>
-              @{profile.displayUsername}
+              {`@${profile.displayUsername}`}
             </div>
           </div>
           <div style={{ fontSize: 13, color: MUTED, letterSpacing: 0.4 }}>chestha</div>

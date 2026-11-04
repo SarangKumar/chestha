@@ -308,6 +308,15 @@ and `docs/chrome-store/PRIVACY-PRACTICES.md` all had to change, including the
 "no host permissions, no content scripts" line that is no longer true of the
 first half.
 
+`/api/profile` is the **fifth**, added with the profile card. It rides the same
+mechanism — same origin, same cookie, same exemption — and is deliberately a
+*second* endpoint rather than a wider `/api/session`: the session check is one
+boolean asked by every New Tab, while this is several queries asked only when a
+card is on screen. It answers only for the cookie's own owner and takes no
+handle, so it cannot be used to enumerate accounts. Being on an already-declared
+origin, it adds no permission and no destination — which is why the docs state
+*five surfaces to two destinations*, not five destinations.
+
 The cached answer lives in `chrome.storage.local` (`localStorage` on the website
 build) and is read synchronously at first paint, so the board never waits on the
 network and an offline New Tab gates as the last answer did. Every failure path
@@ -473,9 +482,11 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   This made Read mode the **third** opt-in network surface, after the GitHub and
   weather widgets. The sign-in check is the **fourth** — and the one that breaks
   the pattern: it identifies the user and it is not opt-in, because the gate
-  cannot work without it. `README.md`, `TERMS.md`, `About.jsx` and
-  `docs/chrome-store/PRIVACY-PRACTICES.md` all state the count and the
-  destination; all four have been updated for it, and a fifth must update them
+  cannot work without it. The profile card's `/api/profile` is the **fifth**,
+  and the first that did *not* widen anything: same origin, same cookie, no new
+  permission. `README.md`, `TERMS.md`, `About.jsx` (both copies — the extension
+  section and the website page) and `docs/chrome-store/PRIVACY-PRACTICES.md` all
+  state the count; all of them have been updated, and a sixth must update them
   again.
 - **Built:** dashboard with widget customization, tasks (five standing views,
   filters, sorting), calendar (month grid + day agenda + keyboard date movement),

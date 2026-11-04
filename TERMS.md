@@ -115,6 +115,13 @@ exception is something you switch on, and switching it back off ends the request
   answer is cached on your device, which is what the extension uses when you are
   offline — so losing your connection never locks you out of what you could already
   reach.
+- **Your profile card** requests `chestha.vercel.app/api/profile` while a profile
+  card is on screen — the card widget on your board, or the account menu when it is
+  open. It sends the same session cookie as the sign-in check, to the same site, and
+  the answer is your own handle, interests, counts and reading streak. It takes no
+  username and answers only for the account the cookie belongs to, so it is not a
+  way to read anyone else's profile. Like the sign-in check, the answer is cached on
+  your device.
 - **Read mode** requests the list of published posts from `chestha.vercel.app`, and
   only after you switch the start screen from your widgets to Read. The request
   carries no account and no cookie, so we cannot tell who asked. Posts are cached on
