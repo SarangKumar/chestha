@@ -124,6 +124,7 @@ function Workspace() {
     { id: 'go-calendar', label: 'Go to calendar', group: 'Navigate', shortcut: 'G C', requires: 'calendar', run: () => go('calendar', todayISO()) },
     { id: 'go-dsa', label: 'Go to DSA', group: 'Navigate', keywords: 'algorithms leetcode practice', requires: 'dsa', run: () => go('dsa', 'home') },
     { id: 'go-dsa-library', label: 'Go to the question library', group: 'Navigate', keywords: 'dsa questions', requires: 'dsa', run: () => go('dsa', 'library') },
+    { id: 'go-dsa-companies', label: 'Go to company questions', group: 'Navigate', keywords: 'dsa interview amazon google company', requires: 'dsa', run: () => go('dsa', 'companies') },
     { id: 'go-grove', label: 'Go to the Grove', group: 'Navigate', keywords: 'focus timer plant garden xp', requires: 'grove', run: () => go('grove') },
     { id: 'start-focus', label: 'Start a focus session', group: 'Actions', keywords: 'timer pomodoro grove', requires: 'grove', run: () => { actions.startFocusSession(); go('grove'); } },
     { id: 'end-focus', label: 'End the focus session', group: 'Actions', keywords: 'stop timer', requires: 'grove', run: () => actions.endFocusSession() },

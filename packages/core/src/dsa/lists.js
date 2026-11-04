@@ -21,8 +21,40 @@ export const LIST_FAMILIES = {
   'striver-sde': 'striver',
 };
 
+/**
+ * Company lists share one family, and that is the whole point.
+ *
+ * There are over four hundred of them. Left to the `other:<id>` fallback each
+ * would be its own family, so a question tagged by forty companies would score
+ * forty families and bury the curated signal the weighting exists to protect —
+ * the exact failure the family rule was written to prevent, arriving through a
+ * different door. Collapsing them means "several companies ask this" counts
+ * once, alongside "the curated lists include this", which is the comparison
+ * worth making.
+ */
+export const COMPANY_LIST_PREFIX = 'company:';
+
+export function isCompanyList(listId) {
+  return typeof listId === 'string' && listId.startsWith(COMPANY_LIST_PREFIX);
+}
+
 export function familyOf(listId) {
+  if (isCompanyList(listId)) return 'company';
   return LIST_FAMILIES[listId] ?? `other:${listId}`;
+}
+
+/**
+ * How many companies ask a question, reported separately from `listFrequency`.
+ *
+ * A separate number rather than a bigger one: "in 3 curated lists" and "asked
+ * by 40 companies" mean different things, and a single count that mixed them
+ * would be interpretable as neither.
+ */
+export function companyFrequency(curatedMemberships, slug) {
+  const ids = (Array.isArray(curatedMemberships) ? curatedMemberships : [])
+    .filter((m) => m?.slug === slug && isCompanyList(m?.listId) && !m.removedFromSource)
+    .map((m) => m.listId);
+  return { companies: new Set(ids).size, listIds: [...new Set(ids)] };
 }
 
 export function createList(input = {}) {

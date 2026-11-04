@@ -540,7 +540,18 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   Grind 169, NeetCode 75/150/250, LeetCode 75, Top Interview 150) and
   `leetcode-index.json` (full public problem metadata only). Both
   upstream sources were MIT- or ISC-licensed when fetched; the generator refuses to emit a
-  pack if any list's size disagrees with its documented total. **Only facts are
+  pack if any list's size disagrees with its documented total.
+
+  **`companies.json` is the exception to the licence rule, and a deliberate one.**
+  Company→question membership comes from
+  `github.com/liquidslr/leetcode-company-wise-problems`, which carries **no licence
+  file** — so no licence is granted and default copyright applies — and which is
+  derived upstream from LeetCode's company tags, a paid LeetCode feature. Every other
+  bundled source here is MIT or ISC. It ships by an explicit decision of the project
+  owner, taken after the conflict with this rule and with "never scrape LeetCode" was
+  raised. Only the mapping and its ranking order are kept; the Frequency and
+  Acceptance Rate columns are dropped. If that decision is ever revisited, the
+  generator stage and the `BUNDLED_PACKS` entry are the two places to remove. **Only facts are
   bundled** — title, slug, difficulty, topic tags, question id. Problem statements
   are LeetCode's copyrighted text and must never be included. The Striver
   sheets are not bundled: no source was found publishing their membership with

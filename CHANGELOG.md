@@ -11,6 +11,45 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **Company question lists in the DSA section** — a Companies tab over 422
+  companies and 16,898 memberships, each list ordered by how often the question
+  is reported. Solving from there records the same `dsa.progress` event as
+  solving anywhere else; there is no company-specific progress.
+- `POST`/`GET /api/sync` — **the missing half of workspace sync.** `AREA_MERGE`,
+  the revision scheme and the `WorkspaceArea` table had all been written, but
+  nothing ever served them, so no device had sent an area anywhere and solved
+  questions had never reached the database for *any* section. The route adds no
+  rules of its own: every merge decision comes from `mergeArea`, the owner comes
+  from the session and never from the body, revisions are server-assigned, and
+  every blob is re-validated by `coerceArea` before it is stored.
+- `apps/extension/src/app/sync.js` — the client half. Push-then-adopt rather
+  than a continuous engine, debounced, flushed on `pagehide`, and silent on
+  failure so nothing about the workspace depends on the network. **Only the DSA
+  areas are wired** this pass: the endpoint serves every area, but pushing
+  `tasks` or `settings` untested against a real database could lose work, while
+  `dsa.progress` merges as an append-only event union that cannot.
+- `companyFrequency` and `isCompanyList` in core, plus a `companies.json` pack
+  built by `npm run dsa-pack`.
+
+### Changed
+- **`familyOf` collapses every `company:` list into one family.** There are 422
+  of them; left to the `other:<id>` fallback, a question tagged by forty
+  companies would have scored forty families and buried the curated signal the
+  family rule exists to protect — the exact failure it was written to prevent,
+  arriving through a different door. "Asked by many companies" now counts once,
+  alongside "in several curated lists", and the two are reported separately
+  because they mean different things.
+- `scripts/build-dsa-pack.mjs` retries every fetch. The metadata CSV is tens of
+  megabytes and a dropped connection killed the whole build after minutes of
+  successful work.
+
+### Fixed
+- The pack generator treated 48 companies whose upstream CSV is a bare header as
+  *failures*, which tripped the verification guard and meant no pack shipped at
+  all. A company with no tagged questions is now a company with no questions;
+  only an unreachable file is an error, and none are tolerated.
+
+### Added
 - **Profile cards**, on the website and in the extension. `/user/<handle>` is
   rebuilt around one, and `/user/<handle>/devcard.png` renders the same facts as
   a 500×280 PNG for a README or a sidebar, with `/user/<handle>/devcard` offering

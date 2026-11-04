@@ -12,6 +12,7 @@ import {
   ROLLUP_AFTER_DAYS, addDays, reconcileLifetime, rollupLedger,
 } from '@chestha/core';
 import { clearTrackerState } from '../grove/trackerBridge.js';
+import { flushNow, watch } from './sync.js';
 import { useToday } from './useToday.js';
 
 const StoreContext = createContext(null);
@@ -37,9 +38,24 @@ export function StoreProvider({ children }) {
     });
   }, []);
 
-  // Persist whatever is still debounced before the tab can be discarded.
+  /**
+   * Push the synced areas to the account they belong to.
+   *
+   * Attached once, alongside the store rather than inside it: the store is
+   * local-first and knows nothing about accounts, and keeping it that way is
+   * what lets the whole workspace work signed out. `watch` is a no-op until
+   * there is a session, so a signed-out New Tab never makes a request.
+   */
+  useEffect(() => watch(store), []);
+
+  // Persist whatever is still debounced before the tab can be discarded, and
+  // push it too — a solve recorded seconds before the tab closes is exactly
+  // the write most likely to be lost otherwise.
   useEffect(() => {
-    const flush = () => { store.flush(); };
+    const flush = () => {
+      store.flush();
+      flushNow(store);
+    };
     document.addEventListener('visibilitychange', flush);
     window.addEventListener('pagehide', flush);
     return () => {

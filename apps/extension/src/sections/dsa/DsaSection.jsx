@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
 import { Panel, SectionHeader, cx } from '../../components/ui.jsx';
 import { DsaHome } from './DsaHome.jsx';
+import { DsaCompanies } from './DsaCompanies.jsx';
 import { DsaLibrary } from './DsaLibrary.jsx';
 import { DsaLists } from './DsaLists.jsx';
 
@@ -15,6 +16,7 @@ import { DsaLists } from './DsaLists.jsx';
 const TABS = [
   { id: 'home', label: 'Overview', render: DsaHome },
   { id: 'library', label: 'Library', render: DsaLibrary },
+  { id: 'companies', label: 'Companies', render: DsaCompanies },
   { id: 'lists', label: 'My lists', render: DsaLists },
 ];
 

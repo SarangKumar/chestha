@@ -18,6 +18,15 @@
  * published datasets rather than scraping, and record that here so provenance
  * is visible rather than buried.
  *
+ * Company lists come from github.com/liquidslr/leetcode-company-wise-problems,
+ * which carries **no licence file** and is derived upstream from LeetCode's
+ * company tags, a paid LeetCode feature. That is unlike every other bundled
+ * source here, all of which are MIT or ISC, and it is shipped by an explicit
+ * decision of the project owner rather than by the usual rule. Recorded here
+ * so the exception is visible at the point of use. Only the company→question
+ * mapping and its ranking order are kept; the Frequency and Acceptance Rate
+ * columns are dropped.
+ *
  * What is NOT bundled: the Striver sheets, because no source was found that
  * publishes their membership with a usable licence and a verifiable size.
  * They remain ingestible via a user-supplied pack.
@@ -50,6 +59,12 @@ export const BUNDLED_PACKS = [
     name: 'Curated interview lists',
     url: '/dsa-packs/curated-core.json',
     description: 'Blind 75, Grind 75, Grind 169, NeetCode 75/150/250, LeetCode 75 and Top Interview 150 — curated memberships with shared question metadata.',
+  },
+  {
+    id: 'companies',
+    name: 'Company question lists',
+    url: '/dsa-packs/companies.json',
+    description: 'Questions tagged to each of 422 companies, ordered by how often they are reported. Import it to practise for a specific interview.',
   },
   {
     id: 'leetcode-index',
