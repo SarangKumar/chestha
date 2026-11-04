@@ -47,7 +47,7 @@ export function GithubStars() {
       href={GITHUB_REPO.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-8 items-center gap-1.5 rounded-control px-2 text-card font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
+      className="inline-flex h-8 items-center gap-1.5 rounded-control px-2 text-meta font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
       aria-label={label ? `Chestha on GitHub, ${label} stars` : 'Chestha on GitHub'}
     >
       <Icon name="github" className="size-4" />

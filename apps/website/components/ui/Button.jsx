@@ -15,8 +15,14 @@ const VARIANTS = {
   ghost: 'text-ink-muted hover:bg-hover hover:text-ink',
 };
 
+/**
+ * Size carries the type role too, rather than each caller picking one.
+ * `sm` is chrome — headers, toolbars, inline actions — and sits at the meta
+ * role so a bar of controls reads as chrome rather than as content. `lg` is a
+ * page's own call to action and stays at the card role.
+ */
 const SIZES = {
-  sm: 'h-8 px-3 text-card',
+  sm: 'h-8 px-3 text-meta',
   lg: 'h-10 px-6 text-card',
   'icon-sm': 'size-8',
 };
@@ -24,7 +30,7 @@ const SIZES = {
 export function buttonClass({ variant = 'default', size = 'sm', className = '' } = {}) {
   return [
     'inline-flex shrink-0 items-center justify-center gap-2 rounded-control font-medium',
-    'transition-colors duration-150',
+    'whitespace-nowrap transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
     VARIANTS[variant] ?? VARIANTS.default,
     SIZES[size] ?? SIZES.sm,

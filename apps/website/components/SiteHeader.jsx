@@ -44,7 +44,7 @@ export async function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex items-center rounded-control px-2 py-1 text-card font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
+              className="inline-flex items-center rounded-control px-2 py-1 text-meta font-medium text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
             >
               {item.label}
             </Link>
@@ -71,7 +71,7 @@ export async function SiteHeader() {
 function AccountLinks({ user, stacked = false }) {
   const row = stacked
     ? 'block rounded-control px-3 py-2.5 text-card font-medium text-ink transition-colors duration-150 hover:bg-hover'
-    : 'inline-flex items-center rounded-control px-2.5 py-1.5 text-card text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink';
+    : 'inline-flex items-center rounded-control px-2.5 py-1.5 text-meta text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink';
 
   if (user) {
     return (
@@ -97,7 +97,7 @@ function AccountLinks({ user, stacked = false }) {
         className={
           stacked
             ? 'mt-1 block rounded-control bg-accent px-3 py-2.5 text-card font-medium text-on-accent transition-colors duration-150 hover:opacity-90'
-            : 'inline-flex items-center rounded-control bg-accent px-3 py-1.5 text-card font-medium text-on-accent transition-colors duration-150 hover:opacity-90'
+            : 'inline-flex items-center rounded-control bg-accent px-3 py-1.5 text-meta font-medium text-on-accent transition-colors duration-150 hover:opacity-90'
         }
       >
         Join

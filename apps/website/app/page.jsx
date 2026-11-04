@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { CHROME_STORE_URL } from '@chestha/core';
-import { currentUser } from '@/lib/session';
 import { BrandMark } from '@/components/marketing/BrandMark';
 import { WorkspacePreview } from '@/components/marketing/WorkspacePreview';
 import { BuyMeCoffeeButton } from '@/components/BuyMeCoffeeButton';
@@ -20,13 +18,12 @@ const CHIPS = [
  * tagline, chips, two CTAs, then a laptop-ratio product shot — because this is
  * the page people have seen.
  *
- * One thing is new: it greets an account that is already signed in instead of
- * asking it to create one. The page is a server component, so that is decided
- * during render and the right version is in the first HTML.
+ * It renders the same for everyone, signed in or out, and so reads no session.
+ * The hero is what the product is, which does not change once you have an
+ * account — and the header already says who you are, so saying it again here
+ * only pushed the product shot further down the page.
  */
-export default async function HomePage() {
-  const user = await currentUser();
-
+export default function HomePage() {
   return (
     <div className="relative flex flex-col">
       <div
@@ -77,35 +74,11 @@ export default async function HomePage() {
           </div>
 
           <div className="chestha-fade-up chestha-fade-up-delay-2 mt-6 flex w-full max-w-sm flex-col items-stretch gap-2 sm:mt-8 sm:max-w-none sm:flex-row sm:items-center sm:justify-center">
-            {user ? (
-              <>
-                <Button href="/feed" size="lg">Read posts</Button>
-                <Button href={CHROME_STORE_URL} external variant="outline" size="lg">
-                  Add to Chrome
-                </Button>
-              </>
-            ) : (
-              <>
-                <BuyMeCoffeeButton size="lg" variant="default" className="px-6" />
-                <Button href={CHROME_STORE_URL} external variant="outline" size="lg">
-                  Add to Chrome
-                </Button>
-              </>
-            )}
+            <BuyMeCoffeeButton size="lg" variant="default" />
+            <Button href={CHROME_STORE_URL} external variant="outline" size="lg">
+              Add to Chrome
+            </Button>
           </div>
-
-          {user ? (
-            <p className="mt-4 text-meta text-ink-faint">
-              Signed in as{' '}
-              <Link
-                href={user.handleChosen === false ? '/onboarding/username' : `/user/${user.handle}`}
-                className="font-medium text-ink-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink"
-              >
-                @{user.handle}
-              </Link>
-              .
-            </p>
-          ) : null}
         </section>
 
         <WorkspacePreview />

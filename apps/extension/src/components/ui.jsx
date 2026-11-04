@@ -1,47 +1,82 @@
 import { useEffect, useId, useRef } from 'react';
+import { buttonVariants } from './ui/button/index.jsx';
 
 export function cx(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
-const BUTTON_TONES = {
-  // The one high-emphasis control: solid ink, inverted label.
-  primary: 'bg-accent text-on-accent border-transparent hover:opacity-90',
-  default: 'bg-raised text-ink border-line hover:bg-hover',
-  quiet: 'bg-transparent text-ink-muted border-transparent hover:bg-hover hover:text-ink',
-  danger: 'bg-transparent text-danger border-line hover:bg-danger-soft',
+/**
+ * `tone` is the workspace's name for what the shared variants call `variant`.
+ *
+ * The two are kept apart by one trap: this file's `tone="default"` is the
+ * *quiet bordered* button, while the variants' `default` is the solid accent
+ * CTA — which here is `tone="primary"`. Mapping them by name would silently
+ * turn forty bordered buttons into forty filled ones.
+ */
+const TONE_TO_VARIANT = {
+  primary: 'default',
+  default: 'neutral',
+  quiet: 'quiet',
+  danger: 'danger',
 };
 
-export function Button({ tone = 'default', size = 'md', className, as: As = 'button', ...props }) {
-  const sizes = {
-    sm: 'h-7 px-2.5 text-xs gap-1.5',
-    md: 'h-9 px-3.5 text-sm gap-2',
-    lg: 'h-10 px-4 text-sm gap-2',
-  };
+/**
+ * These three names predate the shared scale and are still what the workspace
+ * passes. They map onto it by height, which is what callers were really
+ * choosing: `sm` is the row-action button (h-7), `md` the standard one (h-9),
+ * `lg` the page CTA (h-10).
+ *
+ * Horizontal padding moves slightly for `md` and `lg` — the shared scale is a
+ * touch roomier — but no height changes, so nothing reflows.
+ */
+const SIZE_TO_SHARED = {
+  sm: 'xs',
+  md: 'default',
+  lg: 'lg',
+};
+
+/**
+ * The workspace button.
+ *
+ * It no longer defines any styles: it is an alias over `buttonVariants`, so
+ * there is one definition of what a button looks like rather than two that
+ * disagreed about what `size="sm"` meant. `as` stays, because several callers
+ * render an anchor that should look like a button.
+ *
+ * New code can pass `variant` and the shared size names directly; `tone` and
+ * the three legacy sizes keep working for everything already written.
+ */
+export function Button({
+  tone, variant, size = 'md', className, as: As = 'button', ...props
+}) {
+  const resolvedVariant = variant ?? TONE_TO_VARIANT[tone ?? 'default'] ?? 'neutral';
+  const resolvedSize = SIZE_TO_SHARED[size] ?? size;
+
   return (
     <As
-      className={cx(
-        'inline-flex items-center justify-center rounded-control border font-medium',
-        'transition-colors duration-150 disabled:opacity-40 disabled:pointer-events-none',
-        sizes[size], BUTTON_TONES[tone], className,
-      )}
+      className={cx(buttonVariants({ variant: resolvedVariant, size: resolvedSize }), className)}
       {...props}
     />
   );
 }
 
-/** Icon-only controls keep a 32px hit area and always carry an accessible name. */
+/**
+ * Icon-only controls keep a 32px hit area and always carry an accessible name.
+ *
+ * The styling is `quiet` at `icon-sm` — it was written out by hand and matched
+ * those variants class for class, which is the kind of duplicate that stays
+ * right until someone adjusts one of them. What this component still earns on
+ * its own is the `label`: an icon with no text needs both an accessible name
+ * and a tooltip, and making that a required prop is the only way an icon
+ * button cannot ship nameless.
+ */
 export function IconButton({ label, className, ...props }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      className={cx(
-        'inline-flex size-8 shrink-0 items-center justify-center rounded-control text-ink-muted',
-        'transition-colors duration-150 hover:bg-hover hover:text-ink',
-        className,
-      )}
+      className={cx(buttonVariants({ variant: 'quiet', size: 'icon-sm' }), className)}
       {...props}
     />
   );
