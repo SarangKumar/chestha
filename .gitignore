@@ -93,3 +93,9 @@ next-env.d.ts
 # Prisma — the client is generated into node_modules by `npm run db:generate`,
 # which the root postinstall also runs, so a clone never needs it committed.
 packages/db/generated/
+
+# Vercel CLI project link, and the OIDC token it writes beside it. Both are
+# per-machine credentials, not configuration — `vercel link` recreates them.
+# (`vercel link` also appends a bare `.env*` here; it is removed on sight,
+# because it would override the `!apps/extension/.env.*` exceptions above.)
+.vercel/

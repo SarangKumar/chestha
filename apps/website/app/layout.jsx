@@ -1,5 +1,6 @@
 import './globals.css';
 import { SiteHeader } from '@/components/SiteHeader';
+import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 import { siteUrl } from '@/lib/session';
 
 export const metadata = {
@@ -52,7 +53,7 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body className="min-h-dvh bg-canvas text-ink antialiased">
+      <body className="flex min-h-dvh flex-col bg-canvas text-ink antialiased">
         {/* Keyboard users land here first: every core flow has to be
             completable without a mouse. */}
         <a
@@ -62,7 +63,8 @@ export default function RootLayout({ children }) {
           Skip to content
         </a>
         <SiteHeader />
-        <main id="main">{children}</main>
+        <main id="main" className="flex-1">{children}</main>
+        <MarketingFooter />
       </body>
     </html>
   );

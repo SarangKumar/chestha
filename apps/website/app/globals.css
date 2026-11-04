@@ -10,3 +10,7 @@
 /* The design system — the same file apps/extension imports, so the website and the
    extension cannot drift into two palettes. */
 @import "../../../packages/ui/src/tokens.css";
+
+/* The landing's motion and chrome, shared with the extension's website build
+   so the two hero treatments cannot drift apart. */
+@import "../../../packages/ui/src/marketing.css";

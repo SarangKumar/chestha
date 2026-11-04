@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { GITHUB_REPO } from '../siteLinks.js';
 
+// Re-exported so the one existing import site keeps working; the function
+// itself lives in core now, beside the repo link it formats.
+export { formatStarCount } from '@chestha/core';
+
 /**
  * Live stargazer count for the product repo. Public GitHub API only — no token.
  * Offline / rate-limit / network errors leave `stars` null so the UI can hide
@@ -37,12 +41,4 @@ export function useGithubStars() {
   }, []);
 
   return stars;
-}
-
-/** Compact display: 1250 → "1.3k", small counts stay exact. */
-export function formatStarCount(n) {
-  if (n == null || !Number.isFinite(n)) return null;
-  if (n < 1000) return String(Math.round(n));
-  const k = n / 1000;
-  return `${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}k`;
 }

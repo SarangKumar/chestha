@@ -8,6 +8,7 @@
     ".": "./src/index.js",
     "./account": "./src/account/index.js",
     "./posts": "./src/posts/index.js",
-    "./sync": "./src/sync/index.js"
+    "./sync": "./src/sync/index.js",
+    "./site": "./src/site/index.js"
   }
 }
