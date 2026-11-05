@@ -12,6 +12,7 @@ export * from './store.js';
 export * from './shortcuts.js';
 export * from './theme.js';
 export * from './sound.js';
+export * from './audio.js';
 export * from './transfer.js';
 export * from './account/index.js';
 export * from './posts/index.js';

@@ -59,9 +59,13 @@ function applyHostPermissions() {
 
   const manifestPath = `${EXTENSION_DIST}/manifest.json`;
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  // The note in the committed manifest explains why the key is absent there; it
-  // is for a reader of that file and has no business in the shipped one.
-  delete manifest._host_permissions_note;
+  // The notes in the committed manifest are for a reader of that file and have
+  // no business in the shipped one, where Chrome would report each as an
+  // unrecognised key. Every `_`-prefixed key goes, so adding another note to
+  // the source manifest needs no change here.
+  for (const key of Object.keys(manifest)) {
+    if (key.startsWith('_')) delete manifest[key];
+  }
   manifest.host_permissions = [`${new URL(origin).origin}/*`];
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 

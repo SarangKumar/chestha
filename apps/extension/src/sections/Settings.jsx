@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   BACKGROUND_LABELS, BACKGROUND_PATTERNS, HIDEABLE_SECTIONS, buildExport, estimateUsage,
-  exportFilename, formatLongDate, parseImport, tagKey,
+  exportFilename, formatBytes, formatLongDate, parseImport, tagKey,
 } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { Button, Dialog, Field, Panel, SectionHeader, Select, TextInput, Toggle, cx } from '../components/ui.jsx';
@@ -683,13 +683,4 @@ function Stat({ label, value }) {
       <dd className="font-medium text-ink">{value}</dd>
     </div>
   );
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }

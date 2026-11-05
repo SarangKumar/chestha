@@ -11,6 +11,35 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **Your own music in the Sounds section.** Sounds → *Your music* → Add files
+  stores audio from your own computer in IndexedDB on that device; it plays
+  offline, mixes and saves into presets like any built-in sound, and each track
+  carries the creator's name, the licence and a link to the original, shown on
+  its card with an explicit "Not owned by Chestha — rights with the creator."
+  `packages/core/src/audio.js` holds the validation and credit rules,
+  `apps/extension/src/audio/trackStore.js` the bytes.
+
+  Three things about it are deliberate. **Nothing is ever downloaded from a
+  streaming site**: the source link is a citation, never a source of bytes.
+  Ripping from YouTube breaks its terms and the Chrome Web Store policy that
+  forbids extensions from downloading YouTube content, attribution is not a
+  licence, and it is not possible from page JS regardless — `googlevideo.com`
+  sends no CORS headers for this origin and the stream URLs are
+  signature-protected. **Tracks never sync**: metadata lives beside the bytes in
+  its own `chestha-audio` database rather than the synced `sound` area, because
+  syncing the metadata alone would hand another device a library it could name
+  and never play. **Music is streamed, not decoded**: entries marked
+  `stream: true` play through an `<audio>` element, since `decodeAudioData`
+  would hold a four-minute track as ~90 MB of PCM. Built-in loops still decode,
+  which is what keeps them seamless.
+- **`unlimitedStorage` in the extension manifest** — the first permission added
+  since the manifest was written, and the test that pins the permission list was
+  updated rather than bypassed. Audio is tens of megabytes and evictable under
+  the default per-origin quota, and an evicted track is data that cannot be
+  recovered from the server, unlike everything else the app stores. It grants no
+  website access, no host permission and no new API.
+- `formatBytes` in `packages/core/src/storage.js`, replacing the private copy in
+  the extension's Settings section now that the Sounds section needs it too.
 - **A category picker in the extension's post editor**, and the category list
   on `GET /api/posts/mine`. The list comes from the database rather than core's
   `SEED_CATEGORIES`, because `editPost` validates against the database: a picker
@@ -84,6 +113,16 @@ not updated yet — it is user-facing, and these are not released.
   built by `npm run dsa-pack`.
 
 ### Changed
+- **Board / Read moved to the top of the nav rail**, as its first item and
+  above the section icons: it chooses what the start screen *is*, where
+  everything below it is a place to go. Picking a mode now navigates to the
+  start screen as well as setting it, since otherwise choosing "Read" from
+  inside Tasks would appear to do nothing. It also restores the route back to
+  the start screen that removing the Dashboard icon took away — which is why
+  this is not a reversal of that: the control does something a New Tab cannot.
+  It stays in the header at phone width, where there is no rail, and exactly one
+  copy is mounted at any width. Read is still hidden without an account, with
+  the same escape hatch as before for someone left on Read after signing out.
 - **The theme picker on the website offers System.** It had only light and dark:
   `system` was already the stored default and understood by the pre-paint
   script, but this control could not write it, so one click left `system` for

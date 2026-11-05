@@ -45,7 +45,15 @@ test('the Grove and the tracker never contact the network', () => {
 test('the extension asks for no access to any website', () => {
   const manifest = JSON.parse(readFileSync(`${root}scripts/extension/manifest.json`, 'utf8'));
 
-  assert.deepEqual(manifest.permissions.sort(), ['alarms', 'idle', 'storage', 'tabs']);
+  // unlimitedStorage is in this list deliberately: the Sounds section stores the
+  // user's own audio files, which is tens of megabytes and evictable under the
+  // default quota. It grants no website access and no new API — it only raises
+  // the ceiling on what this extension may store about itself — so it does not
+  // weaken what this test is really guarding.
+  assert.deepEqual(
+    manifest.permissions.sort(),
+    ['alarms', 'idle', 'storage', 'tabs', 'unlimitedStorage'],
+  );
   assert.equal(manifest.host_permissions, undefined, 'no host permissions, ever');
   assert.equal(manifest.content_scripts, undefined, 'no content scripts, ever');
   assert.equal(manifest.optional_host_permissions, undefined);

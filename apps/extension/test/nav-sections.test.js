@@ -67,10 +67,27 @@ function railIds() {
   return ids;
 }
 
-test('the rail does not offer the start screen', () => {
-  // In the extension a New Tab already opens it, so the icon was a button to go
-  // where you started. Reachable by `G D` and the palette instead.
+test('the start screen is not a destination icon in the rail', () => {
+  // It is still *in* the rail, as the first item — but as the Board/Read mode
+  // control, which is a different thing from an icon that navigates. A plain
+  // icon for it was a button to go where you started, and this guards against
+  // one quietly coming back alongside the control.
   assert.ok(!railIds().includes('dashboard'), 'the start screen is not a rail destination');
+});
+
+test('the rail mounts the start-mode control as its first item', () => {
+  // The pairing this test exists for: the control is what replaced the icon, so
+  // losing it would leave no route back to the start screen from the rail at
+  // all. Read as text for the same reason as the rest of this file.
+  assert.match(
+    railSource,
+    /orientation="vertical"/,
+    'NavRail no longer renders the vertical StartModeToggle',
+  );
+  const controlAt = railSource.indexOf('<StartModeToggle');
+  const sectionsAt = railSource.indexOf('{primary.map(');
+  assert.notEqual(controlAt, -1, 'StartModeToggle is not rendered in the rail');
+  assert.ok(controlAt < sectionsAt, 'the start-mode control must come before the section icons');
 });
 
 test('every rail item is a section the policy table knows about', () => {

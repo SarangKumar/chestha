@@ -20,48 +20,61 @@ const SHOT = 'workspace-preview.png';
  * capture at that path and it appears with no code change.
  *
  * The frame keeps its aspect ratio either way, so nothing below it moves.
+ *
+ * The presentation around the frame belongs to the homepage rather than to the
+ * product: a glow, a bezel of padding, and a negative top margin that lifts the
+ * shot over the hero's lower edge, the way the layout this landing follows
+ * overlaps its own product video with the section above.
  */
 export function WorkspacePreview() {
   const hasShot = existsSync(join(process.cwd(), 'public', SHOT));
 
   return (
     <section
-      className="chestha-fade-up chestha-fade-up-delay-3 mx-auto w-full max-w-6xl px-4 sm:px-6"
+      className="chestha-fade-up chestha-fade-up-delay-3 relative z-10 mx-auto -mt-8 w-full max-w-6xl px-4 pb-12 sm:-mt-12 sm:px-6 sm:pb-16"
       aria-label="Workspace preview"
     >
-      <div className="overflow-hidden rounded-panel border border-line bg-surface shadow-raised">
-        <div className="flex h-9 items-center gap-2 border-b border-line bg-raised px-3">
-          <span className="flex items-center gap-1.5" aria-hidden>
-            <span className="size-2.5 rounded-full" style={{ backgroundColor: '#ff5f57' }} />
-            <span className="size-2.5 rounded-full" style={{ backgroundColor: '#febc2e' }} />
-            <span className="size-2.5 rounded-full" style={{ backgroundColor: '#28c840' }} />
-          </span>
-          <div className="mx-auto flex h-6 min-w-0 max-w-md flex-1 items-center justify-center rounded-control bg-inset px-3">
-            <span className="truncate text-meta text-ink-faint">chestha · dashboard</span>
-          </div>
-          <span className="w-10" aria-hidden />
-        </div>
+      <div className="relative mx-auto max-w-5xl">
+        <span aria-hidden className="chestha-shot-glow" />
 
-        <div className="relative aspect-[16/10] w-full bg-canvas">
-          {hasShot ? (
-            <img
-              src={`/${SHOT}`}
-              alt="The Chestha dashboard: a grid of widgets including today's tasks, a clock, weather and a focus garden."
-              className="absolute inset-0 h-full w-full object-cover object-top"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
-              <p className="max-w-sm text-balance text-card leading-relaxed text-ink-muted">
-                The workspace opens in your New Tab — a board you arrange yourself,
-                with tasks, a calendar, a focus garden and ambient sound.
-              </p>
-              <Button href={CHROME_STORE_URL} external variant="outline" size="lg">
-                Add to Chrome
-              </Button>
+        {/* The bezel is a translucent wash of the raised surface, so it reads as
+            a frame in both themes without introducing a token for it. */}
+        <div className="relative z-10 rounded-panel bg-raised/60 p-2 shadow-raised ring-1 ring-line">
+          <div className="overflow-hidden rounded-card border border-line bg-surface">
+            <div className="flex h-9 items-center gap-2 border-b border-line bg-raised px-3">
+              <span className="flex items-center gap-1.5" aria-hidden>
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: '#ff5f57' }} />
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: '#febc2e' }} />
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: '#28c840' }} />
+              </span>
+              <div className="mx-auto flex h-6 min-w-0 max-w-md flex-1 items-center justify-center rounded-control bg-inset px-3">
+                <span className="truncate text-meta text-ink-faint">chestha · dashboard</span>
+              </div>
+              <span className="w-10" aria-hidden />
             </div>
-          )}
+
+            <div className="relative aspect-[16/10] w-full bg-canvas">
+              {hasShot ? (
+                <img
+                  src={`/${SHOT}`}
+                  alt="The Chestha dashboard: a grid of widgets including today's tasks, a clock, weather and a focus garden."
+                  className="absolute inset-0 h-full w-full object-cover object-top"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                  <p className="max-w-sm text-balance text-card leading-relaxed text-ink-muted">
+                    The workspace opens in your New Tab — a board you arrange yourself,
+                    with tasks, a calendar, a focus garden and ambient sound.
+                  </p>
+                  <Button href={CHROME_STORE_URL} external variant="outline" size="lg">
+                    Add to Chrome
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </section>

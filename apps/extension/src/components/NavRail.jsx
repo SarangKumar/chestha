@@ -1,22 +1,22 @@
-import { lockedSections } from '@chestha/core';
+import { READING_SECTION, isSectionAllowed, lockedSections } from '@chestha/core';
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useSession } from '../app/useSession.js';
 import { SITE_URL } from '../siteLinks.js';
 import { isExtensionRuntime } from '../app/platform.js';
 import { Icon } from './icons.jsx';
 import { ProfileMenu } from './ProfileMenu.jsx';
+import { StartModeToggle } from './StartModeToggle.jsx';
 import { cx } from './ui.jsx';
 
 // Primary destinations sit at the top. On the rail, the bottom slot is the
 // account menu, which holds Settings; the mobile bar has no "bottom" and no
 // room for a popover, so there Settings stays a tab of its own.
 //
-// **The start screen is deliberately not listed.** In the extension it is what
-// a New Tab already opens, so an icon for it was a button to go where you
-// started. It is still reachable by `G D`, by "Go to dashboard" in the palette,
-// and by opening a tab. The consequence to know about: on the web build, where
-// there is no New Tab, the rail no longer offers a way back to the board — the
-// palette is the route.
+// **The start screen is not in this list**, but it is the first thing in the
+// rail: it is the Board/Read control above, not a destination icon. A plain
+// icon for it was a button to go where you started, which is why it went; the
+// mode control earns the slot because it does something a New Tab cannot, and
+// it doubles as the way back to the start screen from any other section.
 const PRIMARY = [
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
@@ -67,9 +67,30 @@ function RailButton({ item, section, locked, onNavigate }) {
 }
 
 export function NavRail({ section, onNavigate, onCapture }) {
-  const { state } = useWorkspace();
+  const { state, actions } = useWorkspace();
   const { session } = useSession();
   const hidden = state.settings.hiddenSections ?? [];
+  const startMode = state.settings.startMode ?? 'board';
+
+  /**
+   * Read mode needs an account, so the control that turns it on is not offered
+   * without one — the same rule the rail applies to gated sections, and the
+   * same condition `Shell` uses for its own copy of this control.
+   *
+   * The second clause is an escape hatch, not a loophole: someone who was on
+   * Read and then signed out is looking at the gate, and this is the obvious
+   * way back to their board. Hiding it there would leave them on a page they
+   * did not choose with no visible way off it.
+   */
+  const showStartMode = isSectionAllowed(READING_SECTION, session.state) || startMode === 'read';
+
+  // Both modes live on the start screen, so choosing one goes there as well as
+  // setting it — otherwise picking "Read" from inside Tasks would appear to do
+  // nothing at all.
+  const chooseStartMode = (next) => {
+    actions.setSetting('startMode', next);
+    onNavigate('dashboard');
+  };
   // Empty unless we positively know there is no account, so an offline New Tab
   // shows the full rail rather than hiding most of the product. Same fail-open
   // rule as the gate itself.
@@ -126,6 +147,19 @@ export function NavRail({ section, onNavigate, onCapture }) {
         >
           <Icon name="plus" />
         </button>
+
+        {/* First in the rail, above the sections and separated from them: it
+            chooses what the start screen *is*, where everything below it is a
+            place to go. */}
+        {showStartMode && (
+          <div className="mb-2 flex flex-col items-center">
+            <StartModeToggle
+              mode={startMode}
+              onChange={chooseStartMode}
+              orientation="vertical"
+            />
+          </div>
+        )}
 
         {primary.map((item) => (
           <RailButton

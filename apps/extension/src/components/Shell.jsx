@@ -84,13 +84,17 @@ export function Shell({ section, onNavigate, onCapture, onPalette, children }) {
               <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
             </div>
 
-            {/* Only the start screen has two modes, so the control appears only
-                there rather than sitting inert on every other page. */}
+            {/* The nav rail owns this control from `sm` up, where it is the
+                first thing in the rail. Below that there is no rail, so it
+                stays here — and only on the start screen, rather than sitting
+                inert on every other page. Exactly one copy is ever mounted. */}
             {section === 'dashboard' && showStartMode && (
-              <StartModeToggle
-                mode={startMode}
-                onChange={(next) => actions.setSetting('startMode', next)}
-              />
+              <div className="sm:hidden">
+                <StartModeToggle
+                  mode={startMode}
+                  onChange={(next) => actions.setSetting('startMode', next)}
+                />
+              </div>
             )}
 
             <button

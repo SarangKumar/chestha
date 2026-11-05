@@ -15,18 +15,33 @@ const MODES = {
  * control is for. A switch would have to imply one mode is "on", and these are
  * peers.
  *
- * The label is shown next to the icon from `sm` up and the icon alone on a
- * phone, where the header is tight — the accessible name is on the control
- * either way, so it never depends on the visible text.
+ * **Two orientations, one control.** `vertical` is the nav rail, where this is
+ * the first item and the rail is 64px wide, so it stacks and drops the labels.
+ * `horizontal` is the header, which is where it still lives at phone width
+ * because there is no rail there. Exactly one of the two is mounted at any
+ * width — see `Shell` and `NavRail` — so the radiogroup is never duplicated.
+ *
+ * It renders the stored mode, not where you currently are: the mode is a
+ * persisted setting that outlives the page you happen to be on, and in the rail
+ * clicking an option also navigates to the start screen, which is the caller's
+ * job rather than this component's.
+ *
+ * The hint carries the only spelled-out difference between the two, so it is on
+ * the accessible name and not only in `title` — a title alone is unreachable by
+ * keyboard and touch, and in the rail there is no visible label at all.
  */
-export function StartModeToggle({ mode, onChange }) {
+export function StartModeToggle({ mode, onChange, orientation = 'horizontal' }) {
   const current = START_MODES.includes(mode) ? mode : 'board';
+  const vertical = orientation === 'vertical';
 
   return (
     <div
       role="radiogroup"
       aria-label="Start screen"
-      className="flex shrink-0 items-center gap-0.5 rounded-control border border-line bg-surface p-0.5 shadow-card"
+      className={cx(
+        'flex shrink-0 gap-0.5 rounded-control border border-line bg-surface p-0.5 shadow-card',
+        vertical ? 'flex-col items-stretch' : 'items-center',
+      )}
     >
       {START_MODES.map((key) => {
         const option = MODES[key];
@@ -37,21 +52,22 @@ export function StartModeToggle({ mode, onChange }) {
             type="button"
             role="radio"
             aria-checked={active}
-            // The hint is the only place the difference is spelled out, and a
-            // title alone is unreachable by keyboard and touch.
             aria-label={`${option.label} — ${option.hint}`}
-            title={option.hint}
+            title={`${option.label} — ${option.hint}`}
             onClick={() => onChange(key)}
             className={cx(
-              'flex h-8 items-center gap-1.5 rounded-[0.5rem] px-2.5 text-xs font-medium',
+              'flex items-center justify-center rounded-[0.5rem] text-xs font-medium',
               'transition-colors duration-150',
+              // Square in the rail so the pair reads as one block aligned with
+              // the section icons below it; label-width in the header.
+              vertical ? 'size-9' : 'h-8 gap-1.5 px-2.5',
               active
                 ? 'bg-accent text-on-accent'
                 : 'text-ink-muted hover:bg-hover hover:text-ink',
             )}
           >
             <Icon name={option.icon} className="size-4" />
-            <span className="hidden sm:inline">{option.label}</span>
+            {!vertical && <span className="hidden sm:inline">{option.label}</span>}
           </button>
         );
       })}

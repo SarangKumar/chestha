@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, renamePreset,
+  MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE, TRACK_GROUP,
+  activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, describeSource,
+  formatBytes, renamePreset,
 } from '@chestha/core';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
@@ -9,6 +11,7 @@ import {
 } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import * as engine from '../audio/engine.js';
+import * as trackStore from '../audio/trackStore.js';
 
 export function Sounds() {
   const { state, actions, notify } = useWorkspace();
@@ -19,6 +22,14 @@ export function Sounds() {
   const [presetName, setPresetName] = useState('');
   const [renaming, setRenaming] = useState(null);
   const nameRef = useRef(null);
+
+  // The user's own audio files, stored on this device only.
+  const library = useSyncExternalStore(trackStore.subscribe, trackStore.getTrackState);
+  const [editing, setEditing] = useState(null);
+  const [removing, setRemoving] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const fileRef = useRef(null);
+  const editNameRef = useRef(null);
 
   // Shared with the dashboard widget, so both judge a preset against the same list.
   const catalogue = useSoundCatalogue();
@@ -120,6 +131,50 @@ export function Sounds() {
     });
   };
 
+  const addFiles = async (fileList) => {
+    const files = [...(fileList ?? [])];
+    if (files.length === 0) return;
+    setAdding(true);
+    const failures = [];
+    let added = 0;
+    // One at a time: each is a separate IndexedDB transaction, and a file the
+    // browser refuses must not stop the rest of a multi-file pick.
+    for (const file of files) {
+      const result = await trackStore.addTrack(file);
+      if (result.ok) added += 1;
+      else failures.push(`${file.name}: ${result.error}`);
+    }
+    setAdding(false);
+    if (added > 0) notify(`Added ${added} track${added === 1 ? '' : 's'}`);
+    for (const failure of failures) notify(failure, { tone: 'danger', duration: 9000 });
+  };
+
+  const saveTrack = async () => {
+    const result = await trackStore.updateTrack(editing.id, editing);
+    if (!result.ok) { notify(result.error, { tone: 'danger' }); return; }
+    setEditing(null);
+    notify(`Saved “${result.track.name}”`);
+  };
+
+  const confirmRemove = async () => {
+    const track = removing;
+    setRemoving(null);
+    // Take it out of the mix first, so the voice is faded out and its element
+    // released before the blob behind it goes.
+    if (track.id in mix) {
+      const next = { ...mix };
+      delete next[track.id];
+      actions.setSound({ lastMix: next });
+      if (Object.keys(next).length === 0) engine.stopAll();
+      else engine.applyMix(next, sound.masterVolume);
+    }
+    const result = await trackStore.removeTrack(track.id);
+    if (!result.ok) { notify(result.error, { tone: 'danger' }); return; }
+    // No undo offered: the file itself is gone, and an undo that restored the
+    // name without the audio would be a lie.
+    notify(`Deleted “${track.name}”`, { tone: 'danger' });
+  };
+
   if (!audio.supported) {
     return (
       <div>
@@ -138,7 +193,7 @@ export function Sounds() {
     <div className="space-y-4">
       <SectionHeader
         title="Sounds"
-        description={`${catalogue.length} sounds. The built-in set is generated in your browser — nothing is downloaded and it works offline. Drop your own files into public/audio/ to add recordings.`}
+        description={`${catalogue.length} sounds. Everything plays from this device and works offline — nothing is downloaded and nothing is streamed from the internet. Add your own music below.`}
       >
         <Button onClick={togglePlayback} disabled={active.length === 0} tone={playing ? 'default' : 'primary'}>
           <Icon name={playing ? 'pause' : 'play'} className="size-4" />
@@ -189,9 +244,14 @@ export function Sounds() {
         </div>
         {groups.map((group) => (
           <div key={group}>
-            <p className="border-b border-line bg-inset px-4 py-1.5 text-meta font-medium text-ink-muted">
-              {group}
-            </p>
+            <div className="border-b border-line bg-inset px-4 py-1.5">
+              <p className="text-meta font-medium text-ink-muted">{group}</p>
+              {group === TRACK_GROUP && (
+                <p className="mt-0.5 max-w-prose text-meta leading-relaxed text-ink-faint">
+                  {OWNERSHIP_NOTICE}
+                </p>
+              )}
+            </div>
             {/* Two columns: the whole library in one list is a long scroll, and a
                 full-width row wastes space on a name and a slider. */}
             <ul className="grid gap-px bg-line sm:grid-cols-2">
@@ -224,12 +284,23 @@ export function Sounds() {
                             {audio.running ? 'Playing' : 'Paused'}
                           </Badge>
                         )}
-                        {!item.builtin && <Badge tone="neutral">Your file</Badge>}
+                        {!item.builtin && (
+                          <Badge tone="neutral">{item.track ? 'Your track' : 'Your file'}</Badge>
+                        )}
                       </p>
-                      <p className="mt-0.5 truncate text-meta text-ink-faint">
-                        {failure ? `This file ${failure}.` : item.description}
-                        {item.credit && !failure && ` · ${item.credit}`}
-                      </p>
+                      {item.track ? (
+                        <TrackCredit
+                          track={item.track}
+                          failure={failure}
+                          onEdit={() => setEditing({ ...item.track })}
+                          onRemove={() => setRemoving(item.track)}
+                        />
+                      ) : (
+                        <p className="mt-0.5 truncate text-meta text-ink-faint">
+                          {failure ? `This file ${failure}.` : item.description}
+                          {item.credit && !failure && ` · ${item.credit}`}
+                        </p>
+                      )}
                       <div className="mt-1.5 flex items-center gap-2">
                         <input
                           type="range"
@@ -251,6 +322,95 @@ export function Sounds() {
             </ul>
           </div>
         ))}
+      </Panel>
+
+      <Panel className="p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Your music</CardTitle>
+            <p className="mt-1 max-w-prose text-meta leading-relaxed text-ink-faint">
+              Add audio files from your own computer. They are stored on this device,
+              play offline, and are never uploaded or synced to your other devices.
+              Each track can carry the creator’s name, the licence and a link to the
+              original — fill those in so the credit travels with the track.
+            </p>
+            <p className="mt-1.5 max-w-prose text-meta leading-relaxed text-ink-faint">
+              Chestha cannot download audio from a streaming site, and will not:
+              ripping from YouTube breaks its terms and the Chrome Web Store rules,
+              and crediting a creator is not the same as holding a licence. Paste a
+              YouTube link as the <em>source</em> of a file you already have the right
+              to use. For music that is free to redistribute, try the Free Music
+              Archive, Jamendo, Pixabay or incompetech.com.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            tone="primary"
+            onClick={() => fileRef.current?.click()}
+            disabled={adding || !library.available}
+          >
+            <Icon name="upload" className="size-4" />
+            {adding ? 'Adding…' : 'Add files'}
+          </Button>
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="audio/*"
+          multiple
+          className="hidden"
+          onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+        />
+
+        {!library.available ? (
+          <Panel level="inset" className="border-warn/35 bg-warn-soft p-3.5">
+            <p className="text-meta leading-relaxed text-ink">
+              This browser window cannot store audio files
+              {library.error ? `: ${library.error}` : '.'} That happens in some private
+              windows and with strict privacy settings; the built-in sounds still work.
+            </p>
+          </Panel>
+        ) : !library.ready ? (
+          // Reading the library is a database round trip. Showing the empty
+          // state first would flash "no tracks" at someone who has plenty.
+          <p className="text-meta text-ink-faint">Loading your tracks…</p>
+        ) : library.tracks.length === 0 ? (
+          <EmptyState
+            title="No tracks yet"
+            description={`Add an MP3, M4A, OGG, WAV or FLAC file of up to ${Math.round(MAX_TRACK_BYTES / (1024 * 1024))} MB. It appears in the library above, under “${TRACK_GROUP}”.`}
+          />
+        ) : (
+          <>
+            <ul className="divide-y divide-line overflow-hidden rounded-control border border-line">
+              {library.tracks.map((track) => (
+                <li key={track.id} className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{track.name}</p>
+                    <p className="mt-0.5 truncate text-meta text-ink-faint">
+                      {[track.artist || 'No creator credited', track.license, describeSource(track.sourceUrl), formatBytes(track.bytes)]
+                        .filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <IconButton label={`Edit credits for ${track.name}`} onClick={() => setEditing({ ...track })}>
+                    <Icon name="edit" className="size-4" />
+                  </IconButton>
+                  <IconButton
+                    label={`Delete ${track.name}`}
+                    onClick={() => setRemoving(track)}
+                    className="hover:text-danger"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </IconButton>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-meta text-ink-faint">
+              {library.tracks.length} track{library.tracks.length === 1 ? '' : 's'},
+              {' '}{formatBytes(trackStore.libraryBytes(library.tracks))} on this device.
+            </p>
+          </>
+        )}
       </Panel>
 
       <Panel className="p-4 sm:p-5">
@@ -342,6 +502,157 @@ export function Sounds() {
           )}
         </Field>
       </Dialog>
+
+      <Dialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        initialFocus={editNameRef}
+        title="Track details"
+        description="The credit shown on this track’s card. The audio file itself is not changed."
+        footer={(
+          <>
+            <Button onClick={() => setEditing(null)}>Cancel</Button>
+            <Button tone="primary" onClick={saveTrack} disabled={!editing?.name?.trim()}>Save</Button>
+          </>
+        )}
+      >
+        <div className="space-y-3.5">
+          <Field label="Title">
+            {(id) => (
+              <TextInput
+                id={id}
+                ref={editNameRef}
+                value={editing?.name ?? ''}
+                onChange={(e) => setEditing((t) => ({ ...t, name: e.target.value }))}
+                autoComplete="off"
+              />
+            )}
+          </Field>
+          <Field label="Creator" hint="Who made it. Shown on the card as the credit.">
+            {(id) => (
+              <TextInput
+                id={id}
+                value={editing?.artist ?? ''}
+                onChange={(e) => setEditing((t) => ({ ...t, artist: e.target.value }))}
+                placeholder="Artist or channel name"
+                autoComplete="off"
+              />
+            )}
+          </Field>
+          <Field
+            label="Original link"
+            hint="Where it came from — a YouTube video, a Bandcamp page, anywhere. Stored as a link only; nothing is ever fetched from it."
+          >
+            {(id) => (
+              <TextInput
+                id={id}
+                type="url"
+                value={editing?.sourceUrl ?? ''}
+                onChange={(e) => setEditing((t) => ({ ...t, sourceUrl: e.target.value }))}
+                placeholder="https://www.youtube.com/watch?v=…"
+                autoComplete="off"
+                spellCheck="false"
+              />
+            )}
+          </Field>
+          <Field label="Licence" hint="Record the terms you have it under, so they are not lost.">
+            {(id) => (
+              <TextInput
+                id={id}
+                value={editing?.license ?? ''}
+                onChange={(e) => setEditing((t) => ({ ...t, license: e.target.value }))}
+                placeholder="CC BY 4.0, or “permission from the artist”"
+                autoComplete="off"
+              />
+            )}
+          </Field>
+          <Field label="Note" hint="Optional. Anything you want to remember about it.">
+            {(id) => (
+              <TextInput
+                id={id}
+                value={editing?.description ?? ''}
+                onChange={(e) => setEditing((t) => ({ ...t, description: e.target.value }))}
+                autoComplete="off"
+              />
+            )}
+          </Field>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        size="sm"
+        title={`Delete “${removing?.name ?? ''}”?`}
+        description="The audio file is deleted from this device. There is no undo — you would have to add the file again. Presets that use it will report it as unavailable."
+        footer={(
+          <>
+            <Button onClick={() => setRemoving(null)}>Cancel</Button>
+            <Button tone="danger" onClick={confirmRemove}>Delete track</Button>
+          </>
+        )}
+      />
+    </div>
+  );
+}
+
+/**
+ * The credit block on one of the user's own tracks.
+ *
+ * The source is rendered as a real link so the creator's page is one click
+ * away, which is the point of recording it. `coerceSourceUrl` has already
+ * rejected anything that is not http(s), so nothing executable can reach this
+ * `href`; `noreferrer` keeps the user's workspace out of the target's logs.
+ */
+function TrackCredit({ track, failure, onEdit, onRemove }) {
+  const source = describeSource(track.sourceUrl);
+  return (
+    <div className="mt-0.5 space-y-0.5">
+      {failure && <p className="text-meta text-danger">This track {failure}.</p>}
+      {track.description && !failure && (
+        <p className="truncate text-meta text-ink-faint">{track.description}</p>
+      )}
+      <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-faint">
+        <span className="truncate">{track.artist || 'No creator credited'}</span>
+        {track.license && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{track.license}</span>
+          </>
+        )}
+        {source && (
+          <>
+            <span aria-hidden="true">·</span>
+            <a
+              href={track.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-1 underline decoration-line underline-offset-2 hover:text-ink"
+            >
+              {source}
+              <Icon name="external" className="size-3" />
+            </a>
+          </>
+        )}
+        <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="underline decoration-line underline-offset-2 hover:text-ink"
+        >
+          Edit
+          <span className="sr-only"> credits for {track.name}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="underline decoration-line underline-offset-2 hover:text-danger"
+        >
+          Delete
+          <span className="sr-only"> {track.name}</span>
+        </button>
+      </p>
+      <p className="text-meta text-ink-faint">{OWNERSHIP_BADGE}</p>
     </div>
   );
 }

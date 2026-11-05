@@ -117,3 +117,18 @@ export async function estimateUsage() {
     return null;
   }
 }
+
+/**
+ * Bytes as a short human string. Lives here because every caller is reporting
+ * on storage — a quota estimate, or the size of the audio library.
+ */
+export function formatBytes(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n < 0) return '0 B';
+  if (n < 1024) return `${Math.round(n)} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = n / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}

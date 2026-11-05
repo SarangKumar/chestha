@@ -4,9 +4,12 @@ import { mixGain } from '@chestha/core';
  * One AudioContext for the whole application, living outside React so that
  * navigating between sections cannot create a second one or duplicate a voice.
  *
- * Every sound names a local `file`, fetched from the app's own origin and
- * decoded once, so playback works offline and nothing leaves the machine. The
- * only thing still synthesised here is the end-of-session chime.
+ * Every sound is local. A built-in names a `file` in the app's own /audio/
+ * folder, fetched from this origin and decoded once; one of the user's own
+ * tracks names a `src` blob URL backed by IndexedDB and is streamed through an
+ * `<audio>` element instead of being decoded whole. Either way playback works
+ * offline and nothing leaves the machine. The only thing still synthesised here
+ * is the end-of-session chime.
  */
 
 const RAMP = 0.08; // seconds; avoids clicks on gain changes
@@ -88,30 +91,91 @@ export async function ensureContext() {
   return running;
 }
 
+/**
+ * Plays a sound through an `<audio>` element rather than an AudioBuffer.
+ *
+ * This is how the user's own music is played. `decodeAudioData` holds the whole
+ * file as float32 PCM — around 90MB for four minutes of 48kHz stereo — so
+ * decoding a music library outright would exhaust memory. An element streams
+ * from the blob URL and decodes only what it is about to play, at the cost of
+ * giving up sample-accurate looping, which matters for a seamless ambience loop
+ * and not at all for a song.
+ */
+function buildElementVoice(sound, voiceGain) {
+  return new Promise((resolve, reject) => {
+    const el = new Audio();
+    el.preload = 'auto';
+    el.loop = true;
+
+    const settle = (error) => {
+      el.removeEventListener('canplay', onReady);
+      el.removeEventListener('error', onError);
+      if (error) { try { el.src = ''; } catch { /* nothing to release */ } reject(error); }
+    };
+    const onReady = () => {
+      settle(null);
+      const source = ctx.createMediaElementSource(el);
+      source.connect(voiceGain);
+      // The context is already running — playback only ever starts from a user
+      // gesture — but a rejected play() is still possible and must not be left
+      // unhandled, or the voice looks built while being silent.
+      el.play().then(
+        () => resolve({ nodes: [source], element: el }),
+        (error) => reject(new Error(error?.message || 'could not be played')),
+      );
+    };
+    const onError = () => settle(new Error('could not be decoded by this browser'));
+
+    el.addEventListener('canplay', onReady, { once: true });
+    el.addEventListener('error', onError, { once: true });
+    el.src = sound.src;
+  });
+}
+
 async function buildVoice(sound) {
-  const nodes = [];
   const voiceGain = ctx.createGain();
   voiceGain.gain.value = 0;
   voiceGain.connect(master);
-  nodes.push(voiceGain);
 
-  const buffer = await loadFile(`/audio/${sound.file}`);
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(voiceGain);
-  source.start();
-  nodes.push(source);
+  try {
+    // `src` is a fully resolved URL (a blob URL, for one of the user's own
+    // files); `file` is a plain filename inside the app's own /audio/ folder.
+    if (sound.stream) {
+      const { nodes, element } = await buildElementVoice(sound, voiceGain);
+      return { gain: voiceGain, nodes: [voiceGain, ...nodes], element };
+    }
 
-  return { gain: voiceGain, nodes };
+    const buffer = await loadFile(sound.src ?? `/audio/${sound.file}`);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(voiceGain);
+    source.start();
+
+    return { gain: voiceGain, nodes: [voiceGain, source] };
+  } catch (error) {
+    // The caller records the failure and drops the slot, but the gain node is
+    // already wired to the master bus and only this scope still holds it.
+    try { voiceGain.disconnect(); } catch { /* already disconnected */ }
+    throw error;
+  }
 }
 
-/** Releases a voice's nodes. */
+/** Releases a voice's nodes, and the media element behind a streamed one. */
 function teardown(voice) {
   if (!voice) return;
   for (const node of voice.nodes) {
     try { node.stop?.(); } catch { /* already stopped */ }
     try { node.disconnect(); } catch { /* already disconnected */ }
+  }
+  if (voice.element) {
+    // Pausing is not enough: an element holding a src keeps the blob alive and
+    // keeps decoding. Clearing it and reloading drops both.
+    try {
+      voice.element.pause();
+      voice.element.src = '';
+      voice.element.load();
+    } catch { /* already released */ }
   }
 }
 

@@ -4,6 +4,26 @@ This folder holds the app's sound library. The twelve sounds that ship with it
 are declared in `packages/core/src/sound.js` and their `.m4a` files sit here;
 `catalog.json` is for recordings *you* add on top of those.
 
+## Two ways to add your own audio
+
+1. **In the app** — Sounds → *Your music* → **Add files**. The file is stored in
+   this browser's IndexedDB, on that device only, and each track carries the
+   creator's name, the licence and a link to the original. Use this for music.
+   Nothing added this way touches this folder, and nothing syncs to your other
+   devices.
+2. **In this folder**, listed in `catalog.json` — for audio you want *shipped
+   with the build*, so it is there for everyone on a fresh install. Use this for
+   ambience you have the right to redistribute. That is the rest of this file.
+
+**Neither way can download from YouTube or any other streaming site**, and the
+app will not gain the ability to. Ripping breaks YouTube's terms and the Chrome
+Web Store policy that forbids extensions from downloading YouTube content, and
+crediting a creator is not the same as holding a licence. Paste a YouTube link
+as the *source* of a file you already have the right to use. For music that is
+free to redistribute, try the Free Music Archive, Jamendo, Pixabay or
+incompetech.com — many of those artists post the same tracks on YouTube, so the
+YouTube link still works as the credit.
+
 To add one — from Mixkit, Pixabay, Freesound, or anywhere you have the rights to
 use it — drop the file in this folder and list it in `catalog.json`:
 

@@ -93,3 +93,86 @@
     transform: translateX(-50%) scale(1);
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Homepage layout language.
+
+   Added for the website's landing, which no longer mirrors the extension's
+   centred hero. Everything here is additive — the classes above are still what
+   the extension's own `site/Landing.jsx` renders, so changing the website's
+   homepage cannot restyle the extension's.
+
+   The shapes come from a dense, dark-first product homepage: one very large
+   left-aligned headline, a stacked column of full-width calls to action, a
+   framed product shot lifted off the page by a glow, and bordered cards in a
+   bento. The *palette* does not: fills, lines and the glow are the same
+   `--app-*` tokens as everywhere else, so this inherits light and dark and the
+   accent stays monochrome.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Small caps label above a section's heading. */
+  .chestha-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--app-text-faint);
+  }
+
+  /* The one headline on the page that is allowed to be this big. It scales with
+     the viewport rather than stepping at breakpoints, so the line breaks move
+     smoothly instead of jumping. */
+  .chestha-hero-title {
+    font-size: clamp(2.125rem, 5.2vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+  }
+
+  /* Section headings: the same character, one step down. */
+  .chestha-section-title {
+    font-size: clamp(1.625rem, 3vw, 2.25rem);
+    font-weight: 660;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  /* Calls to action in the hero stack are full-width rows, not inline buttons,
+     and taller than the chrome's controls. The radius stays on the shared
+     control scale — the ladder in tokens.css is the only one. */
+  .chestha-cta {
+    height: 3rem;
+    width: 100%;
+    font-size: 1.0625rem;
+    letter-spacing: -0.01em;
+  }
+
+  /* The glow under the product shot. Accent-derived, so it is a grey bloom in
+     light and a pale one in dark, rather than a brand colour this system does
+     not have. */
+  .chestha-shot-glow {
+    pointer-events: none;
+    position: absolute;
+    inset: -1.5rem;
+    z-index: 0;
+    border-radius: 2rem;
+    background: radial-gradient(
+      60% 55% at 50% 0%,
+      color-mix(in oklch, var(--app-accent) 18%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(28px);
+  }
+
+  /* The band behind the hero. A grid of hairlines, faded out before it reaches
+     the content below, over the elevation ladder's own glow. */
+  .chestha-hero-band {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+    opacity: 0.6;
+  }
+}

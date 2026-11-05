@@ -523,6 +523,38 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
   scaled by 1/sqrt(n) and a compressor sits before the destination, so a busy mix
   cannot clip. Audio only starts from a user gesture — a paused mix is restored
   pre-armed and never shown as playing while silent.
+- **Users can add their own music, from their own files.**
+  `packages/core/src/audio.js` holds the pure part (file validation, the source-link
+  allow-list, credit fields, the ownership statement);
+  `apps/extension/src/audio/trackStore.js` holds the bytes. Three rules here are
+  deliberate and should not be relaxed:
+  1. **Nothing is ever downloaded from a streaming site.** `sourceUrl` is a
+     citation rendered as a link, never a source of bytes. A YouTube ripper is
+     out of the question: it breaks YouTube's terms and the Chrome Web Store
+     policy that forbids extensions from downloading YouTube content, and it is
+     not technically possible from page JS anyway — `googlevideo.com` sends no
+     CORS headers for this origin and the stream URLs are signature-protected.
+     Attribution is not a licence. If asked for this, say no and point at the
+     Free Music Archive, Jamendo, Pixabay or incompetech.com instead.
+  2. **A track is device-local and never syncs.** Metadata lives beside the bytes
+     in its own `chestha-audio` IndexedDB database, *not* in the synced `sound`
+     area — files are far too large to push, and syncing the metadata alone would
+     give another device a library it can name and never play. Presets that name
+     a track do sync; `applyPreset` already reports what it cannot resolve. The
+     separate database also avoids bumping `storage.js`'s `DB_VERSION`, where a
+     blocked upgrade would silently drop the whole workspace to in-memory storage.
+  3. **Music is streamed, not decoded.** A catalogue entry with `stream: true`
+     plays through an `<audio>` element and `createMediaElementSource`;
+     `decodeAudioData` holds a whole file as float32 PCM (~90 MB for four minutes
+     of 48 kHz stereo), so decoding a music library would exhaust memory. Built-in
+     loops keep decoding — that is what makes them seamless, and element looping
+     is not sample-accurate.
+  This is why the extension now asks for `unlimitedStorage`: audio is tens of
+  megabytes and evictable under the default quota, and an evicted track is data
+  the user cannot get back from the server. It grants no website access.
+  **Open decision:** `sounds` is in `GATED_SECTIONS`, so uploads sit behind the
+  account gate, and that gate's stated reason ("your mixes and presets are saved
+  to your account") does not describe tracks, which are never saved to it.
 - **Keyboard shortcuts are customisable.** `packages/core/src/shortcuts.js` is the
   single registry: actions, defaults, combo parsing, conflict detection, reserved
   browser combos and storage validation. `apps/extension/src/app/useShortcutDispatch.js`

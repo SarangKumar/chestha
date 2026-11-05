@@ -34,7 +34,17 @@
     "tabs",
     "idle",
     "alarms",
-    "storage"
+    "storage",
+    "unlimitedStorage"
+  ],
+  "_unlimited_storage_note": [
+    "unlimitedStorage lifts the IndexedDB quota so the Sounds section can hold the",
+    "user's own audio files. A few music tracks is tens of megabytes, which is",
+    "enough to be evicted under the default per-origin quota, and losing an audio",
+    "file the user added is losing data they cannot get back from the server -",
+    "these tracks are deliberately device-local and never synced.",
+    "It grants no access to any website, no host permission and no new API: it",
+    "only changes how much this extension may store about itself."
   ],
   "_host_permissions_note": [
     "host_permissions is NOT listed here: it names the website origin, which is a",
