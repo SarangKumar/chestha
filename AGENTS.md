@@ -549,9 +549,16 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
      of 48 kHz stereo), so decoding a music library would exhaust memory. Built-in
      loops keep decoding — that is what makes them seamless, and element looping
      is not sample-accurate.
-  This is why the extension now asks for `unlimitedStorage`: audio is tens of
-  megabytes and evictable under the default quota, and an evicted track is data
-  the user cannot get back from the server. It grants no website access.
+  The library is capped at `MAX_TRACKS` (30) tracks of `MAX_TRACK_BYTES` (8MB),
+  so ~240MB; the total is the product of those two and not a third rule, so no
+  file is ever refused for a reason neither visible number explains. Note the
+  per-file cap refuses a 320kbps MP3 over ~3.5 minutes and any FLAC.
+  **`unlimitedStorage` is for durability, not room.** 240MB fits the default
+  per-origin quota anywhere; without the permission an extension's storage is
+  best-effort and Chrome may evict it under disk pressure, and because tracks
+  are never synced an eviction loses files the user cannot recover from the
+  server or another device. That argument does not weaken if the cap is lowered.
+  It grants no website access, no host permission and no new API.
   **Open decision:** `sounds` is in `GATED_SECTIONS`, so uploads sit behind the
   account gate, and that gate's stated reason ("your mixes and presets are saved
   to your account") does not describe tracks, which are never saved to it.

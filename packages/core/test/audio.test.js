@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE, SOUNDS, SOUND_IDS, TRACK_GROUP,
+  MAX_LIBRARY_BYTES, MAX_TRACKS, MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE,
+  SOUNDS, SOUND_IDS, TRACK_GROUP,
   audioExtension, coerceSourceUrl, coerceTrack, coerceTrackList, createPreset, creditLine,
   describeSource, editTrack, isAudioFile, mixGain, normalizeMix, titleFromFilename,
   trackToSound, validateTrackFile, youTubeVideoId,
@@ -213,4 +214,30 @@ test('an uploaded track mixes and saves into a preset like any other sound', () 
   const saved = createPreset('Night mix', mix, known);
   assert.equal(saved.ok, true);
   assert.equal(saved.preset.mix.track_1, 0.8);
+});
+
+test('the library is capped at 30 tracks of 8MB, and the ceiling follows from both', () => {
+  assert.equal(MAX_TRACKS, 30);
+  assert.equal(MAX_TRACK_BYTES, 8 * 1024 * 1024);
+  // The total is derived, not a third independent rule that could refuse a file
+  // for a reason neither visible number explains.
+  assert.equal(MAX_LIBRARY_BYTES, MAX_TRACKS * MAX_TRACK_BYTES);
+
+  const full = Array.from({ length: MAX_TRACKS }, (_, i) => `track_${i}`);
+  const refused = validateTrackFile(file('one-more.mp3', 1024), full);
+  assert.equal(refused.ok, false);
+  assert.match(refused.error, /full at 30 tracks/);
+
+  // One below the cap still admits a track, so the boundary is not off by one.
+  const room = validateTrackFile(file('one-more.mp3', 1024), full.slice(0, MAX_TRACKS - 1));
+  assert.equal(room.ok, true);
+});
+
+test('the count cap is checked before the file, so a full library says so first', () => {
+  const full = Array.from({ length: MAX_TRACKS }, (_, i) => `track_${i}`);
+  // An oversized file offered to a full library reports the library, which is
+  // the condition the user has to act on — deleting a track, not re-encoding.
+  const refused = validateTrackFile(file('huge.wav', MAX_TRACK_BYTES * 4), full);
+  assert.equal(refused.ok, false);
+  assert.match(refused.error, /full at 30 tracks/);
 });

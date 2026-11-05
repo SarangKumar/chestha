@@ -10,7 +10,8 @@ are declared in `packages/core/src/sound.js` and their `.m4a` files sit here;
    this browser's IndexedDB, on that device only, and each track carries the
    creator's name, the licence and a link to the original. Use this for music.
    Nothing added this way touches this folder, and nothing syncs to your other
-   devices.
+   devices. Capped at **30 tracks of 8 MB each** (~240 MB); the limits live in
+   `packages/core/src/audio.js` as `MAX_TRACKS` and `MAX_TRACK_BYTES`.
 2. **In this folder**, listed in `catalog.json` — for audio you want *shipped
    with the build*, so it is there for everyone on a fresh install. Use this for
    ambience you have the right to redistribute. That is the rest of this file.

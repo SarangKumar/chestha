@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE, TRACK_GROUP,
+  MAX_LIBRARY_BYTES, MAX_TRACKS, MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE, TRACK_GROUP,
   activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, describeSource,
   formatBytes, renamePreset,
 } from '@chestha/core';
@@ -137,16 +137,26 @@ export function Sounds() {
     setAdding(true);
     const failures = [];
     let added = 0;
+    let full = false;
     // One at a time: each is a separate IndexedDB transaction, and a file the
     // browser refuses must not stop the rest of a multi-file pick.
     for (const file of files) {
       const result = await trackStore.addTrack(file);
-      if (result.ok) added += 1;
-      else failures.push(`${file.name}: ${result.error}`);
+      if (result.ok) { added += 1; continue; }
+      // Hitting the cap is about the library, not about this file, so it is
+      // reported once rather than against every remaining name in the pick.
+      if (result.full) { full = true; break; }
+      failures.push(`${file.name}: ${result.error}`);
     }
     setAdding(false);
     if (added > 0) notify(`Added ${added} track${added === 1 ? '' : 's'}`);
     for (const failure of failures) notify(failure, { tone: 'danger', duration: 9000 });
+    if (full) {
+      notify(
+        `The library is full at ${MAX_TRACKS} tracks. Delete one to add another.`,
+        { tone: 'danger', duration: 9000 },
+      );
+    }
   };
 
   const saveTrack = async () => {
@@ -329,9 +339,10 @@ export function Sounds() {
           <div>
             <CardTitle>Your music</CardTitle>
             <p className="mt-1 max-w-prose text-meta leading-relaxed text-ink-faint">
-              Add audio files from your own computer. They are stored on this device,
-              play offline, and are never uploaded or synced to your other devices.
-              Each track can carry the creator’s name, the licence and a link to the
+              Add audio files from your own computer — up to {MAX_TRACKS} tracks of{' '}
+              {formatBytes(MAX_TRACK_BYTES)} each. They are stored on this device, play
+              offline, and are never uploaded or synced to your other devices. Each
+              track can carry the creator’s name, the licence and a link to the
               original — fill those in so the credit travels with the track.
             </p>
             <p className="mt-1.5 max-w-prose text-meta leading-relaxed text-ink-faint">
@@ -347,7 +358,10 @@ export function Sounds() {
             size="sm"
             tone="primary"
             onClick={() => fileRef.current?.click()}
-            disabled={adding || !library.available}
+            disabled={adding || !library.available || library.tracks.length >= MAX_TRACKS}
+            title={library.tracks.length >= MAX_TRACKS
+              ? `The library is full at ${MAX_TRACKS} tracks.`
+              : undefined}
           >
             <Icon name="upload" className="size-4" />
             {adding ? 'Adding…' : 'Add files'}
@@ -378,7 +392,7 @@ export function Sounds() {
         ) : library.tracks.length === 0 ? (
           <EmptyState
             title="No tracks yet"
-            description={`Add an MP3, M4A, OGG, WAV or FLAC file of up to ${Math.round(MAX_TRACK_BYTES / (1024 * 1024))} MB. It appears in the library above, under “${TRACK_GROUP}”.`}
+            description={`Add an MP3, M4A, OGG or WAV file of up to ${formatBytes(MAX_TRACK_BYTES)}. It appears in the library above, under “${TRACK_GROUP}”.`}
           />
         ) : (
           <>
@@ -406,8 +420,10 @@ export function Sounds() {
               ))}
             </ul>
             <p className="mt-2 text-meta text-ink-faint">
-              {library.tracks.length} track{library.tracks.length === 1 ? '' : 's'},
-              {' '}{formatBytes(trackStore.libraryBytes(library.tracks))} on this device.
+              {library.tracks.length} of {MAX_TRACKS} tracks ·{' '}
+              {formatBytes(trackStore.libraryBytes(library.tracks))} of at most{' '}
+              {formatBytes(MAX_LIBRARY_BYTES)} on this device
+              {library.tracks.length >= MAX_TRACKS && ' · full'}
             </p>
           </>
         )}

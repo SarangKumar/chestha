@@ -38,13 +38,19 @@
     "unlimitedStorage"
   ],
   "_unlimited_storage_note": [
-    "unlimitedStorage lifts the IndexedDB quota so the Sounds section can hold the",
-    "user's own audio files. A few music tracks is tens of megabytes, which is",
-    "enough to be evicted under the default per-origin quota, and losing an audio",
-    "file the user added is losing data they cannot get back from the server -",
-    "these tracks are deliberately device-local and never synced.",
-    "It grants no access to any website, no host permission and no new API: it",
-    "only changes how much this extension may store about itself."
+    "unlimitedStorage is here for DURABILITY, not for room. The Sounds section",
+    "caps the user's audio library at 30 tracks of 8MB (MAX_TRACKS and",
+    "MAX_TRACK_BYTES in packages/core/src/audio.js), so ~240MB at most, which",
+    "fits inside the default per-origin quota on any machine - an earlier version",
+    "of this note claimed the permission was needed to lift that quota, and that",
+    "was wrong.",
+    "What it is really for: without it an extension's storage is best-effort and",
+    "Chrome may evict it under disk pressure. These tracks are deliberately",
+    "device-local and never synced, so an eviction loses audio files the user",
+    "cannot get back from the server or from another device - unlike every other",
+    "thing this app stores. That is the whole argument, and it does not weaken if",
+    "the cap is lowered.",
+    "It grants no access to any website, no host permission and no new API."
   ],
   "_host_permissions_note": [
     "host_permissions is NOT listed here: it names the website origin, which is a",

@@ -27,11 +27,25 @@ import { SOUND_IDS } from './sound.js';
 export const TRACK_GROUP = 'Your music';
 
 /**
- * Per-file ceiling. Generous enough for a long lossless track and small enough
- * that one accidental drop of a video file is refused with an explanation
- * rather than silently filling the user's disk.
+ * The library is capped on two axes, and the product of them is the whole
+ * budget: 30 tracks of up to 8MB each, so at most ~240MB on the device.
+ *
+ * There is deliberately no separate total-bytes limit. The count and the
+ * per-file size already bound the total, and a third rule that could refuse a
+ * file for a reason neither of the visible numbers explains would be the one
+ * users could not reason about.
  */
-export const MAX_TRACK_BYTES = 60 * 1024 * 1024;
+export const MAX_TRACKS = 30;
+
+/**
+ * Per-file ceiling. Note that this refuses a 320kbps MP3 longer than about
+ * three and a half minutes, and every FLAC worth having — raise it if that
+ * starts biting, and the ceiling above moves with it.
+ */
+export const MAX_TRACK_BYTES = 8 * 1024 * 1024;
+
+/** The resulting ceiling, for the UI to state plainly rather than imply. */
+export const MAX_LIBRARY_BYTES = MAX_TRACKS * MAX_TRACK_BYTES;
 
 /**
  * Extensions a browser may be able to decode, used when the file's reported
@@ -176,12 +190,20 @@ export function describeSource(sourceUrl) {
  * Checks a file the user picked, before any of it is read or stored.
  *
  * @param {{name?: string, size?: number, type?: string}} file
- * @param {string[]} [takenIds] ids already in use, so a new track cannot shadow one
+ * @param {string[]} [trackIds] the ids already in the library. Both the
+ *   uniqueness check and the `MAX_TRACKS` cap read this, so it has to be the
+ *   whole list and not a sample of it.
  * @returns {{ok: true, draft: object} | {ok: false, error: string}}
  */
-export function validateTrackFile(file, takenIds = []) {
+export function validateTrackFile(file, trackIds = []) {
   if (!file || typeof file !== 'object') {
     return { ok: false, error: 'No file was chosen.' };
+  }
+  if (trackIds.length >= MAX_TRACKS) {
+    return {
+      ok: false,
+      error: `The library is full at ${MAX_TRACKS} tracks. Delete one to add another.`,
+    };
   }
   const size = Number(file.size);
   if (!Number.isFinite(size) || size <= 0) {
@@ -197,7 +219,7 @@ export function validateTrackFile(file, takenIds = []) {
     return { ok: false, error: 'That is not an audio file the browser can play.' };
   }
 
-  const taken = new Set([...SOUND_IDS, ...takenIds]);
+  const taken = new Set([...SOUND_IDS, ...trackIds]);
   let id = newId('track');
   while (taken.has(id)) id = newId('track');
 

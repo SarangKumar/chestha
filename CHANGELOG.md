@@ -32,12 +32,16 @@ not updated yet — it is user-facing, and these are not released.
   `stream: true` play through an `<audio>` element, since `decodeAudioData`
   would hold a four-minute track as ~90 MB of PCM. Built-in loops still decode,
   which is what keeps them seamless.
+  The library is capped at 30 tracks of 8MB each — ~240MB, with the total being
+  the product of the two visible limits rather than a third rule of its own.
 - **`unlimitedStorage` in the extension manifest** — the first permission added
   since the manifest was written, and the test that pins the permission list was
-  updated rather than bypassed. Audio is tens of megabytes and evictable under
-  the default per-origin quota, and an evicted track is data that cannot be
-  recovered from the server, unlike everything else the app stores. It grants no
-  website access, no host permission and no new API.
+  updated rather than bypassed. It is there for **durability, not room**: 240MB
+  fits the default per-origin quota on any machine, but without the permission
+  an extension's storage is best-effort and Chrome may evict it under disk
+  pressure. Because tracks are never synced, an eviction loses files that cannot
+  be recovered from the server or another device, unlike everything else this app
+  stores. It grants no website access, no host permission and no new API.
 - `formatBytes` in `packages/core/src/storage.js`, replacing the private copy in
   the extension's Settings section now that the Sounds section needs it too.
 - **A category picker in the extension's post editor**, and the category list

@@ -1,4 +1,4 @@
-import { coerceTrackList, editTrack, trackToSound, validateTrackFile } from '@chestha/core';
+import { MAX_TRACKS, coerceTrackList, editTrack, trackToSound, validateTrackFile } from '@chestha/core';
 
 /**
  * Storage for the user's own audio files: the bytes in IndexedDB, the credit
@@ -196,7 +196,9 @@ export function loadTracks() {
  */
 export async function addTrack(file) {
   const checked = validateTrackFile(file, state.tracks.map((t) => t.id));
-  if (!checked.ok) return checked;
+  // `full` lets a caller adding several files stop at the cap and report it
+  // once, instead of repeating the same refusal for every remaining file.
+  if (!checked.ok) return { ...checked, full: state.tracks.length >= MAX_TRACKS };
 
   const { draft } = checked;
   try {
