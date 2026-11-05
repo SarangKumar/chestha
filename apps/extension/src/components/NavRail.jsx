@@ -24,8 +24,15 @@ const PRIMARY = [
   { id: 'grove', label: 'Grove', icon: 'leaf' },
   { id: 'websites', label: 'Productive time', icon: 'websites' },
   { id: 'sounds', label: 'Sounds', icon: 'sounds' },
-  { id: 'writing', label: 'Writing', icon: 'book' },
 ];
+
+// **Writing is deliberately not here.** It is still a section — routed in
+// `App.jsx`, gated like the rest, and reachable from the command palette as
+// "Go to writing" — it just does not hold a slot in the rail. Publishing to the
+// website is an occasional act, not a daily destination, and the rail is the
+// seven-item list someone reads at a glance. Because hiding only ever affected
+// the rail, it also came out of `HIDEABLE_SECTIONS`: a checkbox to hide
+// something that is not shown there would toggle nothing.
 
 const SETTINGS = { id: 'settings', label: 'Settings', icon: 'settings' };
 

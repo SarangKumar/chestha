@@ -1,6 +1,8 @@
 import { CHROME_STORE_URL } from '@chestha/core';
 import Link from 'next/link';
+import { accountHome, accountLabel } from '@/lib/session';
 import { BrandMark } from './BrandMark';
+import { GridBeams } from './GridBeams';
 import { BuyMeCoffeeButton } from '../BuyMeCoffeeButton';
 import { Button } from '../ui/Button';
 
@@ -18,23 +20,32 @@ import { Button } from '../ui/Button';
  *  - **It is left-aligned from `md` up and centred below it.** A 3.5rem
  *    headline centred on a phone breaks into a ragged block; the same headline
  *    left-aligned on a wide viewport is the one thing the page is about.
- *  - **It renders the same for everyone.** No session is read here, for the
- *    reason the page always had: the hero is what the product *is*, which does
- *    not change once you have an account, and the header already says who you
- *    are. `/signup` simply shows a signed-in visitor their account.
+ *  - **The description is the same for everyone; the asks are not.** The
+ *    headline and subcopy say what the product *is*, which does not change
+ *    once you have an account. The buttons do: offering "Create an account"
+ *    and "Already have an account? Sign in" to someone the header is currently
+ *    offering Sign out to is the page arguing with its own chrome. Signed in,
+ *    the second call to action goes to the feed and the line underneath says
+ *    who you are.
  *
  * The copy under the buttons is the gating policy in one line. It is the one
  * claim on this page that would become a lie if `OPEN_SECTIONS` changed, so it
  * says which surfaces are free rather than "no account needed".
  */
-export function HomeHero() {
+export function HomeHero({ user = null }) {
+  const profile = accountHome(user);
+
   return (
     <section
       className="relative isolate overflow-hidden border-b border-line"
       aria-labelledby="hero-heading"
     >
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-pattern-glow" />
-      <div aria-hidden className="chestha-hero-band bg-pattern-grid" />
+      {/* The beams live inside the band so they inherit its grid origin and its
+          bottom fade — see GridBeams. */}
+      <div aria-hidden className="chestha-hero-band bg-pattern-grid">
+        <GridBeams />
+      </div>
 
       <div className="relative mx-auto w-full max-w-6xl px-4 pt-12 pb-10 sm:px-6 sm:pt-16 sm:pb-14 lg:pt-20 lg:pb-16">
         <div className="chestha-fade-up flex flex-col items-center text-center md:max-w-2xl md:items-start md:text-left">
@@ -66,8 +77,13 @@ export function HomeHero() {
               >
                 Add to Chrome
               </Button>
-              <Button href="/signup" variant="outline" size="lg" className="chestha-cta">
-                Create an account
+              <Button
+                href={user ? '/feed' : '/signup'}
+                variant="outline"
+                size="lg"
+                className="chestha-cta"
+              >
+                {user ? 'Open the feed' : 'Create an account'}
               </Button>
               <BuyMeCoffeeButton size="lg" variant="ghost" className="chestha-cta" />
             </div>
@@ -78,10 +94,30 @@ export function HomeHero() {
             </p>
 
             <p className="mt-3 text-center text-card text-ink-muted md:text-left">
-              Already have an account?{' '}
-              <Link href="/signin" className="font-medium text-ink underline hover:no-underline">
-                Sign in
-              </Link>
+              {user ? (
+                <>
+                  Signed in
+                  {profile ? (
+                    <>
+                      {' as '}
+                      <Link
+                        href={profile}
+                        className="font-medium text-ink underline hover:no-underline"
+                      >
+                        {accountLabel(user)}
+                      </Link>
+                    </>
+                  ) : null}
+                  . Sign out from the header.
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <Link href="/signin" className="font-medium text-ink underline hover:no-underline">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </p>
           </div>
         </div>

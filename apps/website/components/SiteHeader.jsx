@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { currentUser } from '@/lib/session';
+import { accountHome, accountLabel, currentUser } from '@/lib/session';
 import { SignOutButton } from './SignOutButton';
 import { BrandMark } from './marketing/BrandMark';
 import { GithubStars } from './marketing/GithubStars';
@@ -79,11 +79,10 @@ function AccountLinks({ user, stacked = false }) {
         <Link href="/history" className={row}>History</Link>
         {/* A provisional handle is not a chosen one — the same rule /account
             applies, so an unnamed account is sent to the form rather than to a
-            profile it has not named. */}
+            profile it has not named. The rule itself lives in lib/session, so
+            the landing's "Signed in as …" cannot point somewhere else. */}
         {user.handle ? (
-          <Link href={user.handleChosen === false ? '/onboarding/username' : `/user/${user.handle}`} className={row}>
-            {user.handleChosen === false ? 'Pick a username' : `@${user.handle}`}
-          </Link>
+          <Link href={accountHome(user)} className={row}>{accountLabel(user)}</Link>
         ) : null}
         <SignOutButton />
       </>

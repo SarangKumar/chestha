@@ -22,6 +22,14 @@ let master = null;
  * Stop pressed mid-build from being undone by the build finishing afterwards.
  */
 let epoch = 0;
+/**
+ * Whether a streamed track repeats at its end. Module-level rather than passed
+ * per call, because a voice already playing has to change behaviour when the
+ * setting is toggled, and the element that decides is owned here.
+ *
+ * Built-in ambience ignores this and always loops — see DEFAULT_SOUND.loop.
+ */
+let loopTracks = true;
 const voices = new Map();   // soundId -> { gain, nodes[] }
 const files = new Map();    // url -> Promise<AudioBuffer>
 const listeners = new Set();
@@ -106,7 +114,19 @@ function buildElementVoice(sound, voiceGain) {
   return new Promise((resolve, reject) => {
     const el = new Audio();
     el.preload = 'auto';
-    el.loop = true;
+    el.loop = loopTracks;
+
+    // Only reachable with looping off, and then only once: a track that has
+    // played to its end is finished, so its voice is released rather than left
+    // connected and silent. The mix entry stays — the sound is still *chosen*,
+    // it has simply run out — and pressing play again rebuilds the voice.
+    el.addEventListener('ended', () => {
+      const voice = voices.get(sound.id);
+      if (!voice || voice.element !== el) return;
+      voices.delete(sound.id);
+      teardown(voice);
+      emit();
+    });
 
     const settle = (error) => {
       el.removeEventListener('canplay', onReady);
@@ -286,6 +306,20 @@ export function seek(id, seconds) {
   }
   return true;
 }
+
+/**
+ * Turns repeat on or off for the user's own tracks, now and for voices built
+ * later. Live elements are updated in place so the switch takes effect on what
+ * is playing rather than only on the next track.
+ */
+export function setLoopTracks(enabled) {
+  loopTracks = Boolean(enabled);
+  for (const voice of voices.values()) {
+    if (voice?.element) voice.element.loop = loopTracks;
+  }
+}
+
+export const loopsTracks = () => loopTracks;
 
 export function setMasterVolume(mix, masterVolume) {
   if (!ctx) return;

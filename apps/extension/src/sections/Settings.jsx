@@ -16,7 +16,6 @@ const SECTION_LABELS = {
   grove: 'Grove',
   websites: 'Productive time',
   sounds: 'Sounds',
-  writing: 'Writing',
 };
 
 /** Icon names for hideable app sections — Grove uses the leaf mark. */
@@ -27,7 +26,6 @@ const SECTION_ICONS = {
   grove: 'leaf',
   websites: 'websites',
   sounds: 'sounds',
-  writing: 'book',
 };
 
 const SETTINGS_NAV = [

@@ -271,8 +271,9 @@ export const DEFAULT_SETTINGS = {
  * or the palette, so nothing becomes unreachable and no data is touched.
  */
 // The start screen is absent on purpose: it is not a rail item (see
-// `NavRail`), so there is nothing about it to hide.
-export const HIDEABLE_SECTIONS = ['tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds', 'writing'];
+// `NavRail`), so there is nothing about it to hide. Writing is absent for the
+// same reason — it was removed from the rail and reaches the palette instead.
+export const HIDEABLE_SECTIONS = ['tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds'];
 
 /**
  * How the app paints behind the interface.
@@ -301,6 +302,18 @@ export const DEFAULT_SOUND = {
   lastMix: null,
   masterVolume: 0.6,
   restoreLastMix: true,
+  /**
+   * Whether one of the user's own tracks repeats when it reaches the end.
+   *
+   * It only governs streamed tracks. A built-in is a couple of minutes of
+   * ambience and always loops — ambience that stopped after one pass would be
+   * a bug, not a preference — so the engine never applies this to one.
+   *
+   * True by default, because that is what the engine did before the flag
+   * existed and a stored state written by an older version must keep behaving
+   * the way its owner left it.
+   */
+  loop: true,
 };
 
 export function defaultState() {
@@ -542,6 +555,7 @@ function coerceSound(raw) {
       lastMix: raw.lastMix == null ? null : coerceMix(raw.lastMix),
       masterVolume: num(raw.masterVolume, DEFAULT_SOUND.masterVolume, 0, 1),
       restoreLastMix: bool(raw.restoreLastMix, true),
+      loop: bool(raw.loop, true),
     },
     issues: [],
   };

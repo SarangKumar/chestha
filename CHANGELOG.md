@@ -11,6 +11,23 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **Beams running along the homepage hero's grid.** A glint travels down the
+  vertical hairlines and across two horizontal ones in the band behind the
+  landing headline, on irregular offsets and co-prime timers so the set never
+  repeats as a block. `apps/website/components/marketing/GridBeams.jsx` renders
+  them and `packages/ui/src/marketing.css` holds the motion.
+
+  The beams are children of `.chestha-hero-band`, not siblings: the band is the
+  element the 3rem grid is painted on, so an offset that is a multiple of the
+  cell lands exactly on a line, and each beam inherits the band's bottom fade
+  and dissolves above the copy. That ties the offsets to `background-size` in
+  `.bg-pattern-grid` — changing one without the other leaves the beams floating
+  between lines. Travel is animated with `background-position` rather than a
+  transform, because a position of `calc(100% + <span>)` resolves against a band
+  whose height nothing here measures, so one rule works at every width with no
+  JavaScript. `prefers-reduced-motion` removes them outright instead of
+  freezing them: a beam is only its motion, and a stalled streak across the hero
+  would read as a rendering fault.
 - **Your own music in the Sounds section.** Sounds → *Your music* → Add files
   stores audio from your own computer in IndexedDB on that device; it plays
   offline, mixes and saves into presets like any built-in sound, and each track
@@ -133,6 +150,13 @@ not updated yet — it is user-facing, and these are not released.
   built by `npm run dsa-pack`.
 
 ### Changed
+- **Writing is no longer a rail item.** It is still a section — routed, gated,
+  and reachable from the command palette as "Go to writing" — but it does not
+  hold one of the rail's slots. It also came out of `HIDEABLE_SECTIONS` and lost
+  its Settings checkbox, because hiding only ever affected the rail, so a
+  checkbox for something not shown there would toggle nothing. A stored
+  `hiddenSections: ['writing']` is dropped on load by the existing coercion, so
+  no migration was needed.
 - **Board / Read moved to the top of the nav rail**, as its first item and
   above the section icons: it chooses what the start screen *is*, where
   everything below it is a place to go. Picking a mode now navigates to the

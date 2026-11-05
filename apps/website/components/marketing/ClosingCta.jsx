@@ -10,8 +10,12 @@ import { Button } from '../ui/Button';
  * same question in the same words rather than a new one.
  *
  * Centred, unlike the hero: there is nothing beside it to align to.
+ *
+ * It takes the session for the same reason the hero does — the closing ask has
+ * to be an ask the reader can actually act on, and "Create an account" is not
+ * one when they are signed in.
  */
-export function ClosingCta() {
+export function ClosingCta({ user = null }) {
   return (
     <section
       className="relative isolate overflow-hidden border-t border-line"
@@ -27,8 +31,9 @@ export function ClosingCta() {
         </h2>
 
         <p className="mt-4 max-w-md text-pretty text-card leading-relaxed text-ink-muted">
-          Add it to Chrome and your next New Tab is the board. An account is only
-          for the sections that sync.
+          {user
+            ? 'Add it to Chrome and your next New Tab is the board, signed in and synced.'
+            : 'Add it to Chrome and your next New Tab is the board. An account is only for the sections that sync.'}
         </p>
 
         <div className="mt-8 flex w-full max-w-[420px] flex-col gap-3">
@@ -41,8 +46,13 @@ export function ClosingCta() {
           >
             Add to Chrome
           </Button>
-          <Button href="/signup" variant="outline" size="lg" className="chestha-cta">
-            Create an account
+          <Button
+            href={user ? '/feed' : '/signup'}
+            variant="outline"
+            size="lg"
+            className="chestha-cta"
+          >
+            {user ? 'Open the feed' : 'Create an account'}
           </Button>
         </div>
 

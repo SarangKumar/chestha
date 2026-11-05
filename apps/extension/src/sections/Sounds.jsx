@@ -38,6 +38,10 @@ export function Sounds() {
 
   useEffect(() => { engine.setCatalogue(catalogue); }, [catalogue]);
 
+  // Repeat is module state in the engine and resets on reload; the stored
+  // preference is the truth, so it is pushed in before anything is built.
+  useEffect(() => { engine.setLoopTracks(sound.loop !== false); }, [sound.loop]);
+
   const mix = sound.lastMix ?? {};
   const active = activeSoundIds(mix, knownIds);
   const playing = audio.running && active.length > 0;

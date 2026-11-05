@@ -176,3 +176,95 @@
     opacity: 0.6;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Grid beams — light running along the hero's grid lines.
+
+   The band behind the hero draws a 3rem grid of hairlines
+   (`.bg-pattern-grid`, tokens.css). These beams are a glint travelling *along*
+   those lines, not a separate decoration laid over them, which is why they are
+   children of the band: the band is `inset: 0`, so it is the containing block
+   the grid's own background is painted from, and an offset that is a multiple
+   of the 3rem cell therefore lands exactly on a line. **The two sizes are tied
+   together** — change `background-size` in `.bg-pattern-grid` and these
+   offsets stop meaning anything.
+
+   Being children also means they inherit the band's bottom fade mask and its
+   opacity, so a beam dissolves before it reaches the copy instead of being
+   clipped mid-stroke.
+
+   Travel is animated with `background-position`, not `transform` or `top`.
+   A beam has to cross the full height of a band whose height nothing here
+   knows, and a position of `calc(100% + <span>)` resolves against the band at
+   paint time, so one rule works at every viewport without JavaScript
+   measuring anything. It repaints a 1px column and triggers no layout.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .chestha-beam {
+    position: absolute;
+    background-repeat: no-repeat;
+    /* Monochrome, like every other accent use here: a graphite glint in light,
+       a pale one in dark, both derived from the one accent token. */
+    --beam-edge: color-mix(in oklch, var(--app-accent) 0%, transparent);
+    --beam-core: color-mix(in oklch, var(--app-accent) 75%, transparent);
+    /* Timing here, the name on the direction class below: the shorthand would
+       otherwise reset `animation-name` back to none for both variants. */
+    animation: var(--beam-duration, 7s) linear var(--beam-delay, 0s) infinite;
+  }
+
+  /* Down a vertical hairline. `--beam-at` is the distance from the band's left
+     edge and wants to be a multiple of 3rem. */
+  .chestha-beam-v {
+    top: 0;
+    bottom: 0;
+    left: var(--beam-at, 6rem);
+    width: 1px;
+    background-image: linear-gradient(
+      to bottom,
+      var(--beam-edge) 0%,
+      var(--beam-core) 55%,
+      var(--beam-edge) 100%
+    );
+    background-size: 100% var(--beam-span, 9rem);
+    animation-name: chestha-beam-down;
+  }
+
+  /* Across a horizontal hairline; `--beam-at` is from the band's top edge.
+     Keep these inside the mask's solid 55%, or they fade before they are
+     seen. */
+  .chestha-beam-h {
+    left: 0;
+    right: 0;
+    top: var(--beam-at, 6rem);
+    height: 1px;
+    background-image: linear-gradient(
+      to right,
+      var(--beam-edge) 0%,
+      var(--beam-core) 55%,
+      var(--beam-edge) 100%
+    );
+    background-size: var(--beam-span, 12rem) 100%;
+    animation-name: chestha-beam-right;
+  }
+}
+
+/* The start and end states put the beam fully off each end, so it enters and
+   leaves rather than appearing and vanishing in place. */
+@keyframes chestha-beam-down {
+  from { background-position: 0 calc(-1 * var(--beam-span, 9rem)); }
+  to { background-position: 0 calc(100% + var(--beam-span, 9rem)); }
+}
+
+@keyframes chestha-beam-right {
+  from { background-position: calc(-1 * var(--beam-span, 12rem)) 0; }
+  to { background-position: calc(100% + var(--beam-span, 12rem)) 0; }
+}
+
+/* Removed outright rather than frozen: a beam is only the motion, and a stalled
+   streak across the hero would read as a rendering fault. The grid itself is
+   untouched, so the band looks the way it did before this existed. */
+@media (prefers-reduced-motion: reduce) {
+  .chestha-beam {
+    display: none;
+  }
+}

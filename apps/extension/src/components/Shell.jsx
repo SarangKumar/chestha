@@ -2,6 +2,7 @@ import { READING_SECTION, formatLongDate, isSectionAllowed } from '@chestha/core
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useSession } from '../app/useSession.js';
 import { NavRail } from './NavRail.jsx';
+import { Island } from './Island.jsx';
 import { Notices, ExportReminder } from './Notices.jsx';
 import { Toasts } from './Toasts.jsx';
 import { cx } from './ui.jsx';
@@ -154,6 +155,11 @@ export function Shell({ section, onNavigate, onCapture, onPalette, children }) {
         </main>
 
       </div>
+
+      {/* The island hangs off the top edge over everything, so it is mounted
+          last and outside the content column. Not in the landing preview: the
+          marketing shot is of the board, not of the chrome over it. */}
+      {!embed && <Island onNavigate={onNavigate} />}
 
       <Toasts />
     </div>

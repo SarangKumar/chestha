@@ -1,3 +1,4 @@
+import { currentUser } from '@/lib/session';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { WorkspacePreview } from '@/components/marketing/WorkspacePreview';
 import { ProofCards } from '@/components/marketing/ProofCards';
@@ -17,22 +18,26 @@ import { ClosingCta } from '@/components/marketing/ClosingCta';
  * `packages/ui/src/marketing.css` were only added to, never changed, so that
  * divergence is one-way and the extension's page is untouched.
  *
- * The page reads no session and renders the same for everyone, signed in or
- * out, for the reason it always did: the hero is what the product is, which
- * does not change once you have an account, and the header already says who
- * you are.
+ * The *description* of the product is the same for everyone — what Chestha is
+ * does not change once you have an account. The **calls to action are not**:
+ * asking someone who is signed in to "Create an account", and telling them
+ * underneath that they can sign in if they already have one, is the page
+ * contradicting the header. So the session is read once here and handed to the
+ * two places that ask for something, and nowhere else.
  *
  * Sections are composed here and nowhere else, so the order of the page is
  * readable in one screen.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await currentUser();
+
   return (
     <div className="flex flex-col">
-      <HomeHero />
+      <HomeHero user={user} />
       <WorkspacePreview />
       <ProofCards />
       <FeatureBento />
-      <ClosingCta />
+      <ClosingCta user={user} />
     </div>
   );
 }

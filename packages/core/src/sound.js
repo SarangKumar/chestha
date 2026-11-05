@@ -121,6 +121,39 @@ export function mixGain(mix, soundId, masterVolume = 1, knownIds = SOUND_IDS) {
   return normalized[soundId] * clampVolume(masterVolume, 1) * (1 / Math.sqrt(count));
 }
 
+/**
+ * Whether two mixes are the same mix: the same sounds, at the same volumes.
+ *
+ * Volumes are compared with a tolerance rather than with `===` because they
+ * come from a range input and a round trip through JSON. A slider nudged to
+ * 0.5 and a stored 0.5000000001 are the same mix to every ear, and an equality
+ * test that disagreed would tell someone their saved mix was unsaved.
+ */
+export function sameMix(a, b, knownIds = SOUND_IDS) {
+  const left = normalizeMix(a, knownIds);
+  const right = normalizeMix(b, knownIds);
+  const ids = Object.keys(left);
+  if (ids.length !== Object.keys(right).length) return false;
+  return ids.every((id) => id in right && Math.abs(left[id] - right[id]) < 0.001);
+}
+
+/**
+ * The saved preset the live mix currently *is*, or null when it matches none.
+ *
+ * This is what lets a surface say "Rain + fire" rather than "Unsaved mix", and
+ * it is the only thing that can: the store keeps `lastMix` and `presets` apart
+ * on purpose, so nothing else knows whether what you are hearing has a name.
+ *
+ * An empty mix matches nothing — silence is not a preset, even though a preset
+ * can never be empty (`createPreset` refuses one).
+ */
+export function matchingPreset(presets, mix, knownIds = SOUND_IDS) {
+  const normalized = normalizeMix(mix, knownIds);
+  if (Object.keys(normalized).length === 0) return null;
+  if (!Array.isArray(presets)) return null;
+  return presets.find((preset) => sameMix(preset?.mix, normalized, knownIds)) ?? null;
+}
+
 export function createPreset(name, mix, knownIds = SOUND_IDS) {
   const trimmed = String(name ?? '').trim();
   const normalized = normalizeMix(mix, knownIds);
