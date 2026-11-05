@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import {
   MAX_LIBRARY_BYTES, MAX_TRACKS, MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE, TRACK_GROUP,
   activeSoundIds, applyPreset, clampVolume, createPreset, deletePreset, describeSource,
-  formatBytes, renamePreset,
+  formatBytes, formatDuration, renamePreset,
 } from '@chestha/core';
 import { useSoundCatalogue } from '../app/useSoundCatalogue.js';
 import { useWorkspace } from '../app/StoreProvider.jsx';
@@ -325,6 +325,16 @@ export function Sounds() {
                           {Math.round((mix[item.id] ?? 0) * 100)}%
                         </span>
                       </div>
+                      {/* Only an uploaded track has a position: a built-in is an
+                          endless loop with nowhere to be. */}
+                      {item.track && on && !failure && (
+                        <TrackScrubber
+                          id={item.id}
+                          name={item.name}
+                          running={audio.running}
+                          storedDuration={item.track.duration}
+                        />
+                      )}
                     </div>
                   </li>
                 );
@@ -402,8 +412,13 @@ export function Sounds() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{track.name}</p>
                     <p className="mt-0.5 truncate text-meta text-ink-faint">
-                      {[track.artist || 'No creator credited', track.license, describeSource(track.sourceUrl), formatBytes(track.bytes)]
-                        .filter(Boolean).join(' · ')}
+                      {[
+                        track.artist || 'No creator credited',
+                        track.license,
+                        describeSource(track.sourceUrl),
+                        track.duration > 0 ? formatDuration(track.duration) : '',
+                        formatBytes(track.bytes),
+                      ].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <IconButton label={`Edit credits for ${track.name}`} onClick={() => setEditing({ ...track })}>
@@ -669,6 +684,67 @@ function TrackCredit({ track, failure, onEdit, onRemove }) {
         </button>
       </p>
       <p className="text-meta text-ink-faint">{OWNERSHIP_BADGE}</p>
+    </div>
+  );
+}
+
+/**
+ * The position slider for one playing track — elapsed, total, and drag to seek.
+ *
+ * It owns its own ticker rather than lifting the position into the section's
+ * state: at four frames a second that would re-render the whole library, every
+ * preset row and every other card, to move one slider. Mounted only while its
+ * track is on, so nothing polls for a sound nobody is playing.
+ *
+ * The engine is the single source of truth for the position. Seeking writes to
+ * the element and the next tick reads it back, so a drag cannot leave the
+ * slider claiming a position the audio is not at — and the optimistic local
+ * value only exists to keep the thumb under the pointer between ticks.
+ */
+function TrackScrubber({ id, name, running, storedDuration }) {
+  const [playback, setPlayback] = useState(() => engine.playbackOf(id));
+
+  useEffect(() => {
+    const tick = () => setPlayback(engine.playbackOf(id));
+    tick();
+    // A paused track cannot move, so there is nothing to poll for.
+    if (!running) return undefined;
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [id, running]);
+
+  // The length read at add time stands in until the element reports its own,
+  // which it cannot do until it has loaded enough of the file.
+  const duration = playback?.duration || storedDuration || 0;
+  const position = Math.min(playback?.currentTime ?? 0, duration || Infinity);
+  const seekable = duration > 0 && playback !== null;
+
+  const onSeek = (value) => {
+    const next = Number(value);
+    engine.seek(id, next);
+    setPlayback((current) => ({ ...(current ?? { duration }), currentTime: next }));
+  };
+
+  return (
+    <div className="mt-1.5 flex items-center gap-2">
+      <span className="tabular w-10 shrink-0 text-right text-meta text-ink-faint">
+        {formatDuration(position)}
+      </span>
+      <input
+        type="range"
+        min="0"
+        max={duration > 0 ? duration : 1}
+        step="0.5"
+        value={position}
+        disabled={!seekable}
+        onChange={(e) => onSeek(e.target.value)}
+        aria-label={`${name} position`}
+        aria-valuetext={`${formatDuration(position)} of ${formatDuration(duration)}`}
+        className="w-full accent-[var(--app-accent)] disabled:opacity-40"
+      />
+      <span className="tabular w-10 shrink-0 text-meta text-ink-faint">
+        {formatDuration(duration)}
+      </span>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   MAX_LIBRARY_BYTES, MAX_TRACKS, MAX_TRACK_BYTES, OWNERSHIP_BADGE, OWNERSHIP_NOTICE,
   SOUNDS, SOUND_IDS, TRACK_GROUP,
   audioExtension, coerceSourceUrl, coerceTrack, coerceTrackList, createPreset, creditLine,
-  describeSource, editTrack, isAudioFile, mixGain, normalizeMix, titleFromFilename,
+  describeSource, editTrack, formatDuration, isAudioFile, mixGain, normalizeMix, titleFromFilename,
   trackToSound, validateTrackFile, youTubeVideoId,
 } from '../src/index.js';
 
@@ -240,4 +240,36 @@ test('the count cap is checked before the file, so a full library says so first'
   const refused = validateTrackFile(file('huge.wav', MAX_TRACK_BYTES * 4), full);
   assert.equal(refused.ok, false);
   assert.match(refused.error, /full at 30 tracks/);
+});
+
+test('a length reads as a clock, and an unknown one never reads as zero', () => {
+  assert.equal(formatDuration(0), '--:--', 'unknown is stated, not guessed at');
+  assert.equal(formatDuration(null), '--:--');
+  assert.equal(formatDuration(-5), '--:--');
+  assert.equal(formatDuration(NaN), '--:--');
+  assert.equal(formatDuration(Infinity), '--:--', 'a stream has no length');
+
+  assert.equal(formatDuration(7), '0:07');
+  assert.equal(formatDuration(67), '1:07');
+  assert.equal(formatDuration(187.4), '3:07', 'rounded to the nearest second');
+  assert.equal(formatDuration(600), '10:00');
+  assert.equal(formatDuration(3600), '1:00:00', 'an hour grows a field rather than reading 60:00');
+  assert.equal(formatDuration(3903), '1:05:03');
+});
+
+test('a duration survives storage and a nonsense one is dropped', () => {
+  assert.equal(coerceTrack({ id: 'track_1', duration: 187.4 }).duration, 187.4);
+  // Unknown, not playable-but-instant: the UI needs to tell those apart.
+  assert.equal(coerceTrack({ id: 'track_1' }).duration, 0);
+  assert.equal(coerceTrack({ id: 'track_1', duration: 'nope' }).duration, 0);
+  assert.equal(coerceTrack({ id: 'track_1', duration: -3 }).duration, 0);
+  assert.equal(coerceTrack({ id: 'track_1', duration: Infinity }).duration, 0);
+
+  // A new draft has no duration yet — the store fills it in once the browser
+  // has read the file's metadata.
+  assert.equal(validateTrackFile(file('song.mp3')).draft.duration, 0);
+
+  // Editing credits must not discard it; it is not one of the edited fields.
+  const stored = coerceTrack({ id: 'track_1', name: 'Night drive', duration: 187.4 });
+  assert.equal(editTrack(stored, { artist: 'Some Artist' }).track.duration, 187.4);
 });

@@ -186,6 +186,39 @@ export function loadTracks() {
 }
 
 /**
+ * Reads a file's length by letting the browser parse its metadata.
+ *
+ * Recorded once, at add time, so a track can show its length on the card
+ * before it has ever been played — and so the seek slider has a range without
+ * waiting for playback to start. Best-effort by design: a file whose duration
+ * the browser will not report still plays, and reads as '--:--'.
+ */
+function readDuration(file) {
+  return new Promise((resolve) => {
+    if (typeof Audio === 'undefined') { resolve(0); return; }
+    const url = URL.createObjectURL(file);
+    const el = new Audio();
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { el.src = ''; el.load(); } catch { /* nothing to release */ }
+      URL.revokeObjectURL(url);
+      resolve(Number.isFinite(value) && value > 0 && value < Infinity ? value : 0);
+    };
+    // A malformed or streaming-only file can leave `loadedmetadata` and `error`
+    // both unfired. Without this the add would hang on a promise that never
+    // settles, which is worse than an unknown duration.
+    const timer = setTimeout(() => finish(0), 5000);
+    el.addEventListener('loadedmetadata', () => finish(el.duration), { once: true });
+    el.addEventListener('error', () => finish(0), { once: true });
+    el.preload = 'metadata';
+    el.src = url;
+  });
+}
+
+/**
  * Stores one picked file.
  *
  * The file is validated before any of it is read, and the bytes and metadata
@@ -200,7 +233,7 @@ export async function addTrack(file) {
   // once, instead of repeating the same refusal for every remaining file.
   if (!checked.ok) return { ...checked, full: state.tracks.length >= MAX_TRACKS };
 
-  const { draft } = checked;
+  const draft = { ...checked.draft, duration: await readDuration(file) };
   try {
     await transact('readwrite', async (tracks, blobs) => {
       await requestToPromise(blobs.put(file, draft.id));

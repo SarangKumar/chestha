@@ -178,6 +178,23 @@ export function coerceSourceUrl(raw) {
   };
 }
 
+/**
+ * Seconds as a clock reading: '3:07', or '1:05:03' once past an hour.
+ *
+ * A track whose length is unknown reads as '--:--' rather than '0:00': the
+ * browser could not tell us, and showing a confident zero would be a claim.
+ */
+export function formatDuration(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return '--:--';
+  const total = Math.round(value);
+  const mm = Math.floor(total / 60) % 60;
+  const ss = total % 60;
+  const hh = Math.floor(total / 3600);
+  const pad = (n) => String(n).padStart(2, '0');
+  return hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${mm}:${pad(ss)}`;
+}
+
 /** How a source link should read on a card: 'YouTube' or the bare domain. */
 export function describeSource(sourceUrl) {
   const checked = coerceSourceUrl(sourceUrl);
@@ -235,6 +252,10 @@ export function validateTrackFile(file, trackIds = []) {
       filename: String(file.name ?? ''),
       mime: String(file.type ?? ''),
       bytes: size,
+      // Filled in by the caller once the browser has read the file's metadata,
+      // and 0 when it could not. It is only ever display text and a seek range,
+      // so an unknown length degrades to '--:--' rather than breaking anything.
+      duration: 0,
       addedAt: new Date().toISOString(),
     },
   };
@@ -254,6 +275,7 @@ export function coerceTrack(raw) {
 
   const source = coerceSourceUrl(raw.sourceUrl);
   const bytes = Number(raw.bytes);
+  const duration = Number(raw.duration);
 
   return {
     id,
@@ -267,6 +289,7 @@ export function coerceTrack(raw) {
     filename: String(raw.filename ?? '').trim(),
     mime: String(raw.mime ?? '').trim(),
     bytes: Number.isFinite(bytes) && bytes > 0 ? bytes : 0,
+    duration: Number.isFinite(duration) && duration > 0 ? duration : 0,
     addedAt: String(raw.addedAt ?? '').trim(),
   };
 }

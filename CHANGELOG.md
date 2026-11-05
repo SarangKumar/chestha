@@ -34,6 +34,22 @@ not updated yet — it is user-facing, and these are not released.
   which is what keeps them seamless.
   The library is capped at 30 tracks of 8MB each — ~240MB, with the total being
   the product of the two visible limits rather than a third rule of its own.
+
+  Uploaded tracks get a **position slider** — elapsed, total, and drag to seek,
+  as a music player should have. Only they do: a built-in sound is an endless
+  ambience loop with no position to show. A track's length is read once when it
+  is added, so the card shows it before first play, and an unknown length reads
+  `--:--` rather than a confident `0:00`. Two things this turned up: suspending
+  the AudioContext does not stop an `<audio>` element feeding it, so a paused
+  mix was silently running songs to their end — `pause()` now moves the elements
+  with the context; and the slider keeps its own ticker, because polling in the
+  section's state would re-render the whole library four times a second.
+- **Fixed: "Unrecognized manifest key" on the extension's card.** The manifest
+  explained itself in `_`-prefixed keys, which are not a comment syntax — Chrome
+  warns about every key it does not recognise, and stripping them at build time
+  does not help anyone who reads or loads the committed file. The notes moved to
+  `scripts/extension/README.md`, which the build also keeps out of the shipped
+  extension, and a test now fails if such a key reappears.
 - **`unlimitedStorage` in the extension manifest** — the first permission added
   since the manifest was written, and the test that pins the permission list was
   updated rather than bypassed. It is there for **durability, not room**: 240MB

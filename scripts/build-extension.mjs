@@ -59,10 +59,11 @@ function applyHostPermissions() {
 
   const manifestPath = `${EXTENSION_DIST}/manifest.json`;
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  // The notes in the committed manifest are for a reader of that file and have
-  // no business in the shipped one, where Chrome would report each as an
-  // unrecognised key. Every `_`-prefixed key goes, so adding another note to
-  // the source manifest needs no change here.
+  // A backstop. Chrome reports any key it does not recognise as a warning on the
+  // extension's card, and `_`-prefixed keys are not a comment syntax — which is
+  // why the explanations live in scripts/extension/README.md and not in the
+  // JSON. This only matters if someone adds one back; the test suite also
+  // fails in that case.
   for (const key of Object.keys(manifest)) {
     if (key.startsWith('_')) delete manifest[key];
   }
@@ -71,6 +72,9 @@ function applyHostPermissions() {
 
   // A build artefact, not part of the extension.
   rmSync(`${EXTENSION_DIST}/${ORIGIN_FILE}`, { force: true });
+  // Documentation for whoever edits the shell, copied in with it; it has no
+  // business being shipped to users or counted in the packed size.
+  rmSync(`${EXTENSION_DIST}/README.md`, { force: true });
   return true;
 }
 

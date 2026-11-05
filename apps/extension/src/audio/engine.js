@@ -87,6 +87,7 @@ export async function ensureContext() {
     }
   }
   const running = ctx.state === 'running';
+  if (running) setElementsPlaying(true);
   setState({ running, blocked: !running, error: running ? null : state.error });
   return running;
 }
@@ -245,6 +246,47 @@ function stopVoice(id) {
   setTimeout(() => teardown(voice), (RAMP + 0.05) * 1000);
 }
 
+/**
+ * Where a streamed track has reached, and how long it is.
+ *
+ * Only element-backed voices have a position at all: a built-in loop is an
+ * endless ambience with no meaningful one. Returns null when the sound is not
+ * playing, so a caller can tell "stopped" from "at zero".
+ *
+ * @returns {{currentTime: number, duration: number}|null}
+ */
+export function playbackOf(id) {
+  const el = voices.get(id)?.element;
+  if (!el) return null;
+  const duration = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
+  return { currentTime: Number.isFinite(el.currentTime) ? el.currentTime : 0, duration };
+}
+
+/**
+ * Moves a streamed track to `seconds`.
+ *
+ * The target is clamped a little short of the end: the voice loops, so seeking
+ * exactly to the duration would wrap straight back to zero and read as a bug
+ * rather than as a seek to the end.
+ *
+ * @returns {boolean} whether there was a seekable voice to move
+ */
+export function seek(id, seconds) {
+  const el = voices.get(id)?.element;
+  if (!el) return false;
+  const duration = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
+  if (duration <= 0) return false;
+  const target = Number(seconds);
+  if (!Number.isFinite(target)) return false;
+  const limit = duration > 0.5 ? duration - 0.25 : duration;
+  try {
+    el.currentTime = Math.min(Math.max(0, target), limit);
+  } catch {
+    return false;   // the element is not seekable yet
+  }
+  return true;
+}
+
 export function setMasterVolume(mix, masterVolume) {
   if (!ctx) return;
   const ids = knownIds();
@@ -253,8 +295,25 @@ export function setMasterVolume(mix, masterVolume) {
   }
 }
 
+/**
+ * Suspending the context stops it rendering audio, but an `<audio>` element
+ * feeding it keeps playing and keeps advancing its own clock. Left alone, a
+ * paused mix would silently run a song to its end and resume somewhere else
+ * entirely — invisible before there was a position to look at, and plainly
+ * wrong now that there is one. So the elements are moved with the context.
+ */
+function setElementsPlaying(playing) {
+  for (const voice of voices.values()) {
+    const el = voice?.element;
+    if (!el) continue;
+    if (playing) el.play().catch(() => { /* resumed without a gesture */ });
+    else el.pause();
+  }
+}
+
 export async function pause() {
   if (!ctx || ctx.state !== 'running') return;
+  setElementsPlaying(false);
   await ctx.suspend();
   setState({ running: false });
 }

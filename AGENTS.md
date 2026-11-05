@@ -543,12 +543,29 @@ real content width (390px viewport gives 358px; 768px gives 656px; desktop caps 
      a track do sync; `applyPreset` already reports what it cannot resolve. The
      separate database also avoids bumping `storage.js`'s `DB_VERSION`, where a
      blocked upgrade would silently drop the whole workspace to in-memory storage.
-  3. **Music is streamed, not decoded.** A catalogue entry with `stream: true`
+  3. **Music is streamed, not decoded.** This is also what makes a position
+     possible at all: `engine.playbackOf(id)` / `engine.seek(id, seconds)` work
+     on the element behind a streamed voice, and the Sounds card shows a
+     Spotify-style elapsed / total scrubber for uploaded tracks only — a
+     built-in is an endless ambience loop with nowhere to be. Two traps found
+     while building it: suspending the AudioContext does **not** stop a feeding
+     `<audio>` element, so `pause()` and `ensureContext()` move the elements
+     with the context or a paused mix silently runs a song to its end; and the
+     scrubber owns its own 250ms ticker rather than lifting position into the
+     section's state, which would re-render the whole library four times a
+     second to move one slider. A catalogue entry with `stream: true`
      plays through an `<audio>` element and `createMediaElementSource`;
      `decodeAudioData` holds a whole file as float32 PCM (~90 MB for four minutes
      of 48 kHz stereo), so decoding a music library would exhaust memory. Built-in
      loops keep decoding — that is what makes them seamless, and element looping
      is not sample-accurate.
+  A track's length is read once at add time (`readDuration` in `trackStore.js`,
+  best-effort with a 5s timeout) so a card can show it before first play; an
+  unknown length reads `--:--` and never a confident `0:00`.
+  **The manifest carries no explanatory keys** — Chrome reports every
+  unrecognised key as a warning on the extension's card, and `_`-prefixed ones
+  are not a comment syntax. `scripts/extension/README.md` holds those notes, and
+  a test fails if one reappears in the JSON.
   The library is capped at `MAX_TRACKS` (30) tracks of `MAX_TRACK_BYTES` (8MB),
   so ~240MB; the total is the product of those two and not a third rule, so no
   file is ever refused for a reason neither visible number explains. Note the

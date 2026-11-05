@@ -51,6 +51,17 @@ test('the extension asks for no access to any website', () => {
   // extension's storage under disk pressure, and these tracks are never synced,
   // so an eviction loses files the user cannot recover. It grants no website
   // access and no new API, so it does not weaken what this test guards.
+  // scripts/extension/README.md carries the full argument.
+  //
+  // Chrome reports every key it does not recognise as a warning on the
+  // extension's card, and `_`-prefixed keys are NOT a comment syntax — a note
+  // written into this file shows up as "Unrecognized manifest key". Explanations
+  // belong in the README beside it.
+  assert.deepEqual(
+    Object.keys(manifest).filter((key) => key.startsWith('_')),
+    [],
+    'no pseudo-comment keys in the manifest — Chrome warns about every one',
+  );
   assert.deepEqual(
     manifest.permissions.sort(),
     ['alarms', 'idle', 'storage', 'tabs', 'unlimitedStorage'],

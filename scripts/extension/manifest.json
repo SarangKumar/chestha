@@ -37,32 +37,5 @@
     "storage",
     "unlimitedStorage"
   ],
-  "_unlimited_storage_note": [
-    "unlimitedStorage is here for DURABILITY, not for room. The Sounds section",
-    "caps the user's audio library at 30 tracks of 8MB (MAX_TRACKS and",
-    "MAX_TRACK_BYTES in packages/core/src/audio.js), so ~240MB at most, which",
-    "fits inside the default per-origin quota on any machine - an earlier version",
-    "of this note claimed the permission was needed to lift that quota, and that",
-    "was wrong.",
-    "What it is really for: without it an extension's storage is best-effort and",
-    "Chrome may evict it under disk pressure. These tracks are deliberately",
-    "device-local and never synced, so an eviction loses audio files the user",
-    "cannot get back from the server or from another device - unlike every other",
-    "thing this app stores. That is the whole argument, and it does not weaken if",
-    "the cap is lowered.",
-    "It grants no access to any website, no host permission and no new API."
-  ],
-  "_host_permissions_note": [
-    "host_permissions is NOT listed here: it names the website origin, which is a",
-    "build-time value (VITE_SITE_URL) and differs between development and",
-    "production. scripts/build-extension.mjs injects it while assembling, reading",
-    "the origin the bundle was actually built with. Do not hardcode it here — a",
-    "manifest naming a different origin than the bundle means the session cookie",
-    "is never sent and every user reads as signed out.",
-    "What it is for: the New Tab asks the website GET /api/session who is signed",
-    "in, so the gated sections can be gated. Chromium only treats that request as",
-    "first-party for SameSite purposes when the initiating extension page has host",
-    "access to the target, which is the whole reason this permission exists."
-  ],
   "offline_enabled": true
 }
