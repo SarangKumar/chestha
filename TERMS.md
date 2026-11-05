@@ -72,10 +72,12 @@ is transmitted, and there is nobody to transmit it to.
 - What is stored for those sites is a **domain, a local date and a number of
   seconds**. Never a page address, a path, a search query, a page title, a favicon,
   or anything about the contents of a page.
-- The extension requests **no permission to read any website**, and injects no code
-  into any page. It can see which site a tab is on; it cannot see what is on it.
-  This is a limit of the extension's design, not a policy we could quietly change —
-  changing it would require new permissions, which Chrome would show you.
+- Website time is counted from the **address of the tab you are looking at**, and
+  from nothing else. It can see which site a tab is on; it cannot see what is on it.
+- The extension does inject one script into pages — the **island overlay**, the bar
+  it can draw at the top of the screen. That script draws and nothing else: it does
+  not read the page, and it takes no part in counting website time. You can limit
+  the island to Chestha's own pages, or turn it off, in Settings → Navigation.
 - It counts only while a tracked site is the tab you are looking at, in the window
   in front, and you are at the keyboard. It stops when you go idle or lock the
   screen.
@@ -155,9 +157,18 @@ workspace requires an account.
 
 | `host_permissions` for `chestha.vercel.app` | The sign-in check described in §2. Chrome only sends your session cookie on a request an extension makes to another origin when the extension holds host access to it, so this permission is what makes the check possible at all — without it every user would appear signed out. It names our own site and nothing else. |
 
-**No content scripts are used, and no other site is covered.** The extension has no
-access to the contents of any web page, including ours, and cannot obtain it without
-asking you for a new permission that Chrome would show you.
+| `offscreen` | Holding the audio player in one invisible extension page, so a mix keeps playing when the workspace tab is navigated away or closed. It grants no access to any website. |
+
+| `content_scripts` on all sites | Drawing the island — the bar at the top of the page showing what is playing and what is due. Chrome describes this as "read and change all your data on all websites", because that is what the capability allows. What the script does is draw: it adds one element, renders inside it, and reads nothing from the page — not its text, its forms, its cookies or its address. |
+
+**The island's script is the only code we inject, and reading pages is not what it
+is for.** We do not read the contents of any web page, including ours. If that ever
+changed it would be a change to this document and to what the extension does, not
+something the current permissions quietly already allow.
+
+**Turning it off.** Settings → Navigation → Island limits the overlay to Chestha's
+own pages, or switches it off. Chrome's own Extensions page can also restrict the
+extension's site access, which stops the script running at all.
 
 ### Storage is separate
 

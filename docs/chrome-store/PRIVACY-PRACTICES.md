@@ -15,8 +15,10 @@ Keep this narrow. Do not describe advertising, content scraping, or general brow
 
 ## Permission justifications
 
-Manifest permissions: `tabs`, `idle`, `alarms`, `storage`.
-Host permission: **`https://chestha.vercel.app/*` only.** **No content scripts.**
+Manifest permissions: `tabs`, `idle`, `alarms`, `storage`, `unlimitedStorage`, `offscreen`.
+Host permission: **`https://chestha.vercel.app/*` only.**
+Content scripts: **one**, `island.js`, matching all sites — it draws the island
+overlay and reads nothing from the page. See below.
 
 ### `tabs`
 
@@ -38,6 +40,30 @@ Wakes the extension periodically (about once a minute) to close off counted time
 ### `storage`
 
 Holds a small amount of pending time records until the workspace UI takes them in, and caches the answer to the sign-in check below so a New Tab does not have to ask on every open and still knows which sections to show when offline. Workspace content (tasks, notes, DSA, etc.) lives in the extension page’s IndexedDB on the `chrome-extension://` origin.
+
+### `content_scripts`: `island.js` on all sites
+
+The island is a small bar Chestha can draw at the top of any page, showing what
+is playing and what is still due. Drawing on a page requires a content script,
+and a script that matched only some sites would be a stranger privacy question
+than one that matches all of them.
+
+What it does: appends one element, draws inside a closed shadow root, and reads
+the page for nothing — no page text, no form fields, no cookies, no storage, no
+URL. It communicates only with the extension's own storage and service worker.
+The restraint is enforced by a test in the repository that fails if the file
+gains any of the ways a script reads its host document.
+
+Chrome will describe this as "read and change all your data on all websites",
+because that is what the capability allows. Honest disclosure: Chestha does not
+read any of it. The feature can be narrowed to Chestha's own pages, or switched
+off entirely, in Settings → Navigation → Island.
+
+### `offscreen`
+
+Lets the extension hold one invisible page containing the audio player, so a
+mix keeps playing when the New Tab that started it is navigated away or closed.
+It grants no access to any website and no ability to see or touch a page.
 
 ### `host_permissions`: `https://chestha.vercel.app/*`
 
@@ -96,7 +122,9 @@ Built-in ambient sound is bundled audio played from the extension itself — no 
 - Off until the user enables it and adds site rules.
 - Observation on-device only; nothing is transmitted; there is nobody to transmit it to.
 - Records only configured domains; never full URLs, paths, queries, titles, or page contents.
-- No permission to read website contents; no injected scripts.
+- No reading of website contents. One script is injected into pages — the island
+  overlay — and it only draws; it does not read the page, and it plays no part in
+  website-time counting, which still works from the tab's address alone.
 
 **Store disclosure stance (as built):** no personal data is collected or transmitted by the developer. Certify accordingly, and ensure the Privacy policy URL says the same.
 
@@ -139,7 +167,7 @@ We do not collect your workspace data. We do not use analytics, advertising, cra
 Content you create (tasks, notes, layouts, settings, DSA progress, optional Grove and website-time records) is stored locally by your browser for this extension/site origin. We cannot access, recover, or restore it. Clearing browser data, using a private window, or removing the extension can delete it. Export regularly if you need a backup.
 
 4. Optional website time
-If you enable website-time rules for Grove XP, the extension may record domain, local date, and seconds for sites you configure, only while those tabs are active and you are not idle. This data stays on your device and is not transmitted to us. Full URLs, paths, queries, titles, and page contents are not stored. The extension does not inject scripts into web pages, and its one host permission covers only `chestha.vercel.app` — it has no access to any other site.
+If you enable website-time rules for Grove XP, the extension may record domain, local date, and seconds for sites you configure, only while those tabs are active and you are not idle. This data stays on your device and is not transmitted to us. Full URLs, paths, queries, titles, and page contents are not stored. The extension injects one script into web pages — the island overlay, which draws a bar at the top of the page and reads nothing from it — and its one host permission covers only `chestha.vercel.app`. Website-time counting uses the tab's address and never the injected script.
 
 5. Optional network features
 - GitHub widget: after you enter a username, your browser may request public data from GitHub’s API.
@@ -154,7 +182,9 @@ tabs — focus an existing workspace tab; read the active tab’s address for op
 idle — pause timing when you are away.
 alarms — periodically finalize counted time.
 storage — hold small pending timing records for the workspace.
-One host permission: chestha.vercel.app, used solely for the sign-in check above. No content scripts. No remote code.
+unlimitedStorage — keep your uploaded audio from being evicted under disk pressure; it is never synced, so an eviction would lose it.
+offscreen — hold the audio player in one invisible extension page, so your mix keeps playing when the workspace tab is navigated away or closed.
+One host permission: chestha.vercel.app, used solely for the sign-in check above. One content script: the island overlay, which draws a small bar at the top of the page and reads nothing from it. No remote code.
 
 7. Children
 Chestha is not directed at children under 13. Do not use it to store sensitive data about minors.

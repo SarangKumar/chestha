@@ -26,7 +26,8 @@ export const EXTENSION_DIST = `${root}dist/extension`;
 const ORIGIN_FILE = '.site-origin';
 
 /**
- * Writes `host_permissions` into the assembled manifest.
+ * Writes the two build-time values into the assembled manifest:
+ * `host_permissions`, and the island content script's `exclude_matches`.
  *
  * The permission names the website origin, which is a build-time value, so it
  * cannot sit in the committed manifest. It is read from the origin the bundle
@@ -68,6 +69,14 @@ function applyHostPermissions() {
     if (key.startsWith('_')) delete manifest[key];
   }
   manifest.host_permissions = [`${new URL(origin).origin}/*`];
+
+  // The website serves the same bundle, and that bundle draws its own island
+  // in React. Without this, the content script would inject a second one over
+  // the first on every page of the site. Same build-time origin, same reason
+  // it cannot be committed.
+  for (const script of manifest.content_scripts ?? []) {
+    script.exclude_matches = [`${new URL(origin).origin}/*`];
+  }
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
   // A build artefact, not part of the extension.

@@ -27,6 +27,18 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "island.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
@@ -35,7 +47,8 @@
     "idle",
     "alarms",
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "offscreen"
   ],
   "offline_enabled": true
 }

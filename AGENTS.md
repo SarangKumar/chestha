@@ -18,6 +18,16 @@ and the "Signing in from the extension" section below are the current statement;
 any older text promising a login-free workspace or "no host permissions" is
 stale.
 
+**And the extension now injects a content script into every page.** The island
+— the notch that hangs off the top edge showing what is playing and what is due
+— draws over other websites, which cannot be done any other way. Every older
+line saying "no content scripts, ever" (this file, `scripts/extension/background.js`,
+the test that pinned it) has been changed rather than left to rot. What is still
+true, and is now pinned by a source-level test instead of by the manifest, is
+that **nothing reads the page**: the overlay appends one element, draws in a
+closed shadow root, and queries the document for nothing. See
+"The island" below.
+
 ## Hard rules
 
 1. **Never commit.** Leave all work uncommitted for manual review.
@@ -141,7 +151,8 @@ apps/extension/    Vite 8 + React 19 + Tailwind 4, plain JSX. The workspace —
                    the app the extension ships as its New Tab page.
 scripts/           Build, watch, pack, backgrounds and DSA-pack scripts, plus
                    `extension/` holding the MV3 shell: manifest.json, the
-                   background service worker and the tracker content script.
+                   background service worker, the productive-time tracker and
+                   `island.js`, the overlay injected into other pages.
                    They live here, not in apps/extension, because they are a
                    different runtime and must be copied verbatim rather than
                    bundled by Vite.
@@ -306,7 +317,98 @@ three it is not opt-in at all: it fires on New Tab open whenever the cached
 answer is older than `SESSION_MAX_AGE_MS`. `README.md`, `TERMS.md`, `About.jsx`
 and `docs/chrome-store/PRIVACY-PRACTICES.md` all had to change, including the
 "no host permissions, no content scripts" line that is no longer true of the
-first half.
+first half — and, since the island, is no longer true of the second either.
+
+### The island
+
+A notch hanging off the top edge: collapsed to a pill, expanding on hover into
+what is playing, the date, what is still due, and a progress ring. It is drawn
+**twice**, and the duplication is deliberate rather than accidental:
+
+- `apps/extension/src/components/Island.jsx` — React, inside the workspace.
+  Mounted by `Shell`, never in the embed preview, never below `sm`.
+- `scripts/extension/island.js` — plain DOM in a closed shadow root, injected
+  into every other page by the content script.
+
+They cannot share code: an MV3 content script is a classic script with no
+imports, and it runs in a page that cannot reach the workspace's store. What
+they share instead is **the snapshot**, `packages/core/src/island.js` — a small
+projection of what the island draws, written to `chrome.storage.local` by the
+workspace and read by the overlay. Four rules hold it together, all tested in
+`packages/core/test/island.test.js`:
+
+- **It is a projection, not a mirror.** Only what is drawn is in it. No notes,
+  no tags, no filenames, no account identity. A snapshot that leaked the
+  workspace into every page would be worse than the overlay itself.
+- **Stale means gone.** Audio lives in the workspace page's AudioContext and
+  stops when that tab closes, so the snapshot is republished on a heartbeat and
+  anything older than `ISLAND_STALE_MS` is not drawn. An island still saying
+  "Playing" over a silent browser is the one lie it must never tell.
+- **Commands are a fixed list.** The overlay cannot act; it asks. The service
+  worker checks the command against `ISLAND_COMMANDS` and forwards it to
+  extension pages only — `chrome.runtime.sendMessage` from a worker never
+  reaches a content script, so a command cannot land in a web page. With no
+  workspace tab open the send fails, and the relay opens the workspace instead.
+- **Black in both themes, on purpose.** The island is the one component that
+  ignores the token ladder, because it is imitating a piece of hardware and a
+  notch that turned white in the light theme would read as a dialog. The
+  deviation is confined to those two files; nothing else may copy it.
+
+#### Playback is read from the record, never from the store
+
+**There is no cross-tab store sync in this app.** Two New Tabs are two
+in-memory copies of the same IndexedDB, loaded when each opened, and nothing
+tells one about the other's writes. That single fact defeated three
+successive attempts to make the island agree with itself, because each one
+fixed the engine and left the *question* wrong: a tab opened after the music
+started holds an empty `sound.lastMix`, so asking its own store what is
+playing could only ever answer "nothing".
+
+So the island derives **none** of its playback from the store. Title,
+subtitle, credit, position, volume, repeat and playing/paused all come from
+the host's record (`engine.audioSnapshot()` in `audio/host.js`). The store is
+consulted for exactly two things, both of which genuinely are local: whether
+this tab's own mix is the one playing — `islandTitle` in
+`packages/core/src/island.js` decides that, and it is tested — and whether
+that mix can be saved as a preset, which needs the mix itself.
+
+If you add anything to the island that answers "what is playing", take it
+from the record. Deriving it locally will look right in the tab you are
+testing in and be wrong in every other one.
+
+#### Audio lives in an offscreen document
+
+Playback is **not** in the workspace page any more. `apps/extension/src/offscreen.js`
+owns the engine; `apps/extension/src/audio/host.js` is what the app imports, and it
+presents the same surface `engine.js` does so call sites only changed an import.
+Three things follow:
+
+- **The mix survives the page.** Navigating the New Tab away — typing a search
+  into the start page — used to kill it. That was the bug this moved for.
+- **There is one answer to "is it playing".** Two New Tabs each reading their
+  own `AudioContext` is what made the island flicker: the silent tab said
+  "Paused" about a mix the other was playing, and the two fought over the
+  shared record. One host, one answer, no arbitration.
+- **It publishes its own record**, `chestha.island.audio` (see
+  `apps/extension/src/audio/protocol.js`), separate from the island's. Different
+  writer, different lifetime: the audio record beats every second and goes
+  stale in fifteen, the island's beats every thirty and goes stale in ninety,
+  and the overlay keeps naming the track with every Chestha tab closed.
+
+`host.js` **falls back to playing in the page** if the offscreen document
+cannot be created or reports that it could not start. The offscreen path has
+not been exercised in a real browser from this environment — see the
+verification note in this file — so that fallback is doing real work.
+
+`settings.island` (`everywhere` | `workspace` | `off`, default `everywhere`)
+decides where it draws, in Settings → Navigation. The content script is
+installed regardless — only Chrome can revoke that — so the setting stops the
+workspace publishing rather than stopping the injection.
+
+**Open decision:** the default is `everywhere` because that is the feature as
+asked for, but it means a fresh install draws over every site before the user
+has chosen anything. `workspace` would be the quieter default, at the cost of
+the feature being invisible until found.
 
 `/api/profile` is the **fifth**, added with the profile card. It rides the same
 mechanism — same origin, same cookie, same exemption — and is deliberately a

@@ -210,6 +210,29 @@ export function Settings() {
               >
                 {() => <SectionVisibility />}
               </Field>
+              <Field
+                label="Island"
+                hint={
+                  'The notch that hangs off the top edge, showing what is playing and what '
+                  + 'is still due. “Everywhere” also draws it over other websites, through '
+                  + 'the extension’s content script — it reads nothing from those pages, but '
+                  + 'it is why Chrome asks for access to all sites. It never appears on a '
+                  + 'phone-width window.'
+                }
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={settings.island ?? 'everywhere'}
+                    onChange={(e) => actions.setSetting('island', e.target.value)}
+                  >
+                    <option value="everywhere">Everywhere, including other sites</option>
+                    <option value="workspace">Only in Chestha</option>
+                    <option value="off">Off</option>
+                  </Select>
+                )}
+              </Field>
+
               <p className="text-sm text-ink-muted">
                 Productive time (website tracking) has its own page at{' '}
                 <a href="#/websites" className="font-medium text-ink underline-offset-2 hover:underline">

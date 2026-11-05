@@ -1,9 +1,9 @@
-import * as engine from '../audio/engine.js';
+import * as engine from '../audio/host.js';
 
 /**
  * Ambient sound for a focus session.
  *
- * The audio engine is a singleton shared with the Sounds section, which sets the
+ * The audio host is shared with the Sounds section, which sets the
  * rule here: a session may start a mix, but it may never take one over. If
  * anything is already playing — a mix the user chose, from the Sounds page or a
  * widget — the session leaves it exactly as it is, and leaves it running when it
@@ -17,7 +17,10 @@ let startedBySession = false;
 /** @returns whether a mix was started. */
 export async function startSessionSound(preset, masterVolume) {
   if (!preset?.mix || Object.keys(preset.mix).length === 0) return false;
-  if (engine.activeVoiceIds().length > 0) return false;   // something is already playing
+  // Something is already playing — possibly in another tab, now that audio
+  // lives in one offscreen host, which makes "leave it alone" matter more
+  // rather than less.
+  if (engine.isPlaying()) return false;
   const running = await engine.ensureContext();
   if (!running) return false;
   await engine.applyMix(preset.mix, masterVolume);

@@ -1,4 +1,5 @@
 import { newId } from './ids.js';
+import { ISLAND_MODES } from './island.js';
 import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
 import { coerceRecurrence } from './recurrence.js';
@@ -257,6 +258,17 @@ export const DEFAULT_SETTINGS = {
   hiddenSections: ['dsa'],
   glass: 0.55,
   startMode: 'board',
+  /**
+   * Where the island — the notch hanging off the top edge — may appear.
+   *
+   * `everywhere` injects it into other sites through the content script;
+   * `workspace` keeps it to Chestha's own pages; `off` is off. It defaults to
+   * `everywhere` because an overlay nobody can see is not the feature that was
+   * asked for, and because the content script is already installed by the time
+   * this is read — the setting decides whether it *draws*, not whether Chrome
+   * granted anything.
+   */
+  island: 'everywhere',
 };
 
 /**
@@ -600,6 +612,7 @@ function coerceSettings(raw) {
       hiddenSections: coerceHiddenSections(raw.hiddenSections),
       glass: num(raw.glass, 0.55, 0, 1),
       startMode: START_MODES.includes(raw.startMode) ? raw.startMode : 'board',
+      island: ISLAND_MODES.includes(raw.island) ? raw.island : 'everywhere',
     },
     issues: [],
   };

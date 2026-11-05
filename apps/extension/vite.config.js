@@ -77,6 +77,19 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_SITE_URL': JSON.stringify(siteUrl),
     },
     server: { port: 5173 },
-    build: { target: 'es2022' },
+    build: {
+      target: 'es2022',
+      rollupOptions: {
+        input: {
+          // The workspace itself.
+          index: path.join(rootDir, 'index.html'),
+          // The audio host: an invisible extension page that keeps the mix
+          // playing when the New Tab is navigated away. It is built here, with
+          // the app, because it imports the same engine; it is inert in the
+          // website build, where nothing loads it.
+          offscreen: path.join(rootDir, 'offscreen.html'),
+        },
+      },
+    },
   };
 });

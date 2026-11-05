@@ -10,7 +10,7 @@ import {
   Badge, Button, CardTitle, Dialog, EmptyState, Field, IconButton, Panel, SectionHeader, TextInput, cx,
 } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
-import * as engine from '../audio/engine.js';
+import * as engine from '../audio/host.js';
 import * as trackStore from '../audio/trackStore.js';
 
 export function Sounds() {

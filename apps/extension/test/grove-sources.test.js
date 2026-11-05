@@ -42,7 +42,7 @@ test('the Grove and the tracker never contact the network', () => {
   }
 });
 
-test('the extension asks for no access to any website', () => {
+test('the extension’s access to websites stays exactly one drawing surface', () => {
   const manifest = JSON.parse(readFileSync(`${root}scripts/extension/manifest.json`, 'utf8'));
 
   // unlimitedStorage is in this list deliberately. The Sounds section stores the
@@ -62,17 +62,59 @@ test('the extension asks for no access to any website', () => {
     [],
     'no pseudo-comment keys in the manifest — Chrome warns about every one',
   );
+  // `offscreen` arrived with background playback: it lets the worker create
+  // one invisible extension page to hold the AudioContext, so the mix is not
+  // killed by navigating the New Tab away. It grants no website access and no
+  // way to see or touch a page — scripts/extension/README.md has the argument.
   assert.deepEqual(
     manifest.permissions.sort(),
-    ['alarms', 'idle', 'storage', 'tabs', 'unlimitedStorage'],
+    ['alarms', 'idle', 'offscreen', 'storage', 'tabs', 'unlimitedStorage'],
   );
-  assert.equal(manifest.host_permissions, undefined, 'no host permissions, ever');
-  assert.equal(manifest.content_scripts, undefined, 'no content scripts, ever');
+  assert.equal(manifest.host_permissions, undefined, 'no host permission in the committed manifest');
   assert.equal(manifest.optional_host_permissions, undefined);
+
+  // This used to read `content_scripts === undefined, 'no content scripts,
+  // ever'`. The island changed that deliberately: it draws over other sites,
+  // which cannot be done without one. The guard is now about *shape* rather
+  // than absence — there may be exactly one, it may run exactly one file, and
+  // it may not quietly acquire more.
+  assert.equal(manifest.content_scripts.length, 1, 'exactly one content script');
+  const [island] = manifest.content_scripts;
+  assert.deepEqual(island.js, ['island.js'], 'the overlay is the only thing injected');
+  assert.equal(island.all_frames, false, 'top frame only — never inside an ad iframe');
+  assert.equal(island.run_at, 'document_idle', 'after the page has settled, never before');
   // scripting would allow injecting into a page, which is the same access by another name.
   assert.ok(!manifest.permissions.includes('scripting'));
   assert.ok(!manifest.permissions.includes('webNavigation'));
   assert.ok(!manifest.permissions.includes('history'));
+});
+
+test('the injected overlay never reads the page it is drawn on', () => {
+  const island = readFileSync(`${root}scripts/extension/island.js`, 'utf8');
+
+  // The whole justification for an `<all_urls>` match is that the overlay only
+  // *draws*. These are the ways a content script reads its host document, and
+  // none of them may appear. `document.documentElement.appendChild` and
+  // `document.fullscreenElement` are the two contacts it is allowed, and
+  // neither is a read of content.
+  for (const forbidden of [
+    'document.querySelector', 'document.getElement', 'document.body',
+    'document.cookie', 'document.forms', 'document.links', 'document.title',
+    'localStorage', 'sessionStorage', 'window.location', 'document.location',
+    'innerText', 'outerHTML', 'getSelection', 'MutationObserver',
+  ]) {
+    assert.ok(!island.includes(forbidden), `the overlay must not touch ${forbidden}`);
+  }
+
+  // User strings — task titles, track names — are written with textContent.
+  // An innerHTML assignment is allowed only for the fixed SVG path data.
+  for (const line of island.split('\n')) {
+    if (!line.includes('innerHTML')) continue;
+    assert.ok(
+      !/\b(title|task|snapshot|sound|credit|label)\b/.test(line),
+      `user text must not go through innerHTML: ${line.trim()}`,
+    );
+  }
 });
 
 test('the tracker reads a tab’s host and nothing else about it', () => {

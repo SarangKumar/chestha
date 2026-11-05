@@ -16,6 +16,12 @@ The rules most easily got wrong, repeated here:
   signed out** — the gate fails open, so a fresh offline install is never
   walled. This reverses what v0.2 promised; the extension now does request
   `host_permissions`.
+- **The extension injects a content script into every page**, added with the
+  island (the notch on the top edge). Every older "no content scripts, ever"
+  line is stale — including the test that pinned it, which now pins the
+  overlay's *shape* instead. What still holds, and is tested at source level:
+  `scripts/extension/island.js` reads nothing from the page. See "The island"
+  in AGENTS.md before changing either half of it.
 - **Ask before adding a runtime dependency.** Still a short, deliberate list.
 - **Plain JS, not TypeScript**, including the Prisma and NextAuth wiring.
   `npm test`, `npm run build` (the website) and `npm run build:extension`

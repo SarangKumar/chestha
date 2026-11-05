@@ -14,7 +14,7 @@ import {
   availableSeeds, isPaused as sessionPaused, levelFromXp, remainingMs, sessionProgress,
   stageForProgress, todayISO, xpOnDay,
 } from '@chestha/core';
-import * as engine from '../audio/engine.js';
+import * as engine from '../audio/host.js';
 import { Plant } from '../grove/plants.jsx';
 import { DirtPad, GardenPlot, gridCell, gridSizeForCount } from '../grove/GardenPlot.jsx';
 import {
