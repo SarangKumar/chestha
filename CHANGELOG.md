@@ -11,6 +11,28 @@ The website Changelog page (`apps/extension/src/site/changelog.js`) is deliberat
 not updated yet — it is user-facing, and these are not released.
 
 ### Added
+- **A category picker in the extension's post editor**, and the category list
+  on `GET /api/posts/mine`. The list comes from the database rather than core's
+  `SEED_CATEGORIES`, because `editPost` validates against the database: a picker
+  built from the seed list would offer categories a deployment has never seeded
+  and the save would fail for a reason the author could not act on. An empty
+  list is reported as what it is — nobody has run `npm run db:seed` — instead of
+  rendering an empty box.
+- **A theme control in the navbar** — one icon opening a three-choice menu
+  (System / Light / Dark), in both the workspace header and the marketing
+  navbar. Theme is the one preference people change by mood, and it previously
+  lived only in Settings.
+- `packages/core/src/theme.js` — one definition of the three choices, the
+  storage key, the dark-resolution rule and the media-query subscription, shared
+  by the extension and the website. The two apps had each written their own, and
+  only one of them was right. The two pre-paint bootstrap scripts still repeat
+  the rule out of necessity — they run before any module loads — and both now
+  say so.
+- **Difficulty is coloured on every DSA tab** — Easy green, Medium amber, Hard
+  red, from the existing `ok` / `warn` / `danger` tokens. Difficulty is an
+  ordered scale people already read by colour, which is the test the design
+  tokens set for using hue at all. The word is always shown as well, so the
+  colour is a second channel rather than the only one.
 - **Writing posts from the extension** — a gated `writing` section with a draft
   list, an editor and explicit publish / unpublish / delete. The website had no
   editor either, so this is the first surface in the product that can write a
@@ -62,6 +84,15 @@ not updated yet — it is user-facing, and these are not released.
   built by `npm run dsa-pack`.
 
 ### Changed
+- **The theme picker on the website offers System.** It had only light and dark:
+  `system` was already the stored default and understood by the pre-paint
+  script, but this control could not write it, so one click left `system` for
+  good with no way back short of clearing site data. The same went for the
+  extension's marketing navbar, whose button cycled light↔dark.
+- `DifficultyBadge` replaces three different treatments of the same fact: the
+  library coloured Hard and Medium but left Easy a neutral grey — so the
+  cheapest wins were the hardest to spot — the lists tab rendered all three
+  neutral, and the companies tab rendered difficulty as bare text with no badge.
 - **The default board sits one row higher.** Clock, search, scratchpad and
   shortcuts all lift by one, so the bottom corners clear the edge instead of
   hugging it. `vOffset` now means something for the centred stack — it lifts the
@@ -78,7 +109,37 @@ not updated yet — it is user-facing, and these are not released.
   megabytes and a dropped connection killed the whole build after minutes of
   successful work.
 
+### Removed
+- **The start screen's rail icon.** In the extension a New Tab already opens it,
+  so the icon was a button to go where you started. It stays reachable by `G D`,
+  by "Go to dashboard" in the palette, and by opening a tab — but note that on
+  the web build, where there is no New Tab, the rail no longer offers a route
+  back to the board and the palette (or the marketing header's Workspace link)
+  is the way. The rail now highlights nothing while the start screen is open,
+  the way a home page is not one of its own nav items.
+- `dashboard` from `HIDEABLE_SECTIONS`. It is no longer a rail item, so "hide it
+  from the rail" had nothing left to do, and a switch that changes nothing is
+  worse than no switch.
+- **The right-hand "Today" panel**, and with it the header icon that opened it,
+  the `[` shortcut, the `toggle-sidebar` palette command and the `sidebarOpen`
+  setting. It was a third view of tasks that the Tasks section, the calendar and
+  the dashboard widgets already covered, and the coordination it required —
+  Dashboard closing the widget edit panel whenever it opened, and the reverse —
+  outlived its usefulness. A stored `sidebarOpen` is now simply dropped on read.
+  The theme picker takes its place in the header.
+
 ### Fixed
+- **A post could not be published from anywhere.** Publishing requires at least
+  one category; the extension's editor had no category control and its copy said
+  they were "set on the website", but no website editor exists — so the only
+  authoring surface in the product dead-ended at its last step. `editPost`
+  already accepted and validated categories, so the gap was entirely in the UI
+  and in what the API chose to return.
+- Every hideable section needs a label and an icon in Settings, and `writing`
+  had neither — its row read a lowercase "writing" beside a blank space, since
+  both maps fall back to the raw id. Added, with a test over both directions,
+  because nothing was watching the two lists for drift.
+
 - Lifting the sketch exposed the same off-by-one in two places:
   `isShippedDefaultLayout` and `shouldReanchorDefault` both inferred the grid
   height from the scratchpad's bottom edge, so a lifted board stopped being

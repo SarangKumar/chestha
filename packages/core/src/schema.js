@@ -3,6 +3,7 @@ import { isValidISODate } from './dates.js';
 import { PRIORITIES, normalizeTags, normalizeTag, tagKey } from './tasks.js';
 import { coerceRecurrence } from './recurrence.js';
 import { coerceShortcuts } from './shortcuts.js';
+import { DEFAULT_THEME, coerceTheme } from './theme.js';
 import { coerceGithubForm } from './github.js';
 import { coerceTemperatureUnit, coerceWeatherPlace } from './weather.js';
 import { READING_CACHE_LIMIT, coerceFeedPost } from './posts/remote.js';
@@ -235,11 +236,10 @@ export const DEFAULT_DASHBOARD = {
 export const START_MODES = ['board', 'read'];
 
 export const DEFAULT_SETTINGS = {
-  theme: 'system',
+  theme: DEFAULT_THEME,
   upcomingHorizonDays: 7,
   weekStartsOn: 0,
   hideCompleted: false,
-  sidebarOpen: false,
   firstRunNoticeDismissed: false,
   exportReminderDismissed: false,
   lastExportAt: null,
@@ -270,7 +270,9 @@ export const DEFAULT_SETTINGS = {
  * Hiding only affects the rail. A hidden section still renders from a deep link
  * or the palette, so nothing becomes unreachable and no data is touched.
  */
-export const HIDEABLE_SECTIONS = ['dashboard', 'tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds', 'writing'];
+// The start screen is absent on purpose: it is not a rail item (see
+// `NavRail`), so there is nothing about it to hide.
+export const HIDEABLE_SECTIONS = ['tasks', 'calendar', 'dsa', 'grove', 'websites', 'sounds', 'writing'];
 
 /**
  * How the app paints behind the interface.
@@ -572,11 +574,10 @@ function coerceSettings(raw) {
   if (!raw || typeof raw !== 'object') return { value: { ...DEFAULT_SETTINGS }, issues: [] };
   return {
     value: {
-      theme: ['system', 'light', 'dark'].includes(raw.theme) ? raw.theme : 'system',
+      theme: coerceTheme(raw.theme),
       upcomingHorizonDays: Math.round(num(raw.upcomingHorizonDays, 7, 1, 60)),
       weekStartsOn: raw.weekStartsOn === 1 ? 1 : 0,
       hideCompleted: bool(raw.hideCompleted, false),
-      sidebarOpen: bool(raw.sidebarOpen, false),
       firstRunNoticeDismissed: bool(raw.firstRunNoticeDismissed, false),
       exportReminderDismissed: bool(raw.exportReminderDismissed, false),
       lastExportAt: isoInstant(raw.lastExportAt),

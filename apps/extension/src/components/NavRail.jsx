@@ -10,8 +10,14 @@ import { cx } from './ui.jsx';
 // Primary destinations sit at the top. On the rail, the bottom slot is the
 // account menu, which holds Settings; the mobile bar has no "bottom" and no
 // room for a popover, so there Settings stays a tab of its own.
+//
+// **The start screen is deliberately not listed.** In the extension it is what
+// a New Tab already opens, so an icon for it was a button to go where you
+// started. It is still reachable by `G D`, by "Go to dashboard" in the palette,
+// and by opening a tab. The consequence to know about: on the web build, where
+// there is no New Tab, the rail no longer offers a way back to the board — the
+// palette is the route.
 const PRIMARY = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar' },
   { id: 'dsa', label: 'DSA', icon: 'dsa' },
@@ -70,13 +76,18 @@ export function NavRail({ section, onNavigate, onCapture }) {
   const locked = lockedSections(session.state);
 
   // A section needing an account is not advertised until there is one: signed
-  // out, the rail is the board and Settings. The padlock remains for the one
-  // case a locked item can still appear — the section you are looking at.
+  // out, the rail is Settings and whatever is open. The padlock remains for the
+  // one case a locked item can still appear — the section you are looking at.
   //
   // The section you are currently looking at always shows, even if hidden or
   // locked: the alternative is a rail with no current item while its page fills
   // the screen, which reads as a bug. Arriving by palette or link is the normal
   // way in, and a deep link to a gated section lands on the gate.
+  //
+  // The start screen is the exception, and the one place a rail with no active
+  // item is correct: it is not in `PRIMARY` at all, so this cannot bring it
+  // back. Nothing is highlighted while it is open, the same way a home page is
+  // not one of its own nav items.
   const primary = PRIMARY.filter(
     (item) => item.id === section || !(hidden.includes(item.id) || locked.includes(item.id)),
   );

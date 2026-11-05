@@ -116,7 +116,7 @@ able to represent "2pm standup". Event timestamps *are* instants, and are groupe
 into days by `completedLocalDay`. See `packages/core/src/dates.js`.
 
 **One authoritative task record.** The calendar renders tasks and stores nothing of
-its own. Widgets, the sidebar and the calendar all read the same records, so there is
+its own. Widgets, the tasks views and the calendar all read the same records, so there is
 no reconciliation step and nothing can drift. Recurring tasks are the same: a repeat
 is a rule on the task, projected onto the calendar by `occurrencesInRange`, so a
 daily task appears on every day without a record existing for each one.

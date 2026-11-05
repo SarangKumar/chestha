@@ -10,24 +10,24 @@ import { ShortcutSettings } from '../components/ShortcutSettings.jsx';
 import { GroveSettings } from '../components/GroveSettings.jsx';
 
 const SECTION_LABELS = {
-  dashboard: 'Dashboard',
   tasks: 'Tasks',
   calendar: 'Calendar',
   dsa: 'DSA',
   grove: 'Grove',
   websites: 'Productive time',
   sounds: 'Sounds',
+  writing: 'Writing',
 };
 
 /** Icon names for hideable app sections — Grove uses the leaf mark. */
 const SECTION_ICONS = {
-  dashboard: 'dashboard',
   tasks: 'tasks',
   calendar: 'calendar',
   dsa: 'dsa',
   grove: 'leaf',
   websites: 'websites',
   sounds: 'sounds',
+  writing: 'book',
 };
 
 const SETTINGS_NAV = [

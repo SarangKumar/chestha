@@ -1,6 +1,7 @@
 import { POST_STATUSES, publishBlocker } from '@chestha/core';
 import {
-  changePostStatus, createDraft, deletePost, editPost, listOwnPosts, statsForPosts,
+  changePostStatus, createDraft, deletePost, editPost, listCategories, listOwnPosts,
+  statsForPosts,
 } from '@/lib/posts';
 import { currentUserId } from '@/lib/session';
 import { extensionHeaders, extensionPreflight } from '@/lib/extensionCors';
@@ -42,6 +43,14 @@ async function readBody(request) {
  * `publishBlocker` is computed here rather than in the client so the editor
  * shows the same reason the server would give — the two cannot drift into
  * disagreeing about why a post will not publish.
+ *
+ * The category list rides along in the same response. It is read from the
+ * database rather than from core's `SEED_CATEGORIES`, because `editPost`
+ * validates against the database: a picker built from the seed list would
+ * happily offer a category this deployment has never seeded, and the save
+ * would then be rejected for a reason the author could do nothing about. An
+ * empty list here is the truth — it means nobody has run `npm run db:seed` —
+ * and the editor says so rather than offering choices that cannot be saved.
  */
 export async function GET(request) {
   const userId = await currentUserId();
@@ -50,6 +59,7 @@ export async function GET(request) {
   try {
     const posts = await listOwnPosts(userId);
     const stats = await statsForPosts(posts.map((post) => post.id));
+    const categories = await listCategories();
 
     return Response.json(
       {
@@ -58,6 +68,9 @@ export async function GET(request) {
           stats: { views: post.views ?? 0, ...(stats[post.id] ?? {}) },
           blocker: publishBlocker(post),
         })),
+        // Slug and name only: the blurb is editorial copy for the website's
+        // own category pages and would just be unread bytes on every load.
+        categories: categories.map((row) => ({ slug: row.slug, name: row.name })),
       },
       { headers: extensionHeaders(request, { methods: 'GET, POST, PATCH, DELETE, OPTIONS' }) },
     );

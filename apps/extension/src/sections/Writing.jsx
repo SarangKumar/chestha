@@ -35,6 +35,10 @@ import { SITE_URL } from '../siteLinks.js';
 export function Writing() {
   const { notify } = useWorkspace();
   const [posts, setPosts] = useState(null);
+  // The categories this deployment actually has, straight from the server.
+  // Never defaulted to core's seed list: offering a category the database has
+  // not seeded would produce a save the author cannot fix.
+  const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +53,7 @@ export function Writing() {
     }
     setError(null);
     setPosts(result.posts ?? []);
+    setCategories(result.categories ?? []);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -85,6 +90,7 @@ export function Writing() {
     return (
       <PostEditor
         post={editing}
+        categories={categories}
         onDone={async () => { setEditingId(null); await load(); }}
         onChanged={load}
       />
@@ -208,20 +214,24 @@ function Stat({ label, value }) {
  * how an author loses a paragraph to a dropped connection without being told.
  * Save is explicit and says what happened.
  */
-function PostEditor({ post, onDone, onChanged }) {
+function PostEditor({ post, categories, onDone, onChanged }) {
   const { notify } = useWorkspace();
   const [draft, setDraft] = useState({
     title: post.title ?? '',
     body: post.body ?? '',
     excerpt: post.excerpt ?? '',
     tags: (post.tags ?? []).join(', '),
+    categories: post.categories ?? [],
   });
   const [saving, setSaving] = useState(false);
 
   const dirty = draft.title !== (post.title ?? '')
     || draft.body !== (post.body ?? '')
     || draft.excerpt !== (post.excerpt ?? '')
-    || draft.tags !== (post.tags ?? []).join(', ');
+    || draft.tags !== (post.tags ?? []).join(', ')
+    // Order is irrelevant to a set of categories, but the server stores them in
+    // the catalogue's order, so comparing the joined strings is enough.
+    || draft.categories.join(',') !== (post.categories ?? []).join(',');
 
   const patchFrom = () => ({
     title: draft.title,
@@ -230,7 +240,23 @@ function PostEditor({ post, onDone, onChanged }) {
     // Normalised here only so the chip preview matches what will be stored;
     // the server normalises again, and its answer is what wins.
     tags: normalizePostTags(draft.tags.split(',')),
+    categories: draft.categories,
   });
+
+  /**
+   * At most `MAX_CATEGORIES`, and the limit is enforced by refusing the click
+   * rather than by silently dropping the oldest pick — a chip that appears to
+   * tick and then unticks itself reads as a bug.
+   */
+  const toggleCategory = (slug) => {
+    setDraft((d) => {
+      if (d.categories.includes(slug)) {
+        return { ...d, categories: d.categories.filter((item) => item !== slug) };
+      }
+      if (d.categories.length >= MAX_CATEGORIES) return d;
+      return { ...d, categories: [...d.categories, slug] };
+    });
+  };
 
   const save = async (status) => {
     setSaving(true);
@@ -319,6 +345,51 @@ function PostEditor({ post, onDone, onChanged }) {
           />
         </Field>
 
+        <Field
+          label="Categories"
+          hint={`Required to publish. Pick up to ${MAX_CATEGORIES} — ${draft.categories.length} chosen.`}
+        >
+          {categories.length === 0 ? (
+            // Not an error and not a spinner: the list loaded and is genuinely
+            // empty, which means the Category table was never seeded. Saying
+            // which command fixes it beats an empty box.
+            <p className="text-meta text-ink-faint">
+              This site has no categories yet, so a post cannot be published.
+              Run <code className="font-mono">npm run db:seed</code> to create them.
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {categories.map((category) => {
+                const picked = draft.categories.includes(category.slug);
+                // Only the unpicked ones are disabled at the limit — removing
+                // one must always stay possible, or the author is stuck.
+                const full = !picked && draft.categories.length >= MAX_CATEGORIES;
+                return (
+                  <li key={category.slug}>
+                    <button
+                      type="button"
+                      aria-pressed={picked}
+                      disabled={full}
+                      onClick={() => toggleCategory(category.slug)}
+                      title={full ? `Pick at most ${MAX_CATEGORIES}` : category.name}
+                      className={cx(
+                        'inline-flex items-center gap-1.5 rounded-chip border px-2.5 py-1 text-meta transition-colors duration-150',
+                        picked
+                          ? 'border-transparent bg-accent text-on-accent'
+                          : 'border-line text-ink-muted hover:bg-hover hover:text-ink',
+                        full && 'cursor-not-allowed opacity-40 hover:bg-transparent',
+                      )}
+                    >
+                      {picked && <Icon name="check" className="size-3" />}
+                      {category.name}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Field>
+
         <Field label="Tags" hint={`Comma separated, up to ${MAX_TAGS}. They are how readers find this.`}>
           <TextInput
             value={draft.tags}
@@ -345,11 +416,12 @@ function PostEditor({ post, onDone, onChanged }) {
         <Panel className="p-4">
           <h3 className="text-card font-semibold text-ink">How it is doing</h3>
           <PostStats post={post} />
-          {/* Categories are a curated taxonomy and are set on the website,
-              where the list of them is already rendered. Saying so beats a
-              control here that could only offer slugs. */}
+          {/* This used to say categories were "set on the website". They were
+              not: no website editor exists, so publishing was impossible from
+              anywhere. Categories are now picked above; the cover image is
+              still the one field no surface can set. */}
           <p className="mt-2 text-meta text-ink-faint">
-            Categories (up to {MAX_CATEGORIES}) and the cover image are set on the website.
+            The cover image cannot be set yet, from here or the website.
           </p>
         </Panel>
       ) : null}

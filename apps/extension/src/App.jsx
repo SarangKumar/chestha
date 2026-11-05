@@ -140,13 +140,6 @@ function Workspace() {
       keywords: 'appearance colour color',
       run: () => actions.setSetting('theme', state.settings.theme === 'dark' ? 'light' : 'dark'),
     },
-    {
-      id: 'toggle-sidebar',
-      label: `${state.settings.sidebarOpen ? 'Hide' : 'Show'} the today panel`,
-      group: 'Preferences',
-      shortcut: '[',
-      run: () => actions.setSetting('sidebarOpen', !state.settings.sidebarOpen),
-    },
     { id: 'export', label: 'Export my data', group: 'Data', keywords: 'backup download save', run: () => go('settings') },
     { id: 'import', label: 'Import a backup', group: 'Data', keywords: 'restore upload', run: () => go('settings') },
     {
@@ -203,7 +196,6 @@ function Workspace() {
     handlers: {
       palette: openPalette,
       capture: openCapture,
-      sidebar: () => actions.setSetting('sidebarOpen', !state.settings.sidebarOpen),
       'go-dashboard': () => go('dashboard'),
       'go-tasks': () => go('tasks', 'today'),
       'go-calendar': () => go('calendar', todayISO()),
@@ -243,7 +235,6 @@ function Workspace() {
         onNavigate={go}
         onCapture={openCapture}
         onPalette={openPalette}
-        onOpenTask={openTask}
       >
         {/* One branch for every gated section, above the router: a section that
             needs an account must not be able to render half of itself, mount a

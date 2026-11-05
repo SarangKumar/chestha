@@ -67,17 +67,9 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
   const [resetting, setResetting] = useState(false);
   const [configuring, setConfiguring] = useState(null);
 
-  /**
-   * Both panels are overlays on the right-hand edge, so two open at once would
-   * stack one on the other. Opening either closes the other.
-   */
-  const openConfig = (id) => {
-    setConfiguring(id);
-    if (state.settings.sidebarOpen) actions.setSetting('sidebarOpen', false);
-  };
-  useEffect(() => {
-    if (state.settings.sidebarOpen) setConfiguring(null);
-  }, [state.settings.sidebarOpen]);
+  // The widget edit panel is now the only right-hand overlay, so there is
+  // nothing to close on its behalf.
+  const openConfig = (id) => setConfiguring(id);
 
   const glass = state.settings.glass ?? 0.55;
 
@@ -241,7 +233,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         * while dragging a widget near the bottom of a long grid, so they must not
         * scroll away. The bottom offset clears the mobile bottom bar, and the
         * right-hand padding keeps the centre measured against the grid rather
-        * than the window when the today panel is open.
+        * than the window.
         */}
       {/*
         * Edit chrome: shrink-wrapped floating pills only. Transparent fixed

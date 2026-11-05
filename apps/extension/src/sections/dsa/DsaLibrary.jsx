@@ -9,6 +9,7 @@ import {
   Badge, Button, CardTitle, EmptyState, Panel, Select, Stat, TextInput, cx,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
+import { DifficultyBadge } from './DifficultyBadge.jsx';
 import { QuestionActions } from './QuestionActions.jsx';
 import { useVirtualRows } from '../../app/useVirtualRows.js';
 
@@ -302,11 +303,7 @@ function QuestionRow({ question, qs, frequency, user, sheetNames, activeSheet, o
           <Icon name="lock" className="size-3" /> Premium
         </Badge>
       )}
-      {question.difficulty && (
-        <Badge tone={question.difficulty === 'Hard' ? 'danger' : question.difficulty === 'Medium' ? 'warn' : 'neutral'}>
-          {question.difficulty}
-        </Badge>
-      )}
+      <DifficultyBadge difficulty={question.difficulty} />
       {/* Every sheet is named — no "+n" — and each badge carries
           its own full name on hover. */}
       {frequency.listIds.length > 0 && (

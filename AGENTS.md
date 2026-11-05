@@ -172,7 +172,7 @@ bugs structurally impossible. Event timestamps (completion) are instants, and vi
 group them by local day via `completedLocalDay`. Do not mix these up.
 
 **One authoritative record.** The calendar renders tasks and stores nothing of its
-own. Widgets, sidebar and calendar all read the same records. Progress, overdue
+own. Widgets, tasks views and calendar all read the same records. Progress, overdue
 state and completion counts are **derived, never stored**.
 
 **Storage is per-area.** `tasks`, `tags`, `notes`, `dashboard`, `sound`, `settings`

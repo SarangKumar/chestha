@@ -233,7 +233,7 @@ test('stored shortcuts are validated, and invalid entries discarded', () => {
   const stored = coerceShortcuts({
     palette: 'Mod+Shift+P',
     capture: 'Mod+W',          // reserved
-    sidebar: 'nonsense+++',    // unparseable
+    'go-dsa': 'nonsense+++',   // unparseable
     'not-an-action': 'Mod+J',  // unknown id
     'go-tasks': null,          // deliberately unassigned
   });

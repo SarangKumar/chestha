@@ -10,13 +10,13 @@ import {
   clearWebsiteTime, defaultGroveFocus, defaultGroveGarden, defaultLedger,
   describeDomain, unlockItem,
   ROLLUP_AFTER_DAYS, addDays, reconcileLifetime, rollupLedger,
+  storeTheme, watchTheme,
 } from '@chestha/core';
 import { clearTrackerState } from '../grove/trackerBridge.js';
 import { flushNow, watch } from './sync.js';
 import { useToday } from './useToday.js';
 
 const StoreContext = createContext(null);
-const THEME_MIRROR_KEY = 'chestha.theme';
 
 // The store lives outside React so it is created exactly once.
 const store = createStore();
@@ -88,22 +88,17 @@ export function StoreProvider({ children }) {
 
   const actions = useMemo(() => buildActions(store, notify), [notify]);
 
-  // Keep the pre-paint theme mirror in sync with the stored setting.
+  /**
+   * Mirror the choice to localStorage for the pre-paint script, and apply it.
+   *
+   * The store is the source of truth; the mirror exists only so
+   * `public/theme-init.js` can set the class before React has loaded. Both the
+   * mirroring and the resolution — including staying subscribed to the OS while
+   * on `system` — live in `watchTheme`, shared with the website.
+   */
   const theme = state.settings.theme;
-  useEffect(() => {
-    try { localStorage.setItem(THEME_MIRROR_KEY, theme); } catch { /* private window */ }
-  }, [theme]);
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => {
-      const dark = theme === 'dark' || (theme === 'system' && media.matches);
-      document.documentElement.classList.toggle('dark', dark);
-    };
-    apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, [theme]);
+  useEffect(() => { storeTheme(theme); }, [theme]);
+  useEffect(() => watchTheme(theme), [theme]);
 
   const value = useMemo(
     () => ({ state, status, today, actions, store, toasts, notify, dismissToast }),

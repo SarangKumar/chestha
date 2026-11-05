@@ -10,6 +10,7 @@ import {
   TextInput, cx,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
+import { DifficultyBadge } from './DifficultyBadge.jsx';
 import { QuestionActions } from './QuestionActions.jsx';
 
 export function DsaLists() {
@@ -226,7 +227,7 @@ export function DsaLists() {
                         </Badge>
                       );
                     })}
-                    {question?.difficulty && <Badge tone="neutral">{question.difficulty}</Badge>}
+                    <DifficultyBadge difficulty={question?.difficulty} />
                     {question?.titleIsGuess && <Badge tone="warn">Unverified</Badge>}
                     <Badge tone={st.status === 'needs-revision' ? 'danger' : st.status === 'solved' || st.status === 'mastered' ? 'ok' : 'neutral'}>
                       {STATUS_LABELS[st.status]}

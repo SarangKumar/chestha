@@ -11,7 +11,6 @@
 export const SHORTCUT_ACTIONS = [
   { id: 'palette', name: 'Command palette', description: 'Open the command palette', default: 'Mod+K', customizable: true },
   { id: 'capture', name: 'Quick capture', description: 'Capture a task from anywhere', default: 'N', customizable: true },
-  { id: 'sidebar', name: 'Today panel', description: 'Show or hide the today panel', default: '[', customizable: true },
   { id: 'go-dashboard', name: 'Go to dashboard', description: 'Open the dashboard', default: null, customizable: true },
   { id: 'go-tasks', name: 'Go to tasks', description: 'Open tasks', default: null, customizable: true },
   { id: 'go-calendar', name: 'Go to calendar', description: 'Open the calendar', default: null, customizable: true },

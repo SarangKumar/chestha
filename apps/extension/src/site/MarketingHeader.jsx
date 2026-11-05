@@ -12,6 +12,8 @@ import { BrandMark } from './BrandMark.jsx';
 import { CHROME_STORE_URL, GITHUB_REPO } from '../siteLinks.js';
 import { Icon } from '../components/icons.jsx';
 import { useWorkspace } from '../app/StoreProvider.jsx';
+import { ThemePicker } from '../components/ThemePicker.jsx';
+import { THEME_CHOICES } from '@chestha/core';
 import { formatStarCount, useGithubStars } from './useGithubStars.js';
 
 const NAV = [
@@ -33,7 +35,7 @@ function MenuIcon() {
 
 /**
  * Website marketing navbar — brand + links; right side is GitHub (with live
- * star count) and theme toggle. Height stays h-12.
+ * star count) and the theme picker. Height stays h-12.
  */
 export function MarketingHeader({ onNavigate }) {
   const [open, setOpen] = useState(false);
@@ -41,8 +43,6 @@ export function MarketingHeader({ onNavigate }) {
   const stars = useGithubStars();
   const starLabel = formatStarCount(stars);
   const theme = state.settings.theme;
-  const nextTheme = theme === 'dark' ? 'light' : 'dark';
-  const themeIcon = theme === 'dark' ? 'sun' : 'moon';
 
   const go = (section) => {
     setOpen(false);
@@ -56,10 +56,6 @@ export function MarketingHeader({ onNavigate }) {
       return;
     }
     window.open(CHROME_STORE_URL, '_blank', 'noopener,noreferrer');
-  };
-
-  const toggleTheme = () => {
-    actions.setSetting('theme', nextTheme);
   };
 
   return (
@@ -105,13 +101,25 @@ export function MarketingHeader({ onNavigate }) {
                 >
                   GitHub{starLabel ? ` · ★ ${starLabel}` : ''}
                 </a>
-                <button
-                  type="button"
-                  onClick={() => { toggleTheme(); setOpen(false); }}
-                  className="rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-foreground/5"
-                >
-                  Switch to {nextTheme} theme
-                </button>
+                {/* Listed in full rather than as one cycling row: the sheet
+                    has the room, and "switch to light" could never express the
+                    System choice at all. */}
+                <div className="mt-1 border-t border-border pt-2" role="group" aria-label="Theme">
+                  <p className="px-3 pb-1 text-[11px] font-medium text-muted-foreground">Theme</p>
+                  {THEME_CHOICES.map((choice) => (
+                    <button
+                      key={choice.id}
+                      type="button"
+                      aria-pressed={theme === choice.id}
+                      onClick={() => { actions.setSetting('theme', choice.id); setOpen(false); }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-foreground/5"
+                    >
+                      <Icon name={choice.icon} className="size-4 text-muted-foreground" />
+                      <span className="flex-1">{choice.label}</span>
+                      {theme === choice.id && <Icon name="check" className="size-3.5" />}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={addToChrome}
@@ -161,16 +169,7 @@ export function MarketingHeader({ onNavigate }) {
             ) : null}
           </a>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            type="button"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${nextTheme} theme`}
-            title={`Switch to ${nextTheme} theme`}
-          >
-            <Icon name={themeIcon} className="size-4" />
-          </Button>
+          <ThemePicker />
         </div>
       </div>
     </header>

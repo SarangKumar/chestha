@@ -8,6 +8,7 @@ import {
   Badge, Button, EmptyState, Panel, TextInput, cx,
 } from '../../components/ui.jsx';
 import { Icon } from '../../components/icons.jsx';
+import { DifficultyBadge } from './DifficultyBadge.jsx';
 import { QuestionActions } from './QuestionActions.jsx';
 
 /** How many questions to render at once. 400-row companies exist. */
@@ -160,7 +161,7 @@ export function DsaCompanies() {
                       <Icon name="external" className="ml-1 inline size-3 text-ink-faint" />
                     </a>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-meta text-ink-faint">
-                      {row.question?.difficulty ? <span>{row.question.difficulty}</span> : null}
+                      <DifficultyBadge difficulty={row.question?.difficulty} />
                       {/* Two different numbers, deliberately not merged: one is
                           editorial reach, the other is how many companies ask it. */}
                       {row.companies.companies > 1 ? (

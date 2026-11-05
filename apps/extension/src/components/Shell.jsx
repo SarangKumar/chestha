@@ -2,11 +2,11 @@ import { READING_SECTION, formatLongDate, isSectionAllowed } from '@chestha/core
 import { useWorkspace } from '../app/StoreProvider.jsx';
 import { useSession } from '../app/useSession.js';
 import { NavRail } from './NavRail.jsx';
-import { RightSidebar } from './RightSidebar.jsx';
 import { Notices, ExportReminder } from './Notices.jsx';
 import { Toasts } from './Toasts.jsx';
-import { IconButton, cx } from './ui.jsx';
+import { cx } from './ui.jsx';
 import { StartModeToggle } from './StartModeToggle.jsx';
+import { ThemePicker } from './ThemePicker.jsx';
 import { Icon } from './icons.jsx';
 import { isEmbedPreview, isExtensionRuntime } from '../app/platform.js';
 
@@ -29,11 +29,10 @@ const TITLES = {
 // the grid's own cell cap, not by narrowing the page.
 const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
-export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, children }) {
+export function Shell({ section, onNavigate, onCapture, onPalette, children }) {
   const embed = isEmbedPreview();
   const { state, today, actions } = useWorkspace();
   const { session } = useSession();
-  const sidebarOpen = state.settings.sidebarOpen;
   const startMode = state.settings.startMode ?? 'board';
 
   /**
@@ -69,21 +68,9 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
       )}
 
       {/* Embed (landing preview) keeps the left page rail so the shot looks like
-          a real workspace; marketing header/footer and the today sidebar stay off. */}
+          a real workspace; the marketing header and footer stay off. */}
       <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />
 
-      {!embed && (
-        <RightSidebar
-          open={sidebarOpen}
-          onClose={() => actions.setSetting('sidebarOpen', false)}
-          onOpenTask={onOpenTask}
-          onCapture={onCapture}
-          onNavigate={onNavigate}
-        />
-      )}
-
-      {/* No right-hand padding: the today panel is an overlay, so the page keeps
-          its full width whether or not it is open. */}
       {/* Website workspace has no site footer (marketing pages own that).
           Extension clears the mobile nav with extra bottom padding. min-w-0
           stops the dashboard grid from forcing horizontal scroll at corners. */}
@@ -126,14 +113,11 @@ export function Shell({ section, onNavigate, onCapture, onPalette, onOpenTask, c
               <Icon name="plus" className="size-4" /> Task
             </button>
 
-            <IconButton
-              label={sidebarOpen ? 'Hide the today panel' : 'Show the today panel'}
-              aria-pressed={sidebarOpen}
-              onClick={() => actions.setSetting('sidebarOpen', !sidebarOpen)}
-              className="hidden lg:inline-flex"
-            >
-              <Icon name="sidebar" className="size-4" />
-            </IconButton>
+            {/* Theme sits in the header rather than only in Settings: it is
+                the one preference people change by mood, and walking to a
+                settings page to do it is the reason the old binary toggle
+                existed here at all. */}
+            <ThemePicker />
           </header>
         )}
 
