@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { SESSION_IN, SESSION_OUT, historyUrl, signInUrl, signUpUrl } from '@chestha/core';
+import {
+  SESSION_IN, SESSION_OUT, historyUrl, signInUrl, signOutUrl, signUpUrl,
+} from '@chestha/core';
 import { SITE_URL } from '../siteLinks.js';
 import { useSession } from '../app/useSession.js';
 import { ProfileCard } from './ProfileCard.jsx';
@@ -35,7 +37,7 @@ export function ProfileMenu({ section, onNavigate }) {
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
-  const { session, recheck, forget } = useSession();
+  const { session, recheck, expectChange } = useSession();
 
   const active = section === 'settings';
   const target = isExtensionRuntime() ? '_blank' : '_self';
@@ -166,10 +168,12 @@ export function ProfileMenu({ section, onNavigate }) {
                 </MenuLink>
               ) : null}
               {/* The sign-out itself happens on the website, which owns the
-                  cookie. Clearing the cached answer here means the next check
-                  asks rather than trusting a session that may be gone — and
-                  until it answers, `unknown` fails open rather than locking
-                  someone out of a workspace they are still signed into. */}
+                  cookie — and on `/signout`, not `/signin`, which this used to
+                  point at and which never ended anybody's session. Clearing the
+                  cached answer here would be worse than useless: the sign-out
+                  happens in the other tab, so the recheck would run first and
+                  re-cache "signed in". `expectChange` instead marks the answer
+                  as due, and it is asked for when this tab is looked at again. */}
               <MenuLink
                 href={historyUrl(SITE_URL)}
                 target={target}
@@ -179,10 +183,10 @@ export function ProfileMenu({ section, onNavigate }) {
                 Reading history
               </MenuLink>
               <MenuLink
-                href={`${SITE_URL}/signin`}
+                href={signOutUrl(SITE_URL)}
                 target={target}
                 icon="external"
-                onDone={() => { setOpen(false); forget(); }}
+                onDone={() => { setOpen(false); expectChange(); }}
               >
                 Sign out on the website
               </MenuLink>

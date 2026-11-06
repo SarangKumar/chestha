@@ -4,7 +4,7 @@ import {
   GATED_SECTIONS, OPEN_SECTIONS, READING_SECTION, SESSION_IN, SESSION_MAX_AGE_MS,
   SESSION_OUT, SESSION_UNKNOWN, coerceSession, describeGate, effectiveSection,
   isSectionAllowed, lockedSections, requiresSignIn, sessionUrl, shouldRecheck,
-  signInUrl, signUpUrl, unknownSession,
+  signInUrl, signOutUrl, signUpUrl, unknownSession,
 } from '../src/index.js';
 
 const SITE = 'https://chestha.vercel.app';
@@ -161,6 +161,13 @@ test('sign-in carries a relative return path and refuses an absolute one', () =>
   // An absolute value would turn the sign-in page into an open redirect.
   assert.equal(signInUrl(SITE, 'https://evil.example/x'), 'https://chestha.vercel.app/signin');
   assert.equal(signUpUrl(SITE), 'https://chestha.vercel.app/signup');
+});
+
+test('sign-out is its own page, not the sign-in page', () => {
+  assert.equal(signOutUrl(SITE), 'https://chestha.vercel.app/signout');
+  // The account menu linked sign-out at /signin for a while, which opened a
+  // form and left the session exactly where it was.
+  assert.notEqual(signOutUrl(SITE), signInUrl(SITE));
 });
 
 // ─── Copy and rail state ─────────────────────────────────────────────────────

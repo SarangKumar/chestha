@@ -40,6 +40,7 @@ const STORAGE_KEY = 'chestha.session';
 let current = unknownSession();
 let hydrated = false;
 let inFlight = null;
+let pendingChange = false;
 const listeners = new Set();
 
 function emit() {
@@ -191,11 +192,37 @@ export async function start() {
 }
 
 /**
+ * Note that the answer is about to change elsewhere.
+ *
+ * Called when someone follows the sign-out link. Forgetting the cached answer
+ * here would be useless on its own — the sign-out happens in another tab, and
+ * the recheck that followed would run *before* it and cache "signed in" again
+ * for another ten minutes. So the click only records that a change is expected,
+ * and `resume()` below asks once this page is looked at again.
+ */
+export function expectChange() {
+  pendingChange = true;
+}
+
+/**
+ * Called when the New Tab becomes visible again.
+ *
+ * The sign-out happens on the website, in a tab that cannot reach into this
+ * one, so coming back is the only signal there is. A forced check runs only
+ * when a change was expected; otherwise this is the ordinary freshness check
+ * and ten tab switches in a row still make no requests.
+ */
+export async function resume() {
+  if (!pendingChange) return check();
+  pendingChange = false;
+  return check({ force: true });
+}
+
+/**
  * Forget the cached answer.
  *
- * Used when someone follows a sign-out link: the next check will ask, and in
- * the meantime `unknown` fails open rather than locking them out of a workspace
- * they may still be signed into.
+ * `unknown` fails open rather than locking someone out of a workspace they may
+ * still be signed into, so this is safe to call speculatively.
  */
 export async function forget() {
   adopt(unknownSession());

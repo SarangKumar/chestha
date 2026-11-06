@@ -20,7 +20,33 @@ export function useSession() {
     session.start();
   }, []);
 
+  /**
+   * Ask again when this page is looked at again.
+   *
+   * Signing out happens on the website, in another tab, and nothing there can
+   * reach into this one — so without this the New Tab would keep naming an
+   * account that is gone until the cached answer aged out. `resume()` only
+   * forces a request when a change was expected (see `expectChange`), so an
+   * ordinary tab switch still costs nothing.
+   */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') session.resume();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, []);
+
   const recheck = useCallback(() => session.check({ force: true }), []);
 
-  return { session: value, recheck, forget: session.forget };
+  return {
+    session: value,
+    recheck,
+    forget: session.forget,
+    expectChange: session.expectChange,
+  };
 }

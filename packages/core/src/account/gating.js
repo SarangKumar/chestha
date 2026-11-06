@@ -146,6 +146,18 @@ export function signUpUrl(base) {
 }
 
 /**
+ * Where someone is sent to end their session.
+ *
+ * It is a real page rather than an endpoint because sign-out is a POST — a URL
+ * that ends a session on GET can be triggered by any page that embeds it — so
+ * the website shows a one-button form and does the work from there. The
+ * extension links here instead of to `/signin`, which never signed anyone out.
+ */
+export function signOutUrl(base) {
+  return new URL('/signout', base).toString();
+}
+
+/**
  * The signed-in person's own card, for the extension's profile surfaces.
  *
  * Deliberately parameterless: the subject is whoever the cookie belongs to.

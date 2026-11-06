@@ -85,7 +85,7 @@ export function HomeHero({ user = null }) {
               >
                 {user ? 'Open the feed' : 'Create an account'}
               </Button>
-              <BuyMeCoffeeButton size="lg" variant="ghost" className="chestha-cta" />
+              <BuyMeCoffeeButton size="lg" variant="default" className="chestha-cta" />
             </div>
 
             <p className="mt-4 text-pretty text-center text-meta leading-relaxed text-ink-faint md:text-left">
