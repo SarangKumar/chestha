@@ -1,4 +1,4 @@
-import { devCardUrl, interestLabel, profilePageUrl, signInUrl } from '@chestha/core';
+import { interestLabel, profilePageUrl, shareCardUrl, signInUrl } from '@chestha/core';
 import { SITE_URL } from '../siteLinks.js';
 import { isExtensionRuntime } from '../app/platform.js';
 import { useProfile } from '../app/useProfile.js';
@@ -104,7 +104,7 @@ export function ProfileCard({ compact = false }) {
         <CardLink href={profilePageUrl(SITE_URL, profile.handle)} target={target}>
           Profile
         </CardLink>
-        <CardLink href={devCardUrl(SITE_URL, profile.handle)} target={target}>
+        <CardLink href={shareCardUrl(SITE_URL, profile.handle)} target={target}>
           Share card
         </CardLink>
       </div>

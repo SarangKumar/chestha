@@ -235,9 +235,14 @@ not updated yet — it is user-facing, and these are not released.
 
 ### Added
 - **Profile cards**, on the website and in the extension. `/user/<handle>` is
-  rebuilt around one, and `/user/<handle>/devcard.png` renders the same facts as
-  a 500×280 PNG for a README or a sidebar, with `/user/<handle>/devcard` offering
-  Markdown, HTML and bare-URL snippets. The image is cached for an hour — a
+  rebuilt around one, and `/user/<handle>/card.png` renders the same facts as a
+  640×360 PNG for a README or a sidebar, with `/user/<handle>/card` offering
+  Markdown, HTML and bare-URL snippets. The image carries both tag rows the
+  page does, labelled: what someone writes about is counted from published
+  posts, what they are interested in is chosen, and one row that silently fell
+  back from the first to the second let a ticked checkbox read as a body of
+  work. Nothing here is specific to developers, so it is a profile card rather
+  than a dev card — `shareCardUrl` in `packages/core/src/account/gating.js`. The image is cached for an hour — a
   README image is fetched by every visitor to that README — while the page itself
   is live, which is also why the page gave up its `revalidate`: a follow button's
   state belongs to the viewer, so a cached page would serve one visitor's answer

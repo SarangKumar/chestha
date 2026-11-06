@@ -20,14 +20,14 @@ export async function generateMetadata({ params }) {
  * Three snippets, because the three places people paste this want three
  * syntaxes and getting one wrong is a broken image in public.
  */
-export default async function DevCardPage({ params }) {
+export default async function ShareCardPage({ params }) {
   const { username } = await params;
   const profile = await getProfileCard(username, { withCounts: false });
   if (!profile) notFound();
 
   const origin = siteUrl();
   const handle = profile.handle;
-  const imageUrl = `${origin}/user/${handle}/devcard.png`;
+  const imageUrl = `${origin}/user/${handle}/card.png`;
   const profileLink = `${origin}/user/${handle}`;
   const alt = `${profile.name || `@${profile.displayUsername}`} on Chestha`;
 
@@ -36,19 +36,20 @@ export default async function DevCardPage({ params }) {
       <header className="space-y-2">
         <h1 className="text-page font-semibold tracking-tight text-ink">Your card</h1>
         <p className="text-card leading-relaxed text-ink-muted">
-          A picture of your profile that updates itself. Paste it into a README, a
-          blog sidebar or a bio — it is fetched fresh each time, so the numbers stay
-          current without you touching the snippet again.
+          A picture of your profile that updates itself — what you write about,
+          what you are interested in, and how much you have read. Paste it into a
+          README, a blog sidebar or a bio: it is fetched fresh each time, so the
+          numbers stay current without you touching the snippet again.
         </p>
       </header>
 
       {/* The artefact itself, at its real size. */}
       <div className="flex justify-center rounded-panel border border-line bg-inset p-6">
         <img
-          src={`/user/${handle}/devcard.png`}
+          src={`/user/${handle}/card.png`}
           alt={alt}
-          width={500}
-          height={280}
+          width={640}
+          height={360}
           className="max-w-full rounded-card border border-line"
         />
       </div>
@@ -60,7 +61,7 @@ export default async function DevCardPage({ params }) {
         />
         <CopyField
           label="HTML — for a blog or a site"
-          value={`<a href="${profileLink}"><img src="${imageUrl}" alt="${alt}" width="500" height="280" /></a>`}
+          value={`<a href="${profileLink}"><img src="${imageUrl}" alt="${alt}" width="640" height="360" /></a>`}
         />
         <CopyField label="Image URL — for anywhere else" value={imageUrl} />
       </div>

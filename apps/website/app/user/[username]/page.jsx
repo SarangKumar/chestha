@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { normalizeUsername, profileUrl } from '@chestha/core';
-import { DevCard } from '@/components/DevCard';
+import { ProfileCard } from '@/components/ProfileCard';
 import { FollowButton } from '@/components/FollowButton';
 import { PostList } from '@/components/PostList';
 import { getProfileCard } from '@/lib/profile';
@@ -17,7 +17,7 @@ import { isFollowing } from '@/lib/social';
  * serve one visitor's answer to everyone. The counts moved the same way —
  * followers and a reading streak change far more often than a post does, and
  * a five-minute-old streak on your own card reads as a bug. The shareable
- * artefact that still caches is the image at /devcard.png.
+ * artefact that still caches is the image at /card.png.
  */
 export async function generateMetadata({ params }) {
   const { username } = await params;
@@ -61,13 +61,13 @@ export default async function ProfilePage({ params }) {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-10">
-      <DevCard profile={profile} shareUrl={profileUrl(profile.handle, siteUrl())}>
+      <ProfileCard profile={profile} shareUrl={profileUrl(profile.handle, siteUrl())}>
         <FollowButton
           handle={profile.handle}
           following={following}
           canFollow={Boolean(viewerId) && !isSelf}
         />
-      </DevCard>
+      </ProfileCard>
 
       <section aria-labelledby="published-heading">
         <div className="flex items-baseline justify-between gap-4">
@@ -75,7 +75,7 @@ export default async function ProfilePage({ params }) {
             Published
           </h2>
           <Link
-            href={`/user/${profile.handle}/devcard`}
+            href={`/user/${profile.handle}/card`}
             className="text-meta text-ink-muted underline underline-offset-4 transition-colors hover:text-ink"
           >
             Share this card

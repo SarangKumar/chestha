@@ -19,7 +19,7 @@ import { ShareButton } from './ShareButton';
  * omits the key, and `Stat` renders a dash. "0 followers" on a profile with
  * thousands is worse than no number.
  */
-export function DevCard({ profile, shareUrl, children }) {
+export function ProfileCard({ profile, shareUrl, children }) {
   const name = profile.name || `@${profile.displayUsername}`;
 
   return (

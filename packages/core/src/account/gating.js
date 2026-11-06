@@ -173,9 +173,15 @@ export function profilePageUrl(base, handle) {
   return new URL(`/user/${encodeURIComponent(handle)}`, base).toString();
 }
 
-/** The share-your-card page, where the embeddable image lives. */
-export function devCardUrl(base, handle) {
-  return new URL(`/user/${encodeURIComponent(handle)}/devcard`, base).toString();
+/**
+ * The share-your-card page, where the embeddable image lives.
+ *
+ * Named for what it is — a profile card — rather than for a kind of person:
+ * the card carries what someone writes about, what they are interested in and
+ * how much they read, none of which is specific to developers.
+ */
+export function shareCardUrl(base, handle) {
+  return new URL(`/user/${encodeURIComponent(handle)}/card`, base).toString();
 }
 
 /**
