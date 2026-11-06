@@ -6,9 +6,9 @@ import { BuyMeCoffeeButton } from '../components/BuyMeCoffeeButton.jsx';
 import { isExtensionRuntime } from '../app/platform.js';
 
 /**
- * About answers "what is this and where is my data". Website-only — linked
- * from the marketing header and footer. The extension New Tab does not host
- * About (`#/about` remaps to the dashboard there).
+ * About answers "what is this and where is my data". An ordinary Shell section,
+ * reachable from the command palette in every runtime — it is worth most in the
+ * extension, which is the copy that works offline.
  *
  * Everything stated here is checked against the code. An About page that
  * overclaims on privacy is worse than none at all.

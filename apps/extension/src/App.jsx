@@ -6,7 +6,6 @@ import { useGroveDrain } from './grove/useGroveDrain.js';
 import { useGroveMaintenance } from './grove/useGroveMaintenance.js';
 import { StoreProvider, useWorkspace } from './app/StoreProvider.jsx';
 import { useHashRoute } from './app/useHashRoute.js';
-import { useEmbedReady } from './app/useEmbedReady.js';
 import { Shell } from './components/Shell.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
 import { SignInGate } from './components/SignInGate.jsx';
@@ -25,10 +24,6 @@ import { Settings } from './sections/Settings.jsx';
 import { About } from './sections/About.jsx';
 import { Changelog } from './sections/Changelog.jsx';
 import { Guide } from './sections/Guide.jsx';
-import { Landing } from './site/Landing.jsx';
-import { MarketingHeader } from './site/MarketingHeader.jsx';
-import { MarketingFooter } from './site/MarketingFooter.jsx';
-import { isExtensionRuntime } from './app/platform.js';
 import { SITE_URL } from './siteLinks.js';
 
 const TASK_VIEWS = ['today', 'upcoming', 'overdue', 'nodate', 'completed', 'all'];
@@ -45,10 +40,6 @@ function Workspace() {
   const { state, status, actions, today } = useWorkspace();
   const [route, navigate] = useHashRoute();
   const { session, recheck } = useSession();
-
-  // When this document is the landing page's preview iframe, tell the parent
-  // once the workspace is painted, so its placeholder does not vanish early.
-  useEmbedReady(status.ready);
 
   const [overlay, setOverlay] = useState(null); // 'palette' | 'capture' | null
   const [editor, setEditor] = useState(null); // { taskId } | { defaultDue }
@@ -156,19 +147,24 @@ function Workspace() {
       keywords: 'home marketing landing site blog posts account',
       run: () => window.open(SITE_URL, '_blank', 'noopener,noreferrer'),
     },
-    ...(!isExtensionRuntime() ? [{
+    // Offered in every runtime now. They were website-only while they rendered
+    // in marketing chrome the New Tab never mounted; in the Shell there is
+    // nothing runtime-specific left about them, and the extension is the place
+    // where an offline copy of both is worth most.
+    {
       id: 'go-about',
       label: 'About Chestha',
       group: 'Navigate',
       keywords: 'version privacy credits licence license help what is this',
       run: () => go('about'),
-    }, {
+    },
+    {
       id: 'go-guide',
       label: 'Guide — pages and widgets',
       group: 'Navigate',
       keywords: 'map sitemap widgets sections whats in documentation help',
       run: () => go('guide'),
-    }] : []),
+    },
   ], [state.settings, actions, go, openCapture, startMode]);
 
   /**
@@ -208,26 +204,9 @@ function Workspace() {
     },
   });
 
-  // Website marketing surfaces — never shown in the extension New Tab.
-  // About lives only on the site (marketing chrome). Changelog uses the same
-  // chrome on the website; the extension still opens #/changelog in the Shell.
-  if (!isExtensionRuntime() && (section === 'home' || section === 'about' || section === 'changelog' || section === 'guide')) {
-    if (section === 'home') {
-      return <Landing onNavigate={go} />;
-    }
-    return (
-      <div className="relative flex min-h-dvh flex-col bg-canvas text-ink">
-        <MarketingHeader onNavigate={go} />
-        <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-          {section === 'about' && <About onNavigate={go} />}
-          {section === 'changelog' && <Changelog />}
-          {section === 'guide' && <Guide onNavigate={go} />}
-        </main>
-        <MarketingFooter onNavigate={go} />
-      </div>
-    );
-  }
-
+  // About, Changelog and Guide used to render here inside marketing chrome
+  // whenever the bundle was not the extension. They are ordinary Shell sections
+  // now, in every runtime, so there is no second layout to keep in step.
   return (
     <>
       <Shell
@@ -283,6 +262,8 @@ function Workspace() {
           {section === 'writing' && <Writing />}
           {section === 'settings' && <Settings />}
           {section === 'changelog' && <Changelog />}
+          {section === 'about' && <About onNavigate={go} />}
+          {section === 'guide' && <Guide onNavigate={go} />}
           </>
         )}
       </Shell>

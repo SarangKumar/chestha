@@ -1,16 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  DIFFICULTIES, buildRows, difficultyProgress, goalState, listProgress, revisionState,
+  DIFFICULTIES, buildRows, difficultyProgress, goalState, isCompanyList, listProgress,
+  revisionState,
 } from '@chestha/core';
 import { useWorkspace } from '../../app/StoreProvider.jsx';
-import { Badge, Button, CardTitle, EmptyState, Meter, Panel, Stat } from '../../components/ui.jsx';
+import { Badge, Button, CardTitle, EmptyState, Meter, Panel, Stat, cx } from '../../components/ui.jsx';
+import { Icon } from '../../components/icons.jsx';
+import { ROW_PX, VirtualQuestionList } from './QuestionList.jsx';
 
 /**
  * A daily action dashboard, not an analytics page: two targets, then what is due,
  * then what to do next. Charts and history live elsewhere.
  */
+/** Tall enough to read, short enough that the page below stays reachable. */
+const SHEET_VIEW_PX = 15 * ROW_PX;
+
 export function DsaHome({ onChangeTab }) {
   const { state, today, actions } = useWorkspace();
+  const [openSheet, setOpenSheet] = useState(null);
   const progress = state['dsa.progress'];
   const settings = state['dsa.settings'];
   const questions = state['dsa.library'].questions;
@@ -43,10 +50,44 @@ export function DsaHome({ onChangeTab }) {
   }, today), [questions, progress, state, today]);
 
   const byDifficulty = useMemo(() => difficultyProgress(rows), [rows]);
+  /**
+   * Sheets only. Company lists are curated lists too, so this panel listed all
+   * 422 of them under "Sheet completion" once the company pack was imported —
+   * burying the ten sheets it exists for. Who asks a question has its own tab.
+   */
   const sheets = useMemo(
-    () => listProgress(rows, state['dsa.library'].curatedLists).sort((a, b) => b.total - a.total),
+    () => listProgress(
+      rows,
+      state['dsa.library'].curatedLists.filter((list) => !isCompanyList(list.id)),
+    ).sort((a, b) => b.total - a.total),
     [rows, state],
   );
+
+  const sheetNames = useMemo(
+    () => new Map(state['dsa.library'].curatedLists.map((l) => [l.id, l.name])),
+    [state],
+  );
+
+  /**
+   * The open sheet's questions, in the sheet's own order.
+   *
+   * Upstream order is the sheet's argument — Blind 75 is a sequence, not a set
+   * — so it is kept rather than re-sorted, with anything unordered falling to
+   * the end by title. Only the open sheet is built: doing all of them would be
+   * one pass over the library per sheet on every render.
+   */
+  const openRows = useMemo(() => {
+    if (!openSheet) return [];
+    const order = new Map();
+    for (const m of state['dsa.library'].curatedMemberships) {
+      if (m.listId === openSheet) order.set(m.slug, m.order ?? Number.MAX_SAFE_INTEGER);
+    }
+    return rows
+      .filter((r) => r.frequency.listIds.includes(openSheet))
+      .sort((a, b) => (order.get(a.question.slug) ?? Number.MAX_SAFE_INTEGER)
+        - (order.get(b.question.slug) ?? Number.MAX_SAFE_INTEGER)
+        || a.question.title.localeCompare(b.question.title));
+  }, [openSheet, rows, state]);
   const solvedTotal = rows.filter((r) => r.state.progress === 'solved').length;
   const totalEvents = progress.events.filter((e) => e.kind === 'solve').length;
 
@@ -140,25 +181,63 @@ export function DsaHome({ onChangeTab }) {
               <div className="border-b border-line px-4 py-3">
                 <CardTitle>Sheet completion</CardTitle>
               </div>
+              {/* A sheet opens where it stands, rather than sending you to the
+                  Library and leaving you to filter back to it. The rows are
+                  the Library's own — same badges, same actions, same window —
+                  because two renderings of a question would eventually
+                  disagree about what it says. */}
               <ul className="divide-y divide-line">
-                {sheets.map(({ list, total, solved }) => (
-                  <li key={list.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => onChangeTab('library')}
-                      className="min-w-0 flex-1 truncate text-left text-sm text-ink underline-offset-2 hover:underline"
-                    >
-                      {list.name}
-                    </button>
-                    <span className="tabular shrink-0 text-meta text-ink-faint">
-                      {solved}/{total}
-                    </span>
-                    <div className="w-full sm:w-40">
-                      <Meter value={solved} max={Math.max(1, total)} label={`${list.name}: ${solved} of ${total}`} />
-                    </div>
-                    {total > 0 && solved === total && <Badge tone="ok">Complete</Badge>}
-                  </li>
-                ))}
+                {sheets.map(({ list, total, solved }) => {
+                  const open = openSheet === list.id;
+                  return (
+                    <li key={list.id}>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setOpenSheet(open ? null : list.id)}
+                          aria-expanded={open}
+                          title={open ? `Hide ${list.name}` : `Show the questions in ${list.name}`}
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-ink"
+                        >
+                          <Icon
+                            name="chevronDown"
+                            className={cx(
+                              'size-4 shrink-0 text-ink-faint transition-transform duration-150',
+                              !open && '-rotate-90',
+                            )}
+                          />
+                          <span className="min-w-0 truncate underline-offset-2 hover:underline">{list.name}</span>
+                        </button>
+                        <span className="tabular shrink-0 text-meta text-ink-faint">
+                          {solved}/{total}
+                        </span>
+                        <div className="w-full sm:w-40">
+                          <Meter value={solved} max={Math.max(1, total)} label={`${list.name}: ${solved} of ${total}`} />
+                        </div>
+                        {total > 0 && solved === total && <Badge tone="ok">Complete</Badge>}
+                      </div>
+
+                      {open && (
+                        openRows.length === 0 ? (
+                          <p className="border-t border-line px-4 py-3 text-meta text-ink-muted">
+                            This sheet names questions your library does not have yet.
+                          </p>
+                        ) : (
+                          <VirtualQuestionList
+                            as="div"
+                            rows={openRows}
+                            sheetNames={sheetNames}
+                            activeSheet={list.id}
+                            height={Math.min(openRows.length * ROW_PX, SHEET_VIEW_PX)}
+                            // No filter to drive from here, so the chips are
+                            // labels: `QuestionList` renders them inert when no
+                            // handler is given.
+                          />
+                        )
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </Panel>
           )}

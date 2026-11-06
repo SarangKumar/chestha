@@ -12,7 +12,6 @@ import {
   Button, CardTitle, Dialog, Drawer, EmptyState, Field, IconButton, Select, cx,
 } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
-import { isEmbedPreview } from '../app/platform.js';
 
 const GAP = 8; // px, matches gap-2 — a finer grid needs a finer gutter
 
@@ -239,8 +238,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
         * Edit chrome: shrink-wrapped floating pills only. Transparent fixed
         * wrappers — never a full-width strip. Grid shows through behind them.
         */}
-      {/* Product-preview iframe: no edit chrome — corner widgets only. */}
-      {!isEmbedPreview() && (!editing ? (
+      {!editing ? (
         <div className="pointer-events-none fixed bottom-20 right-4 z-40 bg-transparent sm:bottom-6 sm:right-6">
           <Button
             size="sm"
@@ -279,7 +277,7 @@ export function Dashboard({ onOpenTask, onCapture, onNavigate }) {
             </Button>
           </div>
         </div>
-      ))}
+      )}
 
       {editing && !fitsCurrent && (
         <div className="mb-4 rounded-card border border-line bg-warn-soft px-4 py-3 text-sm text-ink">

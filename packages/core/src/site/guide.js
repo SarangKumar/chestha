@@ -80,7 +80,7 @@ export const GUIDE_PAGES = [
     id: 'about',
     title: 'About',
     route: '#/about',
-    where: 'Website only',
+    where: 'Website & extension',
     blurb:
       'Privacy, where data lives, credits, and maker links. The extension New Tab does not host About — #/about remaps to the dashboard there.',
   },
@@ -96,7 +96,7 @@ export const GUIDE_PAGES = [
     id: 'guide',
     title: 'Guide',
     route: '#/guide',
-    where: 'Website only',
+    where: 'Website & extension',
     blurb:
       'This page — a map of every section and every dashboard widget. Meant for humans and for tools that read the public site.',
   },

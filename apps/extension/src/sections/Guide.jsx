@@ -1,9 +1,15 @@
 import { WIDGETS, WIDGET_TYPES } from '../widgets/registry.jsx';
 import { GUIDE_NOTES, GUIDE_PAGES } from '../site/guideContent.js';
+import { SECTIONS } from '../app/useHashRoute.js';
 
 /**
- * Website Guide — what pages exist and what widgets do. Marketing chrome only.
+ * What pages exist and what the widgets do.
+ *
+ * `GUIDE_PAGES` is shared with the website, which has pages this bundle does
+ * not — the landing, for one. Listing a row whose button cannot go anywhere is
+ * worse than not listing it, so the map is filtered to routable sections.
  */
+const PAGES = GUIDE_PAGES.filter((page) => SECTIONS.includes(page.id));
 export function Guide({ onNavigate }) {
   const widgets = WIDGET_TYPES.map((type) => {
     const def = WIDGETS[type];
@@ -40,17 +46,17 @@ export function Guide({ onNavigate }) {
             Pages &amp; sections
           </h2>
           <p className="text-sm text-ink-muted">
-            Hash routes on the website. The extension New Tab opens the workspace
-            and hides marketing chrome.
+            Hash routes. The New Tab opens the workspace; everything else is a
+            section of it.
           </p>
         </div>
         <ul className="divide-y divide-line rounded-xl border border-line bg-surface/40">
-          {GUIDE_PAGES.map((page) => (
+          {PAGES.map((page) => (
             <li key={page.id} className="flex flex-col gap-1 px-4 py-3.5 sm:flex-row sm:gap-6 sm:px-5">
               <div className="sm:w-44 sm:shrink-0">
                 <button
                   type="button"
-                  onClick={() => onNavigate?.(page.id === 'home' ? 'home' : page.id)}
+                  onClick={() => onNavigate?.(page.id)}
                   className="text-left text-sm font-semibold text-ink underline decoration-transparent underline-offset-2 transition-colors hover:decoration-line-strong"
                 >
                   {page.title}

@@ -4,9 +4,6 @@
    one palette. App-specific rules that are not part of that system stay here. */
 @import "../../../packages/ui/src/tokens.css";
 
-/* Landing motion and chrome, shared with the website build. */
-@import "../../../packages/ui/src/marketing.css";
-
 /* GitHub contribution greens — scoped to the opt-in GitHub calendar widget so
    the rest of the app stays monochrome. Light and dark follow github.com. */
 .gh-contrib {

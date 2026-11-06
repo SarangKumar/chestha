@@ -9,7 +9,7 @@ import { cx } from './ui.jsx';
 import { StartModeToggle } from './StartModeToggle.jsx';
 import { ThemePicker } from './ThemePicker.jsx';
 import { Icon } from './icons.jsx';
-import { isEmbedPreview, isExtensionRuntime } from '../app/platform.js';
+import { isExtensionRuntime } from '../app/platform.js';
 
 const TITLES = {
   dashboard: 'Dashboard',
@@ -23,7 +23,6 @@ const TITLES = {
   about: 'About',
   changelog: 'Changelog',
   guide: 'Guide',
-  home: 'Home',
 };
 
 // The dashboard is a workspace and uses the whole shell. Widget size is fixed by
@@ -31,7 +30,6 @@ const TITLES = {
 const FULL_WIDTH_SECTIONS = new Set(['dashboard', 'settings']);
 
 export function Shell({ section, onNavigate, onCapture, onPalette, children }) {
-  const embed = isEmbedPreview();
   const { state, today, actions } = useWorkspace();
   const { session } = useSession();
   const startMode = state.settings.startMode ?? 'board';
@@ -68,98 +66,85 @@ export function Shell({ section, onNavigate, onCapture, onPalette, children }) {
         </div>
       )}
 
-      {/* Embed (landing preview) keeps the left page rail so the shot looks like
-          a real workspace; the marketing header and footer stay off. */}
       <NavRail section={section} onNavigate={onNavigate} onCapture={onCapture} />
 
-      {/* Website workspace has no site footer (marketing pages own that).
-          Extension clears the mobile nav with extra bottom padding. min-w-0
+      {/* Extension clears the mobile nav with extra bottom padding. min-w-0
           stops the dashboard grid from forcing horizontal scroll at corners. */}
       <div className={cx('relative z-10 flex min-h-dvh min-w-0 flex-col', 'sm:pl-16')}>
-        {!embed && (
-          <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-card font-semibold text-ink">
-                {section === 'dashboard' && startMode === 'read' ? 'Read' : TITLES[section]}
-              </h2>
-              <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-line bg-canvas/90 px-4 py-3.5 backdrop-blur-md sm:px-6">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-card font-semibold text-ink">
+              {section === 'dashboard' && startMode === 'read' ? 'Read' : TITLES[section]}
+            </h2>
+            <p className="hidden text-meta text-ink-faint sm:block">{formatLongDate(today)}</p>
+          </div>
+
+          {/* The nav rail owns this control from `sm` up, where it is the
+              first thing in the rail. Below that there is no rail, so it
+              stays here — and only on the start screen, rather than sitting
+              inert on every other page. Exactly one copy is ever mounted. */}
+          {section === 'dashboard' && showStartMode && (
+            <div className="sm:hidden">
+              <StartModeToggle
+                mode={startMode}
+                onChange={(next) => actions.setSetting('startMode', next)}
+              />
             </div>
+          )}
 
-            {/* The nav rail owns this control from `sm` up, where it is the
-                first thing in the rail. Below that there is no rail, so it
-                stays here — and only on the start screen, rather than sitting
-                inert on every other page. Exactly one copy is ever mounted. */}
-            {section === 'dashboard' && showStartMode && (
-              <div className="sm:hidden">
-                <StartModeToggle
-                  mode={startMode}
-                  onChange={(next) => actions.setSetting('startMode', next)}
-                />
-              </div>
-            )}
+          <button
+            type="button"
+            onClick={onPalette}
+            className="flex h-9 items-center gap-2 rounded-control border border-line bg-surface px-3 text-xs text-ink-muted shadow-card transition-colors duration-150 hover:bg-hover hover:text-ink"
+          >
+            <Icon name="search" className="size-4" />
+            <span className="hidden sm:inline">Search or run a command</span>
+            <kbd className="rounded border border-line bg-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-faint">
+              ⌘K
+            </kbd>
+          </button>
 
-            <button
-              type="button"
-              onClick={onPalette}
-              className="flex h-9 items-center gap-2 rounded-control border border-line bg-surface px-3 text-xs text-ink-muted shadow-card transition-colors duration-150 hover:bg-hover hover:text-ink"
-            >
-              <Icon name="search" className="size-4" />
-              <span className="hidden sm:inline">Search or run a command</span>
-              <kbd className="rounded border border-line bg-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-faint">
-                ⌘K
-              </kbd>
-            </button>
+          <button
+            type="button"
+            onClick={onCapture}
+            className="flex h-9 items-center gap-1.5 rounded-control bg-accent px-3 text-xs font-medium text-on-accent transition-colors duration-150 hover:opacity-90 sm:hidden"
+          >
+            <Icon name="plus" className="size-4" /> Task
+          </button>
 
-            <button
-              type="button"
-              onClick={onCapture}
-              className="flex h-9 items-center gap-1.5 rounded-control bg-accent px-3 text-xs font-medium text-on-accent transition-colors duration-150 hover:opacity-90 sm:hidden"
-            >
-              <Icon name="plus" className="size-4" /> Task
-            </button>
-
-            {/* Theme sits in the header rather than only in Settings: it is
-                the one preference people change by mood, and walking to a
-                settings page to do it is the reason the old binary toggle
-                existed here at all. */}
-            <ThemePicker />
-          </header>
-        )}
+          {/* Theme sits in the header rather than only in Settings: it is
+              the one preference people change by mood, and walking to a
+              settings page to do it is the reason the old binary toggle
+              existed here at all. */}
+          <ThemePicker />
+        </header>
 
         <main
           className={cx(
             // Dashboard/settings stay edge-to-edge from 1024px: lighter horizontal
             // padding so ~16 columns still fit beside the nav rail.
-            // Embed: minimal padding so re-anchored corner widgets hug the frame.
             // Extension keeps bottom padding for the mobile nav bar.
             // Website workspace: no site footer — normal bottom padding only.
             'min-w-0 flex-1 w-full',
-            embed
-              ? 'p-1.5 sm:p-2'
-              : cx(
-                'pt-6 sm:pt-8',
-                isExtensionRuntime() ? 'pb-24 sm:pb-12' : 'pb-6 sm:pb-8',
-                FULL_WIDTH_SECTIONS.has(section)
-                  ? 'max-w-none px-2 sm:px-3'
-                  : 'mx-auto max-w-6xl px-4 sm:px-6',
-              ),
+            'pt-6 sm:pt-8',
+            isExtensionRuntime() ? 'pb-24 sm:pb-12' : 'pb-6 sm:pb-8',
+            FULL_WIDTH_SECTIONS.has(section)
+              ? 'max-w-none px-2 sm:px-3'
+              : 'mx-auto max-w-6xl px-4 sm:px-6',
           )}
         >
-          {!embed && (
-            <div className="mb-6 space-y-2 empty:mb-0">
-              <Notices onNavigate={onNavigate} />
-              <ExportReminder onNavigate={onNavigate} />
-            </div>
-          )}
+          <div className="mb-6 space-y-2 empty:mb-0">
+            <Notices onNavigate={onNavigate} />
+            <ExportReminder onNavigate={onNavigate} />
+          </div>
           {children}
         </main>
 
       </div>
 
       {/* The island hangs off the top edge over everything, so it is mounted
-          last and outside the content column. Not in the landing preview: the
-          marketing shot is of the board, not of the chrome over it. */}
-      {!embed && <Island onNavigate={onNavigate} />}
+          last and outside the content column. */}
+      <Island onNavigate={onNavigate} />
 
       <Toasts />
     </div>

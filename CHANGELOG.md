@@ -150,6 +150,37 @@ not updated yet — it is user-facing, and these are not released.
   built by `npm run dsa-pack`.
 
 ### Changed
+- **The DSA Overview lists sheets only, and opens them in place.** "Sheet
+  completion" filtered out company lists — the company pack brings 422 of
+  them, and they buried the ten sheets the panel exists for, when who asks a
+  question already has its own tab. Clicking a sheet now expands its questions
+  underneath it instead of switching to the Library and leaving you to filter
+  back to the sheet you just clicked.
+
+  The rows are the Library's own: `QuestionRow` and `VirtualQuestionList` moved
+  to `apps/extension/src/sections/dsa/QuestionList.jsx` and both tabs import
+  them, so a question cannot look like one thing here and another there — and
+  the Overview gets the window for free, which matters at NeetCode 250. The
+  expansion keeps the sheet's upstream order, because a sheet is a sequence
+  rather than a set, and sizes itself to its own length up to fifteen rows.
+  Sheet chips render inert where there is no filter to drive.
+- **The DSA library's filters moved into a drawer, and companies left the
+  rows.** The screen now opens with a search field and a *Filters* button
+  carrying a count; everything else — sheet, company, difficulty, topic,
+  status, access, revision, my lists, bookmarked, needs practice, and sort and
+  grouping at the end — lives in a right-hand drawer. Twelve selects in a grid
+  took more of the screen than the list they filtered, and the first thing
+  anyone does on this page is search.
+
+  Three of them are comboboxes that filter as you type, because a native
+  `<select>` over 422 companies is a scroll, not a choice. `company` is its own
+  filter key rather than a value of `curatedList`: a company list *is* a
+  curated list, but "who asks this" and "which sheet carries this" are
+  different questions, and sharing one key would mean picking a company
+  silently cleared the sheet. Company chips also came off the question rows —
+  a question tagged by forty companies pushed its own title out of the row —
+  and `groupRows` skips company lists when grouping by sheet unless a company
+  is what was filtered to. The sheet-overlap filter is gone from the UI.
 - **Writing is no longer a rail item.** It is still a section — routed, gated,
   and reachable from the command palette as "Go to writing" — but it does not
   hold one of the rail's slots. It also came out of `HIDEABLE_SECTIONS` and lost

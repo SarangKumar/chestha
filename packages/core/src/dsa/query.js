@@ -1,6 +1,6 @@
 import { todayISO } from '../dates.js';
 import { matchesQuestionQuery, topicKey } from './questions.js';
-import { listFrequency } from './lists.js';
+import { isCompanyList, listFrequency } from './lists.js';
 import { questionState } from './status.js';
 
 /**
@@ -24,7 +24,7 @@ export const GROUPINGS = {
   none: 'No grouping',
   difficulty: 'Difficulty',
   topic: 'Topic',
-  list: 'Curated list',
+  list: 'Sheet',
   status: 'Progress',
 };
 
@@ -45,6 +45,11 @@ export const EMPTY_FILTERS = {
   difficulty: 'all',
   topic: 'all',
   curatedList: 'all',
+  // A company list is a curated list with a `company:` id, but it answers a
+  // different question — "who asks this" rather than "which sheet carries it"
+  // — so it filters on its own key. Sharing `curatedList` would mean picking a
+  // company silently cleared the sheet you were reading.
+  company: 'all',
   personalList: 'all',
   status: 'all',
   revision: 'all',
@@ -83,6 +88,7 @@ export function filterRows(rows, filters, { personalMemberships = [] } = {}) {
     if (f.difficulty !== 'all' && question.difficulty !== f.difficulty) return false;
     if (f.topic !== 'all' && !question.topics.some((t) => topicKey(t) === f.topic)) return false;
     if (f.curatedList !== 'all' && !frequency.listIds.includes(f.curatedList)) return false;
+    if (f.company !== 'all' && !frequency.listIds.includes(f.company)) return false;
     if (f.personalList !== 'all' && !inPersonal.has(question.slug)) return false;
     if (f.status !== 'all' && state.status !== f.status) return false;
     if (f.bookmarked && !user.bookmarked) return false;
@@ -202,9 +208,13 @@ export function groupRows(rows, grouping, { lists = [], onlyList = null, onlyTop
       if (topics.length === 0) push('untagged', 'No topics recorded', row);
       else for (const topic of topics) push(topicKey(topic), topic, row);
     } else if (grouping === 'list') {
+      // Sheets, not companies — unless a company *is* what was filtered to.
+      // The company pack brings 422 lists, and grouping by all of them emits
+      // hundreds of one-row groups: a list of headings, not a list of
+      // questions.
       const ids = onlyList
         ? frequency.listIds.filter((id) => id === onlyList)
-        : frequency.listIds;
+        : frequency.listIds.filter((id) => !isCompanyList(id));
       if (ids.length === 0) push('none', 'Not in a curated list', row);
       else for (const id of ids) {
         push(id, lists.find((l) => l.id === id)?.name ?? id, row);

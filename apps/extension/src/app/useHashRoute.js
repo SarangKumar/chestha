@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { isEmbedPreview, isExtensionRuntime } from './platform.js';
-
 /**
- * Routable sections. `home` is the website marketing landing and is absent
- * from the nav rail. `about` and `guide` are website-only (marketing chrome);
- * `changelog` is rail-absent — marketing / palette on the site, palette in the extension.
+ * Routable sections. All of them are app-shell sections: the marketing landing
+ * used to live here as `home`, but the product's site is `apps/website` now and
+ * this bundle is only ever the workspace — in the New Tab, on the dev server
+ * and in a preview of the build alike. `about`, `changelog` and `guide` are
+ * reachable from the palette rather than the rail.
  */
 export const SECTIONS = [
-  'home',
   'dashboard',
   'tasks',
   'calendar',
@@ -21,28 +20,23 @@ export const SECTIONS = [
   'guide',
 ];
 
-/** App shell sections (everything except the marketing landing). */
-export const APP_SECTIONS = SECTIONS.filter((section) => section !== 'home');
+/**
+ * Retained as the name the rest of the app imports. Nothing is filtered out of
+ * it any more — every routable section is an app-shell section.
+ */
+export const APP_SECTIONS = SECTIONS;
 
-function defaultSection() {
-  // Extension New Tab and the landing product-preview iframe always open the
-  // dense workspace — never the marketing page (which would nest another iframe).
-  if (isExtensionRuntime() || isEmbedPreview()) return 'dashboard';
-  return 'home';
-}
+/** The workspace is the only start screen this bundle has. */
+const DEFAULT_SECTION = 'dashboard';
 
 function read() {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [section, param] = raw.split('/');
   if (!section) {
-    return { section: defaultSection(), param: null };
-  }
-  // Extension / embed must never land on marketing (home or About).
-  if ((isExtensionRuntime() || isEmbedPreview()) && (section === 'home' || section === 'about' || section === 'guide')) {
-    return { section: 'dashboard', param: null };
+    return { section: DEFAULT_SECTION, param: null };
   }
   return {
-    section: SECTIONS.includes(section) ? section : defaultSection(),
+    section: SECTIONS.includes(section) ? section : DEFAULT_SECTION,
     param: param ? decodeURIComponent(param) : null,
   };
 }

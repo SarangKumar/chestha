@@ -30,6 +30,7 @@ export function Icon({ name, className = 'size-5' }) {
     pause: <><path d="M9.5 5.5v13M14.5 5.5v13" /></>,
     stop: <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />,
     search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></>,
+    filter: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
     plus: <path d="M12 5v14M5 12h14" />,
     sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M14.5 4.5v15" /></>,
     clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,

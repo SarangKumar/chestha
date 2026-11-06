@@ -209,6 +209,49 @@ test('grouping by sheet respects an active sheet filter', () => {
   assert.equal(restricted[0].rows.length, filtered.length, 'and it holds every filtered row');
 });
 
+test('a company is its own filter, and does not pass for a sheet', () => {
+  const data = fixture();
+  data.curatedMemberships.push(
+    createMembership('company:amazon', 'two-sum'),
+    createMembership('company:amazon', 'valid-anagram'),
+    createMembership('company:google', 'word-ladder'),
+  );
+  const all = buildRows(data, TODAY);
+
+  assert.deepEqual(
+    slugs(filterRows(all, { company: 'company:amazon' })).sort(),
+    ['two-sum', 'valid-anagram'],
+  );
+  // The two keys compose rather than overwrite: two-sum is in Blind 75 *and*
+  // asked by Amazon; valid-anagram is only the latter.
+  assert.deepEqual(
+    slugs(filterRows(all, { curatedList: 'blind-75', company: 'company:amazon' })),
+    ['two-sum'],
+  );
+  assert.equal(hasActiveFilters({ ...EMPTY_FILTERS, company: 'company:google' }), true);
+});
+
+test('grouping by sheet ignores company lists unless one is the filter', () => {
+  const data = fixture();
+  data.curatedMemberships.push(
+    createMembership('company:amazon', 'two-sum'),
+    createMembership('company:google', 'two-sum'),
+  );
+  const all = buildRows(data, TODAY);
+
+  // 422 company lists would otherwise emit hundreds of one-row headings.
+  const bySheet = groupRows(all, 'list', { lists: [] });
+  assert.ok(!bySheet.some((g) => g.key.startsWith('company:')), 'no company headings');
+
+  const filtered = filterRows(all, { company: 'company:amazon' });
+  const byCompany = groupRows(filtered, 'list', {
+    lists: [{ id: 'company:amazon', name: 'Amazon' }],
+    onlyList: 'company:amazon',
+  });
+  assert.equal(byCompany.length, 1);
+  assert.equal(byCompany[0].label, 'Amazon');
+});
+
 test('grouping by topic respects an active topic filter', () => {
   const filtered = filterRows(rows(), { topic: 'graph' });
   const unrestricted = groupRows(filtered, 'topic', {});
